@@ -1,0 +1,94 @@
+{
+  "info": {
+    "name": "bluePlug API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Provider-specific API contract for bluePlug."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://davinci.softlab.ntua.gr/saas26/bluePlug/api"
+    },
+    {
+      "key": "apiKey",
+      "value": "sk_saas_replace_me"
+    }
+  ],
+  "item": [
+    {
+      "name": "List locations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/locations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "locations"
+          ]
+        },
+        "description": "List all `bluePlug` charging locations."
+      },
+      "response": []
+    },
+    {
+      "name": "Get location status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/location/:pointid/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "location",
+            ":pointid",
+            "status"
+          ]
+        },
+        "description": "Get status for one `bluePlug` charger by `pointid`."
+      },
+      "response": []
+    },
+    {
+      "name": "Hold charger",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/location/:pointid/hold",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "location",
+            ":pointid",
+            "hold"
+          ],
+          "query": [
+            {
+              "key": "minutes",
+              "value": "",
+              "description": ""
+            }
+          ]
+        },
+        "description": "Reserve a `bluePlug` charger using a query parameter for minutes."
+      },
+      "response": []
+    }
+  ]
+}

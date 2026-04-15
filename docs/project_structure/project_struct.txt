@@ -1,6 +1,16 @@
 saasPlug/
 ├── docs/
 │   ├── assignment/
+│   │   ├── providers/
+│   │   │   ├── postman_collections/
+│   │   │   │   ├── bluePlug.postman_collection.json
+│   │   │   │   ├── greenPlug.postman_collection.json
+│   │   │   │   └── redPlug.postman_collection.json
+│   │   │   ├── yaml/
+│   │   │   │   ├── bluePlug.yaml
+│   │   │   │   ├── greenPlug.yaml
+│   │   │   │   └── redPlug.yaml
+│   │   │   └── swagger_apis_hypothetical_providers.md
 │   │   ├── Project Notes from Lectures.docx
 │   │   ├── SRS Εξαμηνιαίας Εργασίας.docx
 │   │   ├── Διαγράμματα SRS.vpp
@@ -56,4 +66,4 @@ saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 10, Total files: 47
+Total directories: 13, Total files: 54
