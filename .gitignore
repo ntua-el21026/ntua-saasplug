@@ -1,0 +1,79 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.pem
+*.key
+
+# Dependency directories
+node_modules/
+.pnpm-store/
+.yarn/
+.pnp.*
+vendor/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# JavaScript / TypeScript / frontend builds
+dist/
+build/
+coverage/
+.next/
+.nuxt/
+.vite/
+.turbo/
+*.tsbuildinfo
+
+# Docker and generated runtime state
+docker-data/
+docker-volumes/
+*.pid
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+tmp/
+temp/
+.tmp/
+.cache/
+
+# Generated diagrams and exports
+*.svg.tmp
+*.puml.tmp
+*.plantuml.tmp
+*.drawio.bkp
+*.bak
+
+# IDE and OS noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+__MACOSX/
+
+# Keep course deliverables and AI documentation trackable.
+!docs/diagrams/
+!docs/diagrams/intermediate/
+!docs/diagrams/final/
+!docs/ai_logs/
