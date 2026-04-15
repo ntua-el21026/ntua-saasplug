@@ -1,0 +1,555 @@
+
+
+===== PAGE 1/6 =====
+Proceedings of the 20th Conference on Computer DOI: 10.15439/2025F8035
+Science and Intelligence Systems (FedCSIS) pp. 357–362 ISSN 2300-5963 ACSIS, Vol. 43
+Enhancing API documentation by inter-endpoint
+dependency graphs
+Panagiotis Papadeas Dimitrios Gerokonstantis
+0009-0003-3012-0089 0009-0004-0950-8414
+Software Engineering Lab, National Technical Software Engineering Lab, National Technical
+University of Athens. Zografos 15780, Greece University of Athens. Zografos 15780, Greece
+Email: papadeas@cs.ntua.gr Email: dgerokonstantis@cs.ntua.gr
+Christos Hadjichristofi Vassilios Vescoukis
+0009-0000-7976-8749 0000-0002-5360-8349
+Software Engineering Lab, National Technical Software Engineering Lab and Geoinformation
+University of Athens. Zografos 15780, Greece Center, National Technical University of Athens.
+Email: hadjichristofi_ch@mail.ntua.gr Zografos 15780, Greece
+Email: v.vescoukis@cs.ntua.gr
+Abstract—APIs are the main mechanism for integrating het- introduced by tools, such as Postman2 collections. Any such
+erogeneous components in modern software systems. API docu- kind of documentation provides the schema of the request and
+mentation typically treats each endpoint as autonomous, leav-
+response of every endpoint, data types and descriptions, and
+ing out information about other endpoints that produce or con-
+possibly full examples of API calls with data.
+sume input or output data, which is useful in rapidly orches-
+However, it usually treats each endpoint as an indepen-
+trating valid call sequences. This makes the development, test-
+ing and maintenance of systems that use APIs to internally im- dent service, whereas an API is a collection of interacting
+plement business logic, or integrate with third-party API-based endpoints that collectively can be used to implement pieces
+services, more complex. This paper addresses this gap by intro- of business logic. To do this effectively, it is essential that
+ducing static and dynamic analysis methods to automatically
+developers have information not only about how to call each
+discover and document inter-endpoint dependencies; static
+endpoint, but also about all its possible interactions with
+analysis uses existing API documentation, while dynamic analy-
+sis is based on logging API usage. Both methods are integrated other endpoints that either consume output or provide input
+into RADAR, a tool for extracting and visualizing graphs, to il- data. This work focuses on the discovery, modeling and rep-
+lustrate such inter-endpoint dependencies through exchanged resentation of such interactions in a way that provides addi-
+data. Case study on the PayPal API demonstrates the value of tional practically useful documentation for the integration of
+adding dependency graphs to API documentation to support
+APIs into software components of any kind.
+rapid development and documentation of software systems.
+Index Terms—APIs, inter-endpoint dependencies, API docu-
+mentation.
+II. RELATED WORK
+Prior research has explored ways to facilitate the proper
+I. INTRODUCTION utilization of APIs by identifying the constraints that must
+I
+N MODERN software architectures, Application Program- be met when interacting with them. A wide area of research
+ming Interfaces (APIs) serve as the primary mechanism for investigates techniques for identifying interdependencies
+exposing the functionalities offered by entire software appli- among input parameters within (single) API calls, with the
+cations or even components, to other applications, compo- goal of facilitating the construction of syntactically and se-
+nents, or services of any kind. An API exposes a set of end- mantically valid API requests.
+points that, when invoked by a consumer, execute specific Oostvogels et al. [1] attempted to analyze and incorporate
+server-side functionality, which results in a response sent back inter-parameter constraints within API documentation. These
+to the client, regardless of the technologies used on either constraints define rules whereby the existence or valid values
+side. of certain input parameters in an API call depend on the pres-
+APIs are developed both for integrating components within ence or values of other parameters. To address the absence of
+applications and as standalone software products. In either structured representation for such constraints in existing docu-
+case, their complexity necessitates comprehensive documen- mentation, a new specification language was created as an ex-
+tation to support their development, maintenance, and integra- tension to the OpenAPI specification to incorporate this infor-
+tion. Typical API documentation usually follows standards mation. Martin-Lopez et al. ([2], [3], [4]) also focused on in-
+such as OpenAPI1, or comes in the form of de-facto formats ter-parameter dependencies, proposing a Domain Specific
+1 OpenAPI: https://www.openapis.org/ 2 Postman: https://www.postman.com/
+IEEE Catalog Number: CFP2585N-ART ©2025, PTI 357 Topical area: Software, System and Service Engineering
+
+===== PAGE 2/6 =====
+358 PROCEEDINGS OF THE FEDCSIS. KRAKÓW, POLAND, 2025
+Language known as IDL (Inter-parameter Dependency Lan-
+guage) to describe these dependencies. Both studies focus on
+interdependencies of input parameters for a specific call ra-
+ther than on inter-endpoint dependencies which is our area of
+interest.
+Wu et al. [5] proposed an additional method that detects
+“dependency constraints on parameters”, leading to the devel-
+opment of the INDICATOR system, which analyzes docu-
+mentation and SDKs to identify constraint candidates and
+then validates them through testing. The INDICATOR system
+investigates these producer-consumer relationships based on
+the names and types of parameters. However, it does not focus
+on systematically extracting or documenting these relation-
+ships.
+Fig 1. Production and consumption of data in API call sequences
+Another related area of research concentrates on identify-
+The call to the /airports endpoint returns a list with all avail-
+ing interdependencies across different operations of Web Ser-
+able airports, including their identifiers (airport_id). The fol-
+vices and APIs for testing. The work of Bai et al. [6] aims to
+lowing call to /flights takes as input, as a path parameter, the
+automatically generate test cases from WSDL specifications
+id of one of these airports (102, as shown in the example) and
+with respect to the dependencies among various operations.
+returns information about available flights departing from that
+One of the dependency types examined is input/output de-
+airport. This is a body-path dependency, as a data element
+pendencies (IOD), which represent inter-endpoint dependen-
+from the response body of the first call is used as a path pa-
+cies. However, this approach limits the examination of inter-
+rameter in the second call.
+endpoint dependencies to aspects directly related to test case
+Subsequently, the /flight endpoint call takes as input, as the
+generation, which aligns with the focus of their study.
+request body this time, all the details of one of the flights re-
+The study of Atlidakis et al. [7] introduces REST-ler, a tool
+turned by the second call (the one with id=XYZ990, in the
+that analyzes Swagger specifications for RESTful APIs, auto-
+example) along with a path parameter that points to a passen-
+matically identifies object types required by a request that
+ger and performs the booking for that flight and passenger.
+have been produced by previous ones, generates tests with re-
+This represents a body-body dependency, as the request body
+spect to these dependencies and dynamically infers which re-
+of the third call requires a data object included in the response
+quest sequences are valid. However, this inter-endpoint anal-
+body of the second call. Similarly, in body-query dependen-
+ysis aims mainly to automatically generate and execute mean-
+cies the value of a query parameter comes from a value con-
+ingful and correct test cases, while adhering to these depend-
+tained in some attribute of a response body from a previous
+encies. Consequently, no documentation regarding the inter-
+call. Notably, inter-endpoint dependencies can be identified
+endpoint dependencies is generated.
+by more than one attributes.
+The study conducted by Bertolino et al. [8] aims to extract
+Examining inter-endpoint dependencies goes beyond typi-
+behavioral information regarding how users should invoke a
+cal API documentation by revealing the correct sequences and
+Web Service. This method, called StrawBerry, examines the
+prerequisites of API calls. This knowledge eases the imple-
+WSDL document and identifies dependencies between the
+mentation of requests with valid inputs and helps discover en-
+operations of the Web Service based solely on types of input
+tire paths that indicate the semantically correct order of end-
+and output parameters. A behavior protocol automaton is gen-
+point invocation. As such, it can accelerate integration with
+erated, indicating the dependencies and data transfers among
+third-party APIs by identifying valid call sequences. In mi-
+various operations of the Web Service. However, this analysis
+croservice architectures, it also supports—and can even par-
+relies on the presence of a WSDL specification.
+tially automate—the orchestration control flow. Finally, for
+API developers, it serves as a valuable reference for under-
+III. INTER-ENDPOINT DEPENDENCIES
+standing data flow, maintaining consistency, and onboarding
+An "inter-endpoint dependency" is an interaction between new team members.
+API endpoints. If invoking endpoint Y requires input data re- This work focuses on the discovery and documentation of
+ceived from a call to endpoint X, then the required call order
+API inter-endpoint dependencies by introducing algorithms
+is (X, Y) and thus we say that Y "depends" on X. As an ex- as well as a tool to discover, analyze, and visualize them using
+ample, consider the hypothetical Flight Booking API illus- a directed graph, whose nodes represent the API endpoints
+trated in Fig 1, along with a sample invocation of its end-
+and each directed edge represents the complete or partial con-
+points. The top-level nodes represent API endpoints, while sumption of data returned by the origin, by the destination
+the corresponding JSON response schemas and the example endpoint.
+responses appear beneath each endpoint. Directed edges indi-
+cate the data flow between endpoints.
+
+===== PAGE 3/6 =====
+PANAGIOTIS PAPADEAS ET AL.: ENHANCING API DOCUMENTATION BY INTER-ENDPOINT DEPENDENCY GRAPHS 359
+IV. DISCOVERY OF DEPENDENCIES respectively), type and are not part of the same endpoint (lines
+1-4 Algorithm 2 and Algorithm 3 respectively). For each case
+Two approaches are demonstrated for discovering and an-
+where a match has been identified, a new edge is added to the
+alyzing inter-endpoint dependencies: static and dynamic, in-
+graph, along with the relevant information regarding the de-
+troduced in the diploma theses of Papadeas [9] and Gerokon-
+pendent endpoints (lines 5-8 Algorithm 2, 3).
+stantis [10], respectively. The static approach is based on ex-
+Algorithm 1. Static inter-endpoint dependency analysis
+isting API documentation, whereas the dynamic captures and
+analyzes API calls made during the real-world utilization of 1. Read postman_collection.json as Input
+2.
+the API. 3. foreach endpoint in Input do
+4. foreach parameter in endpoint do
+4.1 Static analysis 5. ADD(parameter(name, value, type)) TO SET
+Static analysis is entirely based on the information included named ParametersSet
+8.
+in the API documentation. It aims to identify inter-endpoint 9. foreach endpoint in Input do
+dependencies using this documentation (structure, types), 10. foreach response in endpoint do
+11. ADD(attribute(name, value, type)) TO SET
+which typically contains details about the input and output pa-
+named AttributesSet
+rameters of each endpoint. The goal is to identify dependen- 14.
+cies and generate a directed graph that shows all possible end- 15. DependencyGraphByValues(ParametersSet, AttributesSet)
+16. DependencyGraphByNames(ParametersSet, AttributesSet)
+point call sequences.
+Algorithm 2. DependencyGraphByValues
+Static analysis takes its input from any standard API docu-
+mentation, such as OpenAPI, or even from ad-hoc documen- 1. Procedure DependencyGraphByValues
+2.
+tation such as Postman, Apidog3, Firecamp4 or other similar 3. foreach parameter in ParametersSet do
+tools. It infers the proper sequence of API calls by analyzing 4. foreach attribute in AttributesSet do
+5. if parameter.value == attribute.value AND
+the results of pre-executed calls included in the documenta-
+parameter.type == attribute.type AND
+tion examples. Lack of pre-executed calls and insufficient ex- endpoint(parameter) != endpoint(attribute)
+amples reduces the capability of this analysis to discover de- then
+6. ADD(dependency(endpoint(parameter),
+pendencies.
+endpoint(attribute)))
+In our implementation, static analysis takes its input from TO LIST named Dependencies
+a Postman collection to create a representation of the directed 7.
+8. return Dependencies
+dependency graph. The Postman collection comes in as a
+Algorithm 3. DependencyGraphByNames
+JSON file that contains information about responses, request
+1. Procedure DependencyGraphByNames
+body, path and query parameters of each endpoint. The use of
+2.
+Postman collections has been chosen for illustration purposes 3. foreach parameter in ParametersSet do
+only: any structured parsable object containing the same data 4. foreach attribute in AttributesSet do
+5. if parameter.name == attribute.name AND
+can be used instead, and the results will still rely on the com-
+6. parameter.type == attribute.type AND
+pleteness of metadata included in the documentation. 7. endpoint(parameter) != endpoint(attribute)
+A typical context where static analysis can be performed,
+then
+8. ADD(dependency(endpoint(parameter),
+is when we have some kind of documentation about an API,
+endpoint(attribute)))
+and we don’t know anything about the proper sequence of TO LIST named Dependencies
+endpoint calls or possible use cases of the API. The graph pro- 12.
+13. return Dependencies
+duced by the static analysis helps us get a first view of the API
+The second way of dependency identification, by compar-
+usage flow, as it shows how endpoints relate to each other.
+ing only the keys of parameters, has been proven to be useful
+The algorithm of the static analysis takes as input a post-
+in cases where the collection does not contain many examples
+man collection file (Algorithm 1). For every endpoint of the
+of pre-executed calls and there isn’t enough information re-
+API it stores information about its parameters including name,
+garding each endpoint. In that case, the only way a depend-
+value and type of each parameter in a set named Parameters-
+ency could be inferred is by comparing keys between param-
+Set (lines 1-5 Algorithm 1). It also stores the response of each
+eters and responses assuming that common keys could also
+endpoint in a separate set named AttributesSet including the
+imply dependent values.
+name, value and type of each attribute in the response (lines
+Static analysis will usually discover a greater-than-actual
+6-10 Algorithm 1). Then it proceeds to compare the two sets
+number of inter-endpoint dependencies due to common key-
+to discover dependencies (lines 11-12 Algorithm 1).
+value patterns across endpoints. For example, the frequent use
+Each dependency can be identified either by matching the
+of generic keys like “ID” can falsely suggest dependencies
+values of parameters with the values of responses exchanged
+between unrelated endpoints. These findings are often hard to
+between endpoints in call examples (Algorithm 2), or by
+evaluate without access to actual API calls or a good under-
+matching keys instead (Algorithm 3).
+standing of the API's semantics. The goal of this analysis is to
+The algorithm compares the two sets to find every pair of
+attributes and parameters that have the same value (or name,
+3 Apidog: API Development Tool - https://apidog.com 4 Firecamp: Open Source Postman Alternative - https://firecamp.io
+
+===== PAGE 4/6 =====
+360 PROCEEDINGS OF THE FEDCSIS. KRAKÓW, POLAND, 2025
+identify all possible dependencies, including dependencies corresponding use case, the value’s name, and its inferred data
+which are considered “noise”. type.
+The dictionaries constructed in Algorithm 4 serve as inputs
+Dynamic analysis
+to Algorithm 5, which is responsible for identifying matches
+The dynamic analysis takes a different approach, aiming to
+between values appearing in request and response messages.
+discover inter-endpoint dependencies without using any kind
+Specifically, for each value V found in the response body of
+of documentation. It collects information from HTTP requests
+an API call RES, the algorithm examines whether V also ap-
+and responses, by monitoring actual calls using a "man-in-
+pears as a request parameter (of any type) in any subsequent
+the-middle" agent that captures HTTP traffic. The API traffic
+API calls (REQ₁, REQ₂, ..., REQₙ) within the same use case.
+is logged and then the extraction of inter-endpoint dependen-
+If such matches are found, the algorithm adds a directed
+cies is possible. Notably, this method follows a reverse engi-
+dependency edge from RES to each matching REQᵢ, provided
+neering approach, analyzing already implemented but still un-
+the following conditions are met:
+documented APIs, to infer inter-endpoint dependencies.
+• the data type of V matches in both RES and REQᵢ, as
+Dynamic analysis also identifies all types of dependencies,
+determined by type inference,
+just as static analysis does. However, in the case of body-path
+• RES and REQᵢ correspond to distinct API endpoints, and
+dependencies, since it is unclear which segments of a URL
+• REQᵢ occurs after RES in the execution order of the use
+correspond to path parameters, the algorithm treats all URL
+case.
+segments as such. This allows it to identify the corresponding
+Algorithm 4. Dynamic inter-endpoint dependency analysis
+dependencies, introducing minimal noise.
+1. Initialization: Assign sequence numbers to the
+In cases where the API is consumed through a web calls of every use case
+frontend, API calls can be captured by executing use cases 2.
+3. foreach call in Input do
+while interacting with the frontend in a browser. In the context
+4. if call.body then
+of an API ecosystem implementing orchestration, as in a mi- 5. foreach parameter in call.body do
+croservices architecture, it is possible to capture API calls as 6. REQ_VALUES[parameter.value].APPEND({
+7. url: call.url, seq: call.sequence_number,
+part of the interaction between the orchestrator component
+8. tag: call.tag, paramName: parameter.name,
+and the internal components of the architecture. 9. paramType: parameter.type})
+In any of the approaches mentioned above, to capture the 10.
+11. if call.response then
+HTTP traffic resulting from real-world interactions with the 12. foreach attribute in call.response do
+API, a "mediator" is required, that can be implemented in sev- 13. RES_VALUES[attribute.value].APPEND({
+14. url: call.url, seq: call.sequence_number,
+eral ways, such as the following:
+15. tag: call.tag, attrName: attribute.name,
+1. a standalone mediator component to which API calls 16. attrType: attribute.type})
+would be directed, responsible for forwarding the requests to 17.
+18. ComputeDependencyGraph(REQ_VALUES, RES_VALUES)
+the API server, returning the responses to the client, and re-
+Algorithm 5. ComputeDependencyGraph
+cording information about the API calls; such a system was
+implemented in the context of this paper, 1. Procedure ComputeDependencyGraph
+2. foreach value in RES_VALUES do
+2. a browser extension that captures the incoming and out- 3. if value in REQ_VALUES then
+going traffic between the browser and the API while the user 4. foreach appearRes in RES_VALUES[value] do
+5. foreach appearReq in REQ_VALUES[value] do
+navigates through the User Interface interacting with the API, 6. if appearRes.paramType ==
+3. an internal component within API Gateways, enabling appearReq.paramType and
+7. appearRes.url ≠ appearReq.url and
+the collection of multi-client data derived from the interac- 8. appearRes.seq < appearReq.seq and
+tions of multiple external entities with the API. 9. appearRes.tag == appearReq.tag
+10. then
+Similar to the static method, the outcome of the dynamic 11. DEPENDENCY_GRAPH[
+analysis is a directed dependency graph of the same type. The (appearRes.url, appearReq.url)
+].APPEND({
+input is a log file generated by the mediator, which contains
+12. fromAttribute: appearRes.paramName,
+information about the executed API calls. 13. toAttribute: appearReq.paramName
+14. })
+The dynamic analysis algorithm comprises two main com-
+ponents: the parsing of the log file and extraction of value-
+A key difference from the static method is that dynamic
+specific information (Algorithm 4), and the identification of
+analysis restricts comparisons to subsequent API calls of the
+matches among the extracted values (Algorithm 5). Specifi-
+same use case, focusing on the dependencies most likely to be
+cally, Algorithm 4 processes the input log file, assigns a se-
+semantically correct within the context of the specific API.
+quence number to each API Call reflecting its execution order
+While dynamic analysis can generate dependency docu-
+within the use case it belongs to, and constructs two diction-
+mentation even for completely undocumented APIs, it also
+aries, REQUEST_VALUES and RESPONSE_VALUES,
+has several challenges, with the primary one being that the
+which store information about every value encountered in
+discovery of all dependencies requires the execution of calls
+API request and response messages respectively. For each
+between all dependent endpoints, which may not occur during
+identified value, the dictionaries record the associated API
+the logging.
+call’s URL and sequence number, the identifier ("tag") of the
+
+===== PAGE 5/6 =====
+PANAGIOTIS PAPADEAS ET AL.: ENHANCING API DOCUMENTATION BY INTER-ENDPOINT DEPENDENCY GRAPHS 361
+For visualizing the resulting dependency graph, a tool correct and should rather be classified as noise. As demon-
+named RADAR5 (REST API Dependencies and Analysis of strated below, dynamic analysis mitigates these issues.
+Relationships) was implemented [11] and is available at ra- Dynamic
+dar.softlab.ntua.gr. RADAR takes as input either the Postman Dynamic analysis involves logging interactions with the
+Collection of the API or a log file containing records of actual API relevant to product orders. To do this, we set up an ex-
+API calls, for static and dynamic analysis, respectively. After ample use case, in which we begin by creating/updating a
+the user configures certain analysis parameters, RADAR per- product and generating an order for this. After that, we initiate
+forms either static or dynamic analysis to detect inter-end- the payment process by authorizing and capturing the pay-
+point dependencies, and generates a directed dependency ment, and conclude by adding tracking information for the or-
+graph, as discussed above. der. This sequence is illustrated in Fig 3.
+V. CASE STUDY
+: Postman-backend
+Pro
+:
+d
+C
+u
+a
+c
+ta
+ts
+l o
+A
+g
+PI
+: Pa
+A
+ym
+PI
+ents : O
+A
+rd
+PI
+ers
+T
+:
+r a
+S
+c
+h
+k
+ip
+in
+m
+g
+e
+A
+n
+P
+t
+I
+1: POST Create product(createProductReqBody : Create product
+request = Create product request) : Create product response
+The two dependency analysis methods were applied, 2: (Create product response): 201 Created
+among others, to the PayPal API sandbox environment6. 3: GET S st h ri o n w g ) p : r o S d h u o c w t d p e ro ta d i u ls c ( t p d ro e d ta u i c ls t_ r i e d s p : s o t n r s in e g = id :
+4: (Show product details response): 200 OK
+The PayPal API provides a wide range of functionalities,
+5: PATCH Update product(product_id : string = id : string,
+including the creation and management of products, orders, updateProductReqBody : UpdatePath = UpdatePath)
+6: 204 No Content
+invoices, subscriptions, payments, and disputes. The com-
+7: POST Create order(createOrderReqBody : Create Order Request = Create Order Request) : Create Order Response
+plexity and size of such an API necessitate conducting de-
+8: (Create Order Response): 201 Created
+pendency analysis to facilitate and guide its utilization. Be- 9: PATCH Update order(order_id : string = id : string, updateOrderReqBody : Update Order Request = Update Order ...
+10: 204 No Content
+low, we examine how static and dynamic inter-endpoint de-
+11: GET Show order details(order_id : string = id : string) : Show order details response (with shipping)
+pendency analysis can assist a user of this API in creating and 12: (Show order details response (with shipping)): 200 OK
+13: POST Authorize payment for order(order_id : string = id : string) : Authorize payment for order
+tracking a product order. response
+14: (Authorize payment for order response): 201 Created
+Static
+15: GET Show details for authorized payment(authorization_id : string = id : string) :
+For static analysis, we supply RADAR with the Postman Details for authorized payment
+16: (Details for authorized payment): 200 OK
+Collection of the PayPal API7, as downloaded from the Post-
+17: POST Capture authorized payment(authorization_id : string = id : string,
+CaptureAuthPaymentReqBody : Capture Authorized Payment Request = Capture Authorized
+man Public API Network, without any modifications. The Payment Request) : Capture Authorized Payment Response
+18: (Capture Authorized Payment Response): 201 Created
+section of the resulting dependency graph including endpoints
+19: GET Show captured payment details(capture_id : string = id : string) : Captured Payment Details
+related to product orders is shown in Fig 2 below. While the 20: (Captured Payment Details): 200 OK
+identified dependency path facilitates the process of creating 21: POST Add tracking information for multiple PayPal transactions(AddTrackingInfoReqBody : AddTrackingInformationRequest =
+AddTrackingInformationRequest) : AddTrackingInformationResponse
+an order and handling the payment, it lacks details regarding 22: (AddTrackingInformationResponse): 200 OK
+order tracking. Static analysis was unable to identify depend- 23: GET Show tracking information(tracking_id : string = tracking_number : string) : Show tracking information response
+24: (Show tracking information response): 200 OK
+encies between the tracking endpoints and the others in the
+25: PUT Update or cancel tracking information for PayPal transaction(tracking_id : string = tracking_number : string,
+updateCarrierReqBody : Update carrier request = Update carrier request)
+graph, as the examples in the Postman Collection were not 26: 204 No Content
+adequate. Additionally, the static analysis graph contains
+some edges that are either redundant for executing the specific Fig 3. Order creation and tracking use case - sequence diagram
+use case or even semantically incorrect. The dependency graph resulting from the dynamic analysis
+of the log file for this use case is shown in Fig 4, where API
+calls are enumerated based on their numbering in the se-
+quence diagram above, and a key dependency path is high-
+lighted.
+Fig 2. Order creation and tracking use case - Static dependency graph
+For instance, displaying product details before creating a
+new product (Fig 2, edge C1→1) offers no practical value in
+the context of the “order management” use case, while author-
+Fig 4. Order creation and tracking use case - dynamic dependency
+izing a payment for an order before the order itself has been
+graph
+created, as the graph suggests (Fig 2, edge C2→2), seems not
+5 R.A.D.A.R by NTUA Softlab: https://radar.softlab.ntua.gr 7 PayPal API Postman Collection (date accessed: 05/2024):
+6 PayPal REST APIs: https://developer.paypal.com/api/rest https://www.postman.com/paypal/paypal-public-api-workspace/overview
+(date accessed: 05/2024)
+
+===== PAGE 6/6 =====
+362 PROCEEDINGS OF THE FEDCSIS. KRAKÓW, POLAND, 2025
+The highlighted dependency path can be traced back to Considering the limitations of each method, as well as the
+the reference use case sequence diagram, providing the API conclusions drawn from their comparative study and appli-
+user with guidance on how to use the API to implement the cation to the API examined, it becomes clear when each
+logic of the "order management" use case. method is most suitable: when any static documentation
+Specifically, the generated graph guides the user to first such as a Postman Collection with enough examples is avail-
+create a product and optionally retrieve information about it able, dependency documentation for the API can be gener-
+(calls 1, 3), then create an order for this product and possibly ated using static analysis. When logging is possible, dy-
+retrieve relative details (calls 7, 11), authorize and capture namic analysis can offer higher accuracy and completeness
+the payment (calls 13–19), and finally add and potentially of the results in the context of the observed use cases, but at
+update tracking information (calls 21, 23). In contrast to the cost of greater effort that comes with logging. RADAR
+static analysis, the dynamic dependency graph proved to be supports both methods and although it has space for im-
+more comprehensive while avoiding misleading edges. provement, it produces useful data and visualizations of in-
+ter-endpoint API dependencies.
+VI. DISCUSSION
+Like all software documentation, API documentation
+REFERENCES
+must be complete, detailed, and kept up to date to support [1] N. Oostvogels, J. De Koster, and W. De Meuter, “Inter-parameter
+Constraints in Contemporary Web APIs,” 2017, pp. 323–335. doi:
+communication among technical staff and stakeholders. As
+10.1007/978-3-319-60131-1_18.
+APIs play a central role in software integration, better docu-
+[2] A. Martin-Lopez, “Automated analysis of inter-parameter dependen-
+mentation leads to more efficient development and fewer er- cies in web APIs,” in Proceedings of the ACM/IEEE 42nd Interna-
+rors and backtracks. tional Conference on Software Engineering: Companion Proceedings,
+New York, NY, USA: ACM, Jun. 2020, pp. 140–142. doi:
+This work aims to enhance API documentation by adding
+10.1145/3377812.3382173.
+information on data producers and consumers among end- [3] A. Martin-Lopez, S. Segura, C. Muller, and A. Ruiz-Cortes, “Specifi-
+points, representing their dependencies. Such an "endpoint cation and Automated Analysis of Inter-Parameter Dependencies in
+Web APIs,” IEEE Trans Serv Comput, vol. 15, no. 4, pp. 2342–2355,
+dependency graph" helps developers better understand and
+Jul. 2022, doi: 10.1109/TSC.2021.3050610.
+integrate complex third-party or in-house APIs. We propose [4] A. Martin-Lopez, S. Segura, and A. Ruiz-Cortés, “A Catalogue of In-
+two methods to identify these dependencies based on avail- ter-parameter Dependencies in RESTful Web APIs,” in Service-Ori-
+ented Computing: 17th International Conference, ICSOC 2019,
+able documentation and runtime access, providing a
+Toulouse, France, October 28–31, 2019, Proceedings, Berlin, Heidel-
+roadmap to accelerate API integration.
+berg: Springer-Verlag, 2019, pp. 399–414. doi: 10.1007/978-3-030-
+The effectiveness of static analysis in identifying depen- 33702-5_31.
+dencies relies on the information in the API’s static docu- [5] Q. Wu, L. Wu, G. Liang, Q. Wang, T. Xie, and H. Mei, “Inferring de-
+pendency constraints on parameters for web services,” in Proceedings
+mentation, particularly the examples included. On the other
+of the 22nd international conference on World Wide Web, in WWW
+hand, the effectiveness of dynamic analysis in the same task ’13. New York, NY, USA: ACM, May 2013, pp. 1421–1432. doi:
+depends on the extent to which the executed use cases cover 10.1145/2488388.2488512.
+[6] Xiaoying Bai, Wenli Dong, Wei-Tek Tsai, and Yinong Chen,
+a broad range of the API’s functionalities, theoretically all of
+“WSDL-Based Automatic Test Case Generation for Web Services
+them. Testing,” in IEEE International Workshop on Service-Oriented Sys-
+Generally, the dynamic approach produces less, yet not tem Engineering (SOSE’05), IEEE, 2005, pp. 215–220. doi: 10.1109/
+SOSE.2005.43.
+zero, noise, particularly in body-path dependencies derived
+[7] V. Atlidakis, P. Godefroid, and M. Polishchuk, “RESTler: Stateful
+from URL segments that are not actually path parameters. In REST API Fuzzing,” in 2019 IEEE/ACM 41st International Confer-
+static analysis, which runs exhaustive comparisons between ence on Software Engineering (ICSE), IEEE, May 2019, pp. 748–758.
+every pair of endpoints, noise is created by ambiguities that doi: 10.1109/ICSE.2019.00083.
+[8] A. Bertolino, P. Inverardi, P. Pelliccione, and M. Tivoli, “Automatic
+do not allow to filter out irrelevant dependencies.
+synthesis of behavior protocols for composable web-services,” in Pro-
+Overall, considering the statistics derived from the results ceedings of the 7th joint meeting of the European software engineer-
+of the two analyses across several APIs—including the Ope- ing conference and the ACM SIGSOFT symposium on The founda-
+tions of software engineering, in ESEC/FSE ’09. New York, NY,
+nAI API and the previously examined PayPal API—we ob-
+USA: ACM, Aug. 2009, pp. 141–150. doi: 10.1145/1595696.1595719.
+serve that dynamic analysis detects fewer edges in the gener- [9] P. Papadeas, “Automatic generation of dependency documentation be-
+ated graph: 52 vs. 92 for OpenAI and 209 vs. 724 for Pay- tween endpoint calls of a REST API,” National Technical University
+of Athens, 2023. Accessed: Apr. 27, 2025. [Online]. Available:
+Pal. Furthermore, dynamic analysis identifies more depen-
+http://artemis.cslab.ece.ntua.gr:8080/jspui/handle/123456789/18728
+dent attributes for each edge, offering a deeper understand- [10] D.-D. Gerokonstantis, “Dynamic Analysis of Inter-endpoint Depen-
+ing of how two endpoints are interdependent. For example, dencies in RESTful APIs,” National Technical University of Athens,
+for the OpenAI API, an average of 1.22 dependent attributes 2024. Accessed: Apr. 27, 2025. [Online]. Available: http://artemis.c-
+slab.ece.ntua.gr:8080/jspui/handle/123456789/19419
+per edge was found in the static analysis and 2.53 in the dy-
+[11] D. Lalias, “Web application for visualizing dependencies between
+namic analysis, while for the PayPal API, 2.13 dependent at- endpoints of a REST interface,” National Technical University of
+tributes per edge were found in the static analysis and 14.19 Athens, 2024. Accessed: Apr. 27, 2025. [Online]. Available: http://
+artemis.cslab.ece.ntua.gr:8080/jspui/handle/123456789/19020
+in the dynamic analysis.

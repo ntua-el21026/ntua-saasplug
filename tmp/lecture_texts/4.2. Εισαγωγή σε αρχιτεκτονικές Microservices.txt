@@ -1,0 +1,353 @@
+
+
+===== PAGE 1/31 =====
+ΕΘΝΙΚΟ ΜΕΤΣΟΒΙΟ ΠΟΛΥΤΕΧΝΕΙΟ
+Σχολή Ηλεκτρολόγων Μηχανικών και Μηχανικών Υπολογιστών
+Τεχνολογίες Υπηρεσιών Λογισμικού
+Τεχνολογίες Υπηρεσιών Λογισμικού
+Β.Βεσκούκης, Καθ.ΕΜΠ (v.vescoukis@cs.ntua.gr)
+
+===== PAGE 2/31 =====
+Microservices
+
+===== PAGE 3/31 =====
+Service-Oriented Architecure
+SOA
+Service
+App frontend Service Service Bus
+repository
+Contract Implementation Interface
+Business Logic
+Data
+management
+
+===== PAGE 4/31 =====
+SOA: Service-Oriented Architecture
+Source: visual-paradigm.com
+
+===== PAGE 5/31 =====
+Microservices
+SOA at a different scale
+Same design principles except that one microservice
+■
+may not offer complete business function(s)
+Small size (goes with the name)
+■
+Reusability is not a must (possible code duplication)
+■
+Asynchronous communication (no service bus)
+■
+enables better fault tollerance
+Data is available inside each microservice:
+■
+possible data duplication, complexity
+
+===== PAGE 6/31 =====
+SOA - microservices
+SOA is about…
+Exposing application functions as service interfaces
+■
+Facilitating using data and logic offered by services
+■
+Source: IBM
+Microservices is about…
+Structuring individual applications from small,
+■
+independent, agile, scalable and available components
+
+===== PAGE 7/31 =====
+SOA is about integration: technical view
+Use standard mechanisms to facilitate re-use of
+services in new apps
+JSON/HTTP, SOAP/HTTP
+■
+Focus on integration, not on application design!
+The availability of this
+mechanism in a context
+is often refferred to as
+“Enterprise Service Bus”
+Source: IBM
+
+===== PAGE 8/31 =====
+SOA is about integration: business view
+Expose something that “makes sense” to
+business processes
+Services (should) do
+■
+something useful
+that can be re-used
+in another app
+Use “service components”
+■
+Source: IBM
+to achieve this
+
+===== PAGE 9/31 =====
+SOA: Business functionality from services
+Source: visual-paradigm.com
+
+===== PAGE 10/31 =====
+Conception leads structuring
+Single responsibility principle
+…every class or module in a program should have
+■
+responsibility for just a single piece of that
+program’s functionality. Further, the elements of
+that responsibility should be encapsulated by the
+responsible class rather than spread out in
+unrelated classes…
+a class should have only one reason to change
+■
+Robert Martin
+
+===== PAGE 11/31 =====
+Microservice architecture
+Focus on application architecture
+Break down into small, isolated functions
+■
+and expose as “services”
+Develop & deploy independently!
+■
+Each service has
+Α single responsibility
+■
+Αccess to the data it needs
+■
+Limited business functionality
+■
+Limited re-usability
+■
+Maximized agility & resilience
+■
+
+===== PAGE 12/31 =====
+Microservices compared to SOA
+Key differences
+Size: microservices are smaller, each has a single
+■
+business responsibility
+Reusability: Improve agility and resiliency by
+■
+minimizing reuse
+Communication: Use async communication (no ESB)
+■
+Data duplication: to provide access to the data a
+■
+microservice needs, duplication (and complexity)
+may occur
+
+===== PAGE 13/31 =====
+Monoliths, SOA & microservices
+Monolith (generic case)
+Data is centralized: one "big" database with per
+■
+case optimizations, replication, access objects, etc
+Business logic: One layer contains all. Access to
+■
+data is only possible from here.
+Frontend: Interactions with users/external
+■
+systems. No direct access to data – can only call
+services in "business logic".
+Source: Microservices Architecture From A to Z, S.Bouttier @Medium
+
+===== PAGE 14/31 =====
+Monoliths, SOA & microservices
+SOA (generic case)
+Data may be centralized: each app maintains
+■
+its own data, in an organization-wide or app-
+wide database
+Apps expose services: Everything is offered as
+■
+a registered service with specific
+call/management mechanisms
+ESB: All communications occur on a common
+■
+bus (service)
+Frontend: Each app may have its own + new
+■
+frontend(s) may compose SOA services
+Source: Microservices Architecture From A to Z, S.Bouttier @Medium
+
+===== PAGE 15/31 =====
+Monoliths, SOA & microservices
+Microservices: Each service has…
+Α single responsibility
+■
+Αccess to the data it needs
+■
+Limited business functionality
+■
+Limited re-usability
+■
+Maximized agility & resilience
+■
+Source: Microservices Architecture From A to Z, S.Bouttier @Medium
+
+===== PAGE 16/31 =====
+Monoliths, SOA & microservices
+Source: Microservices Architecture From A to Z, S.Bouttier @Medium
+
+===== PAGE 17/31 =====
+Microservices
+Pros Cons
+Independend development, System complexity, deployment
+■ ■
+deployment, scaling management
+Small teams, no sharing of Testing becomes more
+■ ■
+source code, simpler code, data complicated
+isolation (many databases) Distributed databases have
+■
+Resilience by reducing impact data integrity challenges,
+■
+when a service fails especially for transaction-based
+Easier to implement in cloud applications
+■
+ecosystems Network latency, critical for
+■
+complex communications
+between services
+No universal rule, choice depends on the context!
+
+===== PAGE 18/31 =====
+Microservices communication
+Use of REST calls vs... 1: orchestration
+Dependencies become complex Add a service to manage
+■ ■
+Complex is difficult to maintain dependencies ("orchestrator")
+■
+Behaviour is impacted The orchestrator should not fail
+■ ■
+Can do better
+■
+
+===== PAGE 19/31 =====
+Microservices communication
+Use of REST calls vs... 2: choreography
+Dependencies become complex Use a publish-subscribe model
+■ ■
+Complex is difficult to maintain (no direct or mediated
+■
+Behaviour is impacted communication)
+■
+Can do better Data consistency concerns
+■ ■
+
+===== PAGE 20/31 =====
+Resources
+Chaitanya K. Rudrabhatla, “Comparison of Event Choreography and Orchestration
+■
+Techniques in Microservice Architecture” Int. Journal of Advanced Computer
+Science and Applications(IJACSA), 9(8), 2018.
+http://dx.doi.org/10.14569/IJACSA.2018.090804
+https://thesai.org/Publications/ViewPaper?Volume=9&Issue=8&Code=IJACSA&Seri
+alNo=4
+Chaitanya K. Rudrabhatla, “Impacts of Decomposition Techniques on Performance
+■
+and Latency of Microservices” Int. Journal of Advanced Computer Science and
+Applications(IJACSA), 11(8), 2020. http://dx.doi.org/10.14569/IJACSA.2020.0110803
+https://thesai.org/Publications/ViewPaper?Volume=11&Issue=8&Code=IJACSA&Ser
+ialNo=3
+https://github.com/SebastienBtr/Micro-express
+■
+
+===== PAGE 21/31 =====
+Monoliths, SOA & microservices illustrated
+Source: IBM
+
+===== PAGE 22/31 =====
+SOA & microservices illustrated
+Source: Microservices in Action, M.Bruce, A.Pereira
+
+===== PAGE 23/31 =====
+SOA and microservices
+Instead of “SOA vs microservices”
+SOA is about exposing functionality to the outside
+■
+Microservices is about internally implementing
+■
+functionality
+Source: IBM
+
+===== PAGE 24/31 =====
+SOA and microservices
+Clean development
+(no legacy apps)
+Source: IBM
+
+===== PAGE 25/31 =====
+SOA and microservices
+Micoservices need to co-exist
+with existing apps
+Source: IBM
+
+===== PAGE 26/31 =====
+SOA, microservices and APIs
+Need to create
+integration hubs
+Source: IBM
+
+===== PAGE 27/31 =====
+Παράδειγμα 1 SOA / microservices
+[Θέμα κανονικής εξέτασης SaaS 2020-2021,
+& εργασίας ΤΛ 2021-2022]
+Διαλειτουργικότητα διοδίων ως SaaS
+Τα ακόλουθα ηλεκτρονικά συστήματα διέλευσης
+■
+διοδίων διαλειτουργούν (δηλαδή επιτρέπουν την
+χρήση όλων των πομποδεκτών σε όλα τα δίκτυα):
+aodos.gr, gefyra.gr, egnatia.eu, kentrikiodos.gr,
+moreas.com.gr, neaodos.gr, olympiaodos.gr.
+
+===== PAGE 28/31 =====
+Παράδειγμα 1 SOA / microservices
+Υποθέτουμε τα εξής (που δεν απέχουν και πολύ
+■
+από την πραγματικότητα):
+- δεν χρησιμοποιούν όλα την ίδια εφαρμογή διαχείρισης
+διελεύσεων.
+- όλα υλοποιούν, το καθένα με δικό του τρόπο, τις
+λειτουργίες "provider" (δήλωση σε ποιον πάροχο ανήκει
+ένας πομποδέκτης), "load" (φόρτωση πομποδέκτη με
+χρήματα), "pass" (διέλευση) και "balance" (υπόλοιπο
+χρημάτων στον πομποδέκτη).
+
+===== PAGE 29/31 =====
+Παράδειγμα 1 SOA / microservices
+Θέλουμε να παρέχουμε ως SaaS την υπηρεσία
+διαλειτουργικότητας.
+Προτείνετε μια αρχιτεκτονική για την εφαρμογή
+■
+μας, που να βασίζεται στις αρχές SOA (ΑΜ σε άρτιο
+αριθμό) ή στις αρχές microservices (ΑΜ σε περιττό
+αριθμό)
+Παραδώστε ένα διάγραμμα UML component με τα
+■
+στοιχεία της εφαρμογής μας, συνοδευόμενο από
+πολύ σύντομο σχολιασμό.
+
+===== PAGE 30/31 =====
+Παράδειγμα 2 SOA / Microservices
+Ζωντανά διαγράμματα αγορών ενέργειας
+Το “EnergyLive2022” είναι μια δικτυακή εφαρμογή -
+■
+υπηρεσία που προσφέρει τη δυνατότητα οι χρήστες
+να παρακολουθούν τιμές μεγεθών της αγοράς
+ηλεκτρικής ενέργειας στην Ευρώπη μέσω του
+φυλλομετρητή τους. Τα δεδομένα συλλέγονται
+αυτόματα από την εφαρμογή και εμφανίζονται στην
+ιστοσελίδα της.
+
+===== PAGE 31/31 =====
+Παράδειγμα 2 SOA / Microservices
+Θέλουμε να παρέχουμε ως SaaS τη θέαση των
+δεδομένων αγορών ενέργειας
+Προτείνετε μια αρχιτεκτονική microservices για την
+■
+εφαρμογή μας.
+Παραδώστε ένα διάγραμμα UML component με τα
+■
+στοιχεία της εφαρμογής μας, συνοδευόμενο από
+πολύ σύντομο σχολιασμό.
