@@ -1,0 +1,59 @@
+saasPlug/
+├── docs/
+│   ├── assignment/
+│   │   ├── Project Notes from Lectures.docx
+│   │   ├── SRS Εξαμηνιαίας Εργασίας.docx
+│   │   ├── Διαγράμματα SRS.vpp
+│   │   └── Εκφώνηση Εξαμηνιαίας Εργασίας.pdf
+│   ├── diagrams/
+│   │   ├── final/
+│   │   └── intermediate/
+│   ├── lectures/
+│   │   ├── 6. Ευκρινείς Εικόνες Διαφανειών/
+│   │   │   ├── __MACOSX/
+│   │   │   │   ├── ._slide52.png
+│   │   │   │   ├── ._slide53.png
+│   │   │   │   ├── ._slide54.png
+│   │   │   │   ├── ._slide55.png
+│   │   │   │   ├── ._slide56.png
+│   │   │   │   ├── ._slide57.png
+│   │   │   │   ├── ._slide58.png
+│   │   │   │   ├── ._slide59.png
+│   │   │   │   ├── ._slide60.png
+│   │   │   │   ├── ._slide61.png
+│   │   │   │   ├── ._slide62.png
+│   │   │   │   ├── ._slide63.png
+│   │   │   │   ├── ._slide64-65-66.png
+│   │   │   │   └── ._slide67-68-69.png
+│   │   │   ├── slide52.png
+│   │   │   ├── slide53.png
+│   │   │   ├── slide54.png
+│   │   │   ├── slide55.png
+│   │   │   ├── slide56.png
+│   │   │   ├── slide57.png
+│   │   │   ├── slide58.png
+│   │   │   ├── slide59.png
+│   │   │   ├── slide60.png
+│   │   │   ├── slide61.png
+│   │   │   ├── slide62.png
+│   │   │   ├── slide63.png
+│   │   │   ├── slide64-65-66.png
+│   │   │   └── slide67-68-69.png
+│   │   ├── 1.1. Εισαγωγή - Eφαρμογές SaaS, περίγραμμα του μαθήματος.pdf
+│   │   ├── 3. JavaScript.pdf
+│   │   ├── 4.1. Εισαγωγή σε Service Oriented Architectures.pdf
+│   │   ├── 4.2. Εισαγωγή σε αρχιτεκτονικές Microservices.pdf
+│   │   ├── 5.1. Αρχιτεκτονικές microservices και SOA παραδείγματα και παραγωγή με LLMs.pdf
+│   │   ├── 5.2. Υπηρεσίες Messaging - concepts.pdf
+│   │   ├── 7. Paper - Enhancing API documentation by inter-endpoint dependency graphs.pdf
+│   │   ├── 7.1. Hands-on lab - messaging.pdf
+│   │   └── 7.2. API gateways και load balancing.pdf
+│   ├── project_structure/
+│   │   ├── project_struct.py
+│   │   └── project_struct.txt
+│   └── README.md
+├── .gitignore
+├── LICENSE
+└── README.md
+
+Total directories: 10, Total files: 47
