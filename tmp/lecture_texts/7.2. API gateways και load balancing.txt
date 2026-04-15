@@ -1,0 +1,286 @@
+
+
+===== PAGE 1/38 =====
+ΕΘΝΙΚΟ ΜΕΤΣΟΒΙΟ ΠΟΛΥΤΕΧΝΕΙΟ
+Σχολή Ηλεκτρολόγων Μηχανικών και Μηχανικών Υπολογιστών
+Τεχνολογίες Υπηρεσιών Λογισμικού
+Τεχνολογίες Υπηρεσιών Λογισμικού
+Β.Βεσκούκης, Καθ.ΕΜΠ (v.vescoukis@cs.ntua.gr)
+
+===== PAGE 2/38 =====
+API Gateways
+
+===== PAGE 3/38 =====
+API-based backend
+
+===== PAGE 4/38 =====
+
+
+===== PAGE 5/38 =====
+No API gateway = unwanted revelations
+
+===== PAGE 6/38 =====
+No API gateway = unwanted revelations
+
+===== PAGE 7/38 =====
+No API gateway = unwanted revelations
+
+===== PAGE 8/38 =====
+No API gateway
+
+===== PAGE 9/38 =====
+Management of requests to backend
+Load balancing
+...self-explanatory
+■
+Reverse proxying
+Map ports/services to paths
+■
+API gateways
+Plus: quotas, auth, more
+■
+
+===== PAGE 10/38 =====
+Load balancing
+Apache
+<proxy balancer://serverpool>
+BalancerMember http://1.2.3.4:80
+BalancerMember http://5.6.7.8:80
+ProxySet lbmethod=bytraffic
+</proxy>
+ProxyPass "/site" "balancer://serverpool/"
+ProxyPassReverse "/site" "balancer://serverpool/"
+
+===== PAGE 11/38 =====
+Reverse proxy
+Load balancing
+Caching
+Encryption
+
+===== PAGE 12/38 =====
+Balancing on Apache
+
+===== PAGE 13/38 =====
+Reverse proxy: ailog.softlab.ntua.gr
+
+===== PAGE 14/38 =====
+API gateway: "ReverseProxy+++"
+API Gateway Services
+Authentication
+■
+Authorization
+■
+IP whitelisting
+■
+Quotas
+■
+Logging
+■
+Tracing
+■
+More
+■
+
+===== PAGE 15/38 =====
+API gateway
+
+===== PAGE 16/38 =====
+API gateways
+authentication
+quotas
+
+===== PAGE 17/38 =====
+API gateways
+
+===== PAGE 18/38 =====
+API gateways
+
+===== PAGE 19/38 =====
+API gateways
+
+===== PAGE 20/38 =====
+API gateways - Kong
+
+===== PAGE 21/38 =====
+API gateways - Kong
+$ sudo apt install kong # kong.yaml
+...
+$ curl -i -X POST http://localhost:8001/services/ \ _format_version: "3.0"
+--data name=service-one \
+--data url=http://service-one.example.com services:
+... - name: service-one
+$ curl -i -X POST url: http://service-one.example.com
+http://localhost:8001/services/service-one/routes \ routes:
+--data paths[]="/api" - name: service-one-api
+... paths:
+$ curl -i -X POST - /api
+http://localhost:8001/services/service-one/plugins \ strip_path: false
+--data name=rate-limiting \ plugins:
+--data config.minute=1000 \ - name: rate-limiting
+--data config.policy=local config:
+minute: 1000 # Allow 1000 requests per minute
+policy: local # Local in-memory counter
+plugins:
+- name: rate-limiting
+service: service-one
+config:
+minute: 1000
+policy: local
+
+===== PAGE 22/38 =====
+API gateways - Kong
+
+===== PAGE 23/38 =====
+API gateways – Apache APISIX
+
+===== PAGE 24/38 =====
+API gateways – Apache APISIX
+$ curl http://127.0.0.1:9080/apisix/admin/upstreams/1 # apisix.yaml
+-X PUT -d '
+{ routes:
+"type": "roundrobin", - uri: /api/*
+"nodes": { name: service-one-api
+"service-one.example.com:80": 1 upstream_id: 1
+} plugins:
+}' limit-count:
+count: 1000
+... time_window: 60
+key: remote_addr
+$ curl http://127.0.0.1:9080/apisix/admin/routes/1 -X rejected_code: 429
+PUT -d ' policy: local
+{
+"uri": "/api/*", upstreams:
+"upstream_id": 1, - id: 1
+"plugins": { type: roundrobin
+"limit-count": { nodes:
+"count": 1000, "service-one.example.com:80": 1
+"time_window": 60,
+"key": "remote_addr",
+"rejected_code": 429,
+"policy": "local"
+}
+}
+}'
+
+===== PAGE 25/38 =====
+API gateways – Apache APISIX
+
+===== PAGE 26/38 =====
+API gateways – Tyk
+
+===== PAGE 27/38 =====
+API gateways – Tyk
+
+===== PAGE 28/38 =====
+Gravitee open source
+
+===== PAGE 29/38 =====
+API gateways and microservices
+Advantages
+Isolate microservice clients from microservices
+■
+Mimimize impact on clients when updating
+■
+microservice implementations
+Allow each microservice in many applications
+■
+
+===== PAGE 30/38 =====
+To API-gateway or not to API-gateway?
+
+===== PAGE 31/38 =====
+Resources
+www.ibm.com/products/api-connect/api-gateway
+nordicapis.com/6-open-source-api-gateways/
+dev.to/adisakshya/setting-up-an-api-gateway-for-your-microservices-3gal
+medium.com/@berrayana/selecting-the-right-open-source-api-gateway-
+technology-eb295f076939
+
+===== PAGE 32/38 =====
+APIs are(?) apps
+
+===== PAGE 33/38 =====
+APIs++: radar.softlab.ntua.gr
+
+===== PAGE 34/38 =====
+APIs++: radar.softlab.ntua.gr
+
+===== PAGE 35/38 =====
+APIs++: radar.softlab.ntua.gr
+
+===== PAGE 36/38 =====
+APIs++: radar.softlab.ntua.gr
+
+===== PAGE 37/38 =====
+API semantics
+OpenAPI gRPC
+1. paths:
+1. syntax = "proto3";
+2. /orders/{orderId}:
+2.
+3. get:
+3. package example.weather;
+4. summary: Retrieve order details
+4.
+5. parameters:
+5. // Service definition: RPC methods with request/response types
+6. - name: orderId
+6. service WeatherService {
+7. in: path
+7. rpc GetCurrent (GetCurrentRequest) returns (GetCurrentResponse);
+8. required: true
+8. rpc StreamForecast (ForecastRequest) returns (stream ForecastChunk);
+9. schema:
+9. }
+10. type: string
+10.
+11. - name: expand
+11. // Message definitions: strongly-typed schemas
+12. in: query
+12. message GetCurrentRequest {
+13. required: false
+13. string city = 1;
+14. schema:
+14. }
+15. type: string
+15.
+16. enum: [items, payments]
+16. message GetCurrentResponse {
+17. responses:
+17. float temperature = 1;
+18. '200':
+18. string units = 2;
+19. description: Order retrieved successfully
+19. }
+20. content:
+20.
+21. application/json:
+21. message ForecastRequest {
+22. schema:
+22. string city = 1;
+23. $ref: '#/components/schemas/Order'
+23. }
+24. components:
+24.
+25. schemas:
+25. message ForecastChunk {
+26. Order:
+26. string day = 1;
+27. type: object
+27. float tempHigh = 2;
+28. required:
+28. }
+29. - id
+30. - amount
+31. properties:
+32. id:
+33. type: string
+34. amount:
+35. type: number
+36. currency:
+37. type: string
+
+===== PAGE 38/38 =====
+API semantics
+proto_without_primitives
+proto_with_primitives
