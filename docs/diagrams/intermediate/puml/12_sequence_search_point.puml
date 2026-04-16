@@ -1,0 +1,28 @@
+@startuml
+title saasPlug - Sequence Diagram - Search for a Point
+skinparam shadowing false
+autonumber
+
+actor "Χρήστης EV" as EVUser
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Charging Point Catalog Service" as Catalog
+database "catalog_db" as CatalogDb
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Usage & Analytics Service" as Analytics
+database "usage_analytics_db" as AnalyticsDb
+
+EVUser -> Web : Enter filters
+Web -> Gateway : GET /api/charging-points?filters
+Gateway -> Catalog : searchChargingPoints(ChargingPointSearchQueryDTO)
+Catalog -> CatalogDb : query ChargingPoint by filters
+CatalogDb --> Catalog : ChargingPoint[]
+Catalog --> Gateway : ChargingPointDTO[]
+Gateway --> Web : ChargingPointDTO[]
+Web --> EVUser : Display matching charging points
+
+Catalog -> RabbitMQ : publish SearchPerformed
+RabbitMQ -> Analytics : deliver SearchPerformed
+Analytics -> AnalyticsDb : recordUsageEvent(SEARCH_PERFORMED)
+
+@enduml

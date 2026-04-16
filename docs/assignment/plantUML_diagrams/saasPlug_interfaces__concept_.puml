@@ -1,0 +1,36 @@
+@startuml
+allowmixing
+component "payments service" as payments_service {
+}
+component "saasPlug core" as saasPlug_core {
+}
+component "saasPlug charging points interface" as saasPlug_charging_points_interface {
+}
+component "charging points provider N" as charging_points_provider_N {
+}
+component "charging points provider 2" as charging_points_provider_2 {
+}
+component "charging points provider 1" as charging_points_provider_1 {
+}
+() "payments API" as payments_API
+() "pg int" as pg_int
+() "cpp N int" as cpp_N_int
+() "cpp2 int" as cpp2_int
+() "cpp 1 int" as cpp_1_int
+() "cpp N API" as cpp_N_API
+() "cpp 2 API" as cpp_2_API
+() "cpp 1 API" as cpp_1_API
+cpp_1_API <|.. charging_points_provider_1
+cpp_2_API <|.. charging_points_provider_2
+cpp_N_API <|.. charging_points_provider_N
+saasPlug_charging_points_interface ..> cpp_1_int : <<use>>  
+cpp_1_int ..> cpp_1_API
+saasPlug_charging_points_interface ..> cpp2_int : <<use>>  
+saasPlug_charging_points_interface ..> cpp_N_int : <<use>>  
+cpp_N_int ..> cpp_N_API
+cpp2_int ..> cpp_2_API
+saasPlug_core ..> pg_int : <<use>>  
+payments_API <|.. payments_service
+pg_int ..> payments_API
+saasPlug_charging_points_interface -- saasPlug_core
+@enduml

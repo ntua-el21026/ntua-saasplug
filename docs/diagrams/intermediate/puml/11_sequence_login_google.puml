@@ -1,0 +1,30 @@
+@startuml
+title saasPlug - Sequence Diagram - Login with Google
+skinparam shadowing false
+autonumber
+
+actor "Χρήστης EV" as EVUser
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Identity & Access Service" as Identity
+participant "Google OAuth Provider" as Google
+database "identity_db" as IdentityDb
+
+EVUser -> Web : Click "Login with Google"
+Web -> Gateway : GET /api/auth/google/start
+Gateway -> Identity : startGoogleOAuth()
+Identity --> Gateway : 302 redirect to Google
+Gateway --> Web : 302 redirect
+Web -> Google : OAuth consent/login
+Google --> Web : redirect /api/auth/google/callback?code
+Web -> Gateway : GET /api/auth/google/callback?code
+Gateway -> Identity : completeGoogleOAuth(code)
+Identity -> Google : exchange code for Google profile
+Google --> Identity : googleSubject, email, displayName
+Identity -> IdentityDb : upsertUser(googleSubject, email, displayName, EV_USER)
+IdentityDb --> Identity : User
+Identity --> Gateway : AuthTokenDTO
+Gateway --> Web : AuthTokenDTO
+Web --> EVUser : Authenticated EV_USER session
+
+@enduml

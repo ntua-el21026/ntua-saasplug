@@ -1,0 +1,98 @@
+@startuml
+title saasPlug - Component Diagram
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "Client" {
+  component "Web Frontend\nsource: apps/frontend" as WebFrontend
+}
+
+package "Gateway" {
+  component "API Gateway\nsource: services/api-gateway" as APIGateway
+}
+
+package "Backend microservices" {
+  component "Identity & Access Service\nsource: services/identity" as IdentityService
+  component "Provider Registry Service\nsource: services/provider-registry" as ProviderRegistryService
+  component "Provider Sync Service\nsource: services/provider-sync" as ProviderSyncService
+  component "Charging Point Catalog Service\nsource: services/charging-point-catalog" as CatalogService
+  component "Charging Point Status Service\nsource: services/charging-point-status" as StatusService
+  component "Reservation Service\nsource: services/reservations" as ReservationService
+  component "Usage & Analytics Service\nsource: services/usage-analytics" as AnalyticsService
+  component "Billing & Payment Service\nsource: services/billing-payment" as BillingService
+}
+
+package "Provider integration" {
+  component "Provider Client Library\nsource: packages/provider-clients" as ProviderClient
+  component "redPlug Adapter\nsource: packages/provider-clients/redplug" as RedAdapter
+  component "greenPlug Adapter\nsource: packages/provider-clients/greenplug" as GreenAdapter
+  component "bluePlug Adapter\nsource: packages/provider-clients/blueplug" as BlueAdapter
+}
+
+package "Data and messaging" {
+  database "PostgreSQL\nsource: deploy" as Postgres
+  queue "RabbitMQ Message Broker\nsource: deploy" as RabbitMQ
+}
+
+package "External systems" {
+  component "Google OAuth Provider\nexternal" as GoogleOAuth
+  component "External Payment Gateway\nexternal or mocked" as PaymentGateway
+  component "redPlug API\nexternal" as RedPlugApi
+  component "greenPlug API\nexternal" as GreenPlugApi
+  component "bluePlug API\nexternal" as BluePlugApi
+}
+
+WebFrontend --> APIGateway : HTTPS\n/api/*
+
+APIGateway --> IdentityService : /api/auth/*\n/api/users/*
+APIGateway --> ProviderRegistryService : /api/providers/*
+APIGateway --> CatalogService : /api/charging-points/*
+APIGateway --> StatusService : /api/status/*
+APIGateway --> ReservationService : /api/reservations/*
+APIGateway --> AnalyticsService : /api/analytics/*
+APIGateway --> BillingService : /api/billing/*
+
+IdentityService --> GoogleOAuth : OAuth 2.0
+IdentityService --> Postgres : identity_db
+ProviderRegistryService --> Postgres : providers_db
+ProviderSyncService --> Postgres : provider_sync_db
+CatalogService --> Postgres : catalog_db
+StatusService --> Postgres : status_db
+ReservationService --> Postgres : reservations_db
+AnalyticsService --> Postgres : usage_analytics_db
+BillingService --> Postgres : billing_db
+
+ProviderSyncService --> ProviderRegistryService : listActiveProviders()
+StatusService --> CatalogService : getChargingPoint(pointId)
+ReservationService --> CatalogService : getChargingPoint(pointId)
+ReservationService --> ProviderRegistryService : resolveProvider(providerId)
+
+ProviderSyncService --> ProviderClient : list points
+StatusService --> ProviderClient : status
+ReservationService --> ProviderClient : reserve/hold
+ProviderClient *-- RedAdapter
+ProviderClient *-- GreenAdapter
+ProviderClient *-- BlueAdapter
+RedAdapter --> RedPlugApi : redAPI
+GreenAdapter --> GreenPlugApi : greenAPI
+BlueAdapter --> BluePlugApi : blueAPI
+
+ProviderSyncService --> RabbitMQ : ProviderCatalogFetched
+CatalogService --> RabbitMQ : ChargingPointCatalogUpdated
+StatusService --> RabbitMQ : ProviderStatusUpdated\nPointViewed
+ReservationService --> RabbitMQ : ReservationConfirmed\nReservationRejected
+AnalyticsService --> RabbitMQ : consume usage events
+BillingService --> RabbitMQ : consume ReservationConfirmed\npublish InvoiceIssued/InvoicePaid
+BillingService --> PaymentGateway : authorize/capture payment
+
+note bottom
+  GitHub source base:
+  https://github.com/ntua-el21026/saasPlug
+
+  Every saasPlug component label includes its intended
+  source path under this repository.
+end note
+
+@enduml

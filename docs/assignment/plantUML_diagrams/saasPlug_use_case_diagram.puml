@@ -1,0 +1,21 @@
+@startuml
+actor  :saasPlug operator: as saasPlug_operator
+actor  :Charging points provider: as Charging_points_provider
+actor  :Χρήστης EV: as Χρήστης_EV
+usecase (Export own logs) as Export_own_logs
+usecase (Pay invoice) as Pay_invoice
+usecase (View global analytics) as View_global_analytics
+usecase (View invoice) as View_invoice
+usecase (View own analytics) as View_own_analytics
+usecase (Register to saasCharge) as Register_to_saasCharge
+usecase (Reservation)
+usecase (Search for a point) as Search_for_a_point
+Χρήστης_EV -- Search_for_a_point
+Search_for_a_point <.. Reservation : <<Extend>>  
+Charging_points_provider -- Register_to_saasCharge
+Charging_points_provider -- View_own_analytics
+View_own_analytics <.. View_invoice : <<Extend>>  
+saasPlug_operator -- View_global_analytics
+View_invoice <.. Pay_invoice : <<Extend>>  
+View_own_analytics <.. Export_own_logs : <<Extend>>  
+@enduml

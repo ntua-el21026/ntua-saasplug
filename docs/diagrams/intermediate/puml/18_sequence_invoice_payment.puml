@@ -1,0 +1,48 @@
+@startuml
+title saasPlug - Sequence Diagram - View Invoice and Pay Invoice
+skinparam shadowing false
+autonumber
+
+actor "Charging points provider" as Provider
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Billing & Payment Service" as Billing
+database "billing_db" as BillingDb
+participant "External Payment Gateway" as PaymentGateway
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Usage & Analytics Service" as Analytics
+
+Provider -> Web : Open invoices
+Web -> Gateway : GET /api/billing/provider/me/invoices
+Gateway -> Billing : listProviderInvoices()
+Billing -> BillingDb : query Invoice by providerId
+BillingDb --> Billing : Invoice[]
+Billing --> Gateway : InvoiceDTO[]
+Gateway --> Web : InvoiceDTO[]
+Web --> Provider : Show invoices
+
+Provider -> Web : Pay selected invoice
+Web -> Gateway : POST /api/billing/provider/me/invoices/{invoiceId}/pay\nPaymentDTO
+Gateway -> Billing : payInvoice(invoiceId, payment)
+Billing -> BillingDb : get Invoice
+BillingDb --> Billing : Invoice
+Billing -> PaymentGateway : authorize/capture amount
+
+alt Payment succeeded
+  PaymentGateway --> Billing : externalPaymentId, success
+  Billing -> BillingDb : save Payment(SUCCEEDED)
+  Billing -> BillingDb : mark Invoice(PAID)
+  Billing -> RabbitMQ : publish InvoicePaid
+  RabbitMQ -> Analytics : deliver InvoicePaid
+  Analytics -> Analytics : recordUsageEvent(INVOICE_PAID)
+  Billing --> Gateway : PaymentDTO(SUCCEEDED)
+else Payment failed
+  PaymentGateway --> Billing : failure
+  Billing -> BillingDb : save Payment(FAILED)
+  Billing --> Gateway : PaymentDTO(FAILED)
+end
+
+Gateway --> Web : PaymentDTO
+Web --> Provider : Show payment result
+
+@enduml

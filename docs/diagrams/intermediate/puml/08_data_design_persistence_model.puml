@@ -1,0 +1,204 @@
+@startuml
+title saasPlug - Data Design Diagram - Persistence Model
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+hide circle
+
+package "identity_db\nowned by Identity & Access Service" {
+  class "User" as UserEntity <<table>> {
+    +userId: UUID <<PK>>
+    +email: string
+    +displayName: string
+    +googleSubject: string?
+    +role: Role
+    +createdAt: datetime
+    +lastLoginAt: datetime?
+  }
+
+  class "Role" as RoleEntity <<table>> {
+    +roleCode: string <<PK>>
+    +description: string
+  }
+
+  RoleEntity "1" -- "*" UserEntity
+}
+
+package "providers_db\nowned by Provider Registry Service" {
+  class "Provider" as ProviderEntity <<table>> {
+    +providerId: UUID <<PK>>
+    +providerName: string
+    +providerType: ProviderType
+    +apiBaseUrl: string
+    +contactEmail: string
+    +status: string
+    +registeredAt: datetime
+  }
+
+  class "ProviderCredential" as ProviderCredentialEntity <<table>> {
+    +credentialId: UUID <<PK>>
+    +providerId: UUID <<FK>>
+    +apiKeyRef: string
+    +createdAt: datetime
+    +rotatedAt: datetime?
+  }
+
+  ProviderEntity "1" -- "*" ProviderCredentialEntity
+}
+
+package "provider_sync_db\nowned by Provider Sync Service" {
+  class "ProviderSyncRun" as ProviderSyncRunEntity <<table>> {
+    +syncRunId: UUID <<PK>>
+    +providerId: UUID
+    +startedAt: datetime
+    +finishedAt: datetime?
+    +status: string
+    +pointsFetched: int
+    +pointsChanged: int?
+    +errorMessage: string?
+  }
+}
+
+package "catalog_db\nowned by Charging Point Catalog Service" {
+  class "ChargingPoint" as ChargingPointEntity <<table>> {
+    +pointId: UUID <<PK>>
+    +providerId: UUID
+    +externalPointId: string
+    +locationName: string?
+    +address: string?
+    +latitude: decimal?
+    +longitude: decimal?
+    +connectorType: string?
+    +capacityKw: int
+    +pricePerKwh: decimal?
+    +latestStatus: ChargingPointStatus
+    +latestReservationEndsAt: datetime?
+    +lastCatalogSyncAt: datetime?
+    +lastStatusUpdatedAt: datetime?
+  }
+}
+
+package "status_db\nowned by Charging Point Status Service" {
+  class "StatusSnapshot" as StatusSnapshotEntity <<table>> {
+    +statusSnapshotId: UUID <<PK>>
+    +pointId: UUID
+    +providerId: UUID
+    +externalPointId: string
+    +status: ChargingPointStatus
+    +reservationEndsAt: datetime?
+    +pricePerKwh: decimal?
+    +observedAt: datetime
+  }
+}
+
+package "reservations_db\nowned by Reservation Service" {
+  class "Reservation" as ReservationEntity <<table>> {
+    +reservationId: UUID <<PK>>
+    +pointId: UUID
+    +providerId: UUID
+    +externalPointId: string
+    +evUserId: UUID
+    +durationMinutes: int
+    +status: ReservationStatus
+    +reservationEndsAt: datetime?
+    +pricePerKwh: decimal?
+    +idempotencyKey: string
+    +createdAt: datetime
+  }
+}
+
+package "usage_analytics_db\nowned by Usage & Analytics Service" {
+  class "UsageEvent" as UsageEventEntity <<table>> {
+    +eventId: UUID <<PK>>
+    +eventType: UsageEventType
+    +actorId: UUID?
+    +providerId: UUID?
+    +pointId: UUID?
+    +reservationId: UUID?
+    +occurredAt: datetime
+    +metadataJson: object
+  }
+
+  class "AnalyticsAggregate" as AnalyticsAggregateEntity <<table>> {
+    +aggregateId: UUID <<PK>>
+    +providerId: UUID?
+    +periodStart: datetime
+    +periodEnd: datetime
+    +searchCount: int
+    +pointViewCount: int
+    +reservationCount: int
+    +confirmedReservationCount: int
+    +revenueAmount: decimal
+  }
+
+  class "ExportJob" as ExportJobEntity <<table>> {
+    +exportJobId: UUID <<PK>>
+    +providerId: UUID
+    +requestedByUserId: UUID
+    +periodStart: datetime
+    +periodEnd: datetime
+    +status: string
+    +fileUrl: string?
+    +createdAt: datetime
+  }
+}
+
+package "billing_db\nowned by Billing & Payment Service" {
+  class "Invoice" as InvoiceEntity <<table>> {
+    +invoiceId: UUID <<PK>>
+    +providerId: UUID
+    +periodStart: date
+    +periodEnd: date
+    +status: InvoiceStatus
+    +totalAmount: decimal
+    +issuedAt: datetime
+    +paidAt: datetime?
+  }
+
+  class "InvoiceLine" as InvoiceLineEntity <<table>> {
+    +invoiceLineId: UUID <<PK>>
+    +invoiceId: UUID <<FK>>
+    +reservationId: UUID?
+    +description: string
+    +quantity: int
+    +unitAmount: decimal
+    +lineAmount: decimal
+  }
+
+  class "Payment" as PaymentEntity <<table>> {
+    +paymentId: UUID <<PK>>
+    +invoiceId: UUID <<FK>>
+    +providerId: UUID
+    +amount: decimal
+    +status: PaymentStatus
+    +externalPaymentId: string?
+    +paidAt: datetime?
+  }
+
+  InvoiceEntity "1" -- "*" InvoiceLineEntity
+  InvoiceEntity "1" -- "*" PaymentEntity
+}
+
+ProviderEntity ..> ProviderSyncRunEntity : reference only\nproviderId
+ProviderEntity ..> ChargingPointEntity : reference only\nproviderId
+ProviderEntity ..> StatusSnapshotEntity : reference only\nproviderId
+ProviderEntity ..> ReservationEntity : reference only\nproviderId
+ProviderEntity ..> InvoiceEntity : reference only\nproviderId
+UserEntity ..> ReservationEntity : reference only\nevUserId
+UserEntity ..> UsageEventEntity : JWT/event-synced\nactorId
+UserEntity ..> ExportJobEntity : reference only\nrequestedByUserId
+ChargingPointEntity ..> StatusSnapshotEntity : event-synced\npointId
+ChargingPointEntity ..> ReservationEntity : reference only\npointId
+ChargingPointEntity ..> UsageEventEntity : event-synced\npointId
+ReservationEntity ..> UsageEventEntity : event-synced\nreservationId
+ReservationEntity ..> InvoiceLineEntity : event-synced\nreservationId
+InvoiceEntity ..> UsageEventEntity : event-synced\nInvoiceIssued/InvoicePaid
+
+note bottom
+  Database-per-service rule:
+  direct SQL access is allowed only inside the owning service.
+  Dashed cross-database links are identifiers, snapshots,
+  or event-synced read models, not physical foreign keys.
+end note
+
+@enduml

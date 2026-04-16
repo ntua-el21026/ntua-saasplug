@@ -1,0 +1,58 @@
+@startuml
+title saasPlug - Sequence Diagram - Reservation
+skinparam shadowing false
+autonumber
+
+actor "Χρήστης EV" as EVUser
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Reservation Service" as ReservationService
+participant "Charging Point Catalog Service" as Catalog
+participant "Provider Registry Service" as ProviderRegistry
+participant "Provider Client Library" as ProviderClient
+participant "redPlug API / greenPlug API / bluePlug API" as ProviderApi
+database "reservations_db" as ReservationsDb
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Usage & Analytics Service" as Analytics
+participant "Billing & Payment Service" as Billing
+
+EVUser -> Web : Request reservation
+Web -> Gateway : POST /api/reservations\nReservationRequestDTO
+Gateway -> ReservationService : createReservation(request)
+ReservationService -> ReservationService : validate JWT role EV_USER\nand idempotencyKey
+ReservationService -> Catalog : getChargingPoint(pointId)
+Catalog --> ReservationService : ChargingPointDTO
+ReservationService -> ProviderRegistry : resolveProvider(providerId)
+ProviderRegistry --> ReservationService : ProviderDTO
+ReservationService -> ProviderClient : reserve(ProviderDTO, ChargingPointDTO, durationMinutes)
+
+alt redPlug
+  ProviderClient -> ProviderApi : POST /reserve/{pointid}/{minutes}
+else greenPlug
+  ProviderClient -> ProviderApi : POST /chargingPoints/{pointid}/reservations
+else bluePlug
+  ProviderClient -> ProviderApi : POST /location/{pointid}/hold
+end
+
+ProviderApi --> ProviderClient : provider-specific reserve response
+ProviderClient --> ReservationService : ReservationResultDTO
+
+alt Provider accepted
+  ReservationService -> ReservationsDb : save Reservation(CONFIRMED)
+  ReservationService -> RabbitMQ : publish ReservationConfirmed
+  RabbitMQ -> Analytics : deliver ReservationConfirmed
+  Analytics -> Analytics : recordUsageEvent(RESERVATION_CONFIRMED)
+  RabbitMQ -> Billing : deliver ReservationConfirmed
+  Billing -> Billing : createInvoiceLinesFromReservation(DomainEventDTO)
+else Provider rejected
+  ReservationService -> ReservationsDb : save Reservation(REJECTED)
+  ReservationService -> RabbitMQ : publish ReservationRejected
+  RabbitMQ -> Analytics : deliver ReservationRejected
+  Analytics -> Analytics : recordUsageEvent(RESERVATION_REJECTED)
+end
+
+ReservationService --> Gateway : ReservationResultDTO
+Gateway --> Web : ReservationResultDTO
+Web --> EVUser : Show confirmation or rejection
+
+@enduml

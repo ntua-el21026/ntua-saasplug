@@ -1,0 +1,74 @@
+@startuml
+title saasPlug - Activity Diagram - Provider Catalog Synchronization
+skinparam shadowing false
+
+start
+
+partition "Scheduler" {
+  :Trigger nightly catalog sync;
+}
+
+partition "Provider Sync Service" {
+  :Create ProviderSyncRun in provider_sync_db;
+}
+
+partition "Provider Registry Service" {
+  :listActiveProviders(): ProviderDTO[];
+}
+
+while (More active providers?) is (yes)
+  partition "Provider Sync Service" {
+    :Select next ProviderDTO;
+    :Resolve providerType and apiBaseUrl;
+  }
+
+  partition "Provider Client Library" {
+    :Select provider adapter;
+    :Call provider list endpoint;
+  }
+
+  while (Provider call failed and retry budget remains?) is (yes)
+    partition "Provider Client Library" {
+      :Retry provider list endpoint;
+    }
+  endwhile (no)
+
+  if (Provider response available?) then (yes)
+    partition "Provider Client Library" {
+      :Normalize to ProviderCatalogSnapshotDTO;
+    }
+
+    partition "RabbitMQ Message Broker" {
+      :Publish ProviderCatalogFetched;
+    }
+
+    partition "Charging Point Catalog Service" {
+      :Consume ProviderCatalogFetched;
+    }
+
+    partition "PostgreSQL / catalog_db" {
+      :Compute diff against ChargingPoint;
+      :Upsert new or changed ChargingPoint rows;
+    }
+
+    partition "RabbitMQ Message Broker" {
+      :Publish ChargingPointCatalogUpdated;
+    }
+
+    partition "Provider Sync Service" {
+      :Update ProviderSyncRun as SUCCESS;
+    }
+  else (no)
+    partition "Provider Sync Service" {
+      :Update ProviderSyncRun as FAILED;
+      :Store errorMessage;
+    }
+  endif
+endwhile (no)
+
+partition "Scheduler" {
+  :Wait until next schedule;
+}
+
+stop
+@enduml

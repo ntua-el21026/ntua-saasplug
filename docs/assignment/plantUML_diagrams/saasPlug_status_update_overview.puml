@@ -1,0 +1,22 @@
+@startuml
+|saasPlug|
+start
+fork
+:get status;
+|charging points API|
+:info / status API;
+|saasPlug|
+:upd map;
+stop
+fork again
+:request reservation;
+|charging points API|
+:reservation API;
+|saasPlug|
+if (success) then 
+:confirm reservation;
+:log billable service;
+else (no)
+:notify user;
+endif
+@enduml

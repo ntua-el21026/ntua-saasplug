@@ -1,0 +1,29 @@
+@startuml
+allowmixing
+component "saasPlug project group saas26-YY" as saasPlug_project_group_saas26_YY {
+}
+component "saasPlug project group saas26-XX" as saasPlug_project_group_saas26_XX {
+}
+component "softPlug provider 3 (bluePlug)" as softPlug_provider_3__bluePlug_ {
+}
+component "softPlug provider 2 (greenPlug)" as softPlug_provider_2__greenPlug_ {
+}
+component "softPlug provider 1 (redPLUG)" as softPlug_provider_1__redPLUG_ {
+}
+() YY
+() XX
+() blueAPI
+() greenAPI
+() redAPI
+redAPI <|.. softPlug_provider_1__redPLUG_
+greenAPI <|.. softPlug_provider_2__greenPlug_
+blueAPI <|.. softPlug_provider_3__bluePlug_
+saasPlug_project_group_saas26_XX ..> XX : <<use>>  
+XX ..> redAPI
+XX ..> greenAPI
+XX ..> blueAPI
+saasPlug_project_group_saas26_YY ..> YY : <<use>>  
+YY ..> redAPI
+YY ..> greenAPI
+YY ..> blueAPI
+@enduml

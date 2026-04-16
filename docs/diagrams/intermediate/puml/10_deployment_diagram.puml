@@ -1,0 +1,104 @@
+@startuml
+title saasPlug - Deployment Diagram - Docker Compose Target
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+node "User device" as UserDevice {
+  artifact "Browser" as Browser
+}
+
+cloud "Internet" as Internet
+
+node "Docker host / VM" as DockerHost {
+  frame "Docker Compose project: saasplug" {
+    node "public_net" {
+      node "api-gateway\ncontainer: api-gateway\nimage/build: services/api-gateway\ninternal: 80\nhost: 8080 -> 80" as Gateway
+      node "web-frontend\ncontainer: web-frontend\nimage/build: apps/frontend\ninternal: 3000\nhost: dev 3000 -> 3000" as Frontend
+    }
+
+    node "backend_net" {
+      node "identity-service\nservices/identity\ninternal: 8001\nhost: none" as Identity
+      node "provider-registry-service\nservices/provider-registry\ninternal: 8002\nhost: none" as ProviderRegistry
+      node "charging-point-catalog-service\nservices/charging-point-catalog\ninternal: 8003\nhost: none" as Catalog
+      node "provider-sync-service\nservices/provider-sync\ninternal: 8004\nhost: none" as ProviderSync
+      node "charging-point-status-service\nservices/charging-point-status\ninternal: 8005\nhost: none" as Status
+      node "reservation-service\nservices/reservations\ninternal: 8006\nhost: none" as Reservations
+      node "usage-analytics-service\nservices/usage-analytics\ninternal: 8007\nhost: none" as Analytics
+      node "billing-payment-service\nservices/billing-payment\ninternal: 8008\nhost: none" as Billing
+    }
+
+    node "data_net" {
+      database "postgres\nimage: postgres:16\ninternal: 5432\nhost: dev 5432 -> 5432\nvolume: postgres_data" as Postgres
+      queue "rabbitmq\nimage: rabbitmq:3-management\nAMQP: 5672\nmanagement: dev 15672 -> 15672\nvolume: rabbitmq_data" as RabbitMQ
+    }
+  }
+}
+
+cloud "Google OAuth Provider" as GoogleOAuth
+cloud "External Payment Gateway\nor course mock" as PaymentGateway
+cloud "davinci.softlab.ntua.gr/saas26" as ProviderApis {
+  node "redPlug API" as RedPlug
+  node "greenPlug API" as GreenPlug
+  node "bluePlug API" as BluePlug
+}
+
+Browser --> Internet : HTTPS
+Internet --> Gateway : host port 8080
+Gateway --> Frontend : /
+Gateway --> Identity : /api/auth/*\n/api/users/*
+Gateway --> ProviderRegistry : /api/providers/*
+Gateway --> Catalog : /api/charging-points/*
+Gateway --> Status : /api/status/*
+Gateway --> Reservations : /api/reservations/*
+Gateway --> Analytics : /api/analytics/*
+Gateway --> Billing : /api/billing/*
+
+Identity --> Postgres : identity_db
+ProviderRegistry --> Postgres : providers_db
+ProviderSync --> Postgres : provider_sync_db
+Catalog --> Postgres : catalog_db
+Status --> Postgres : status_db
+Reservations --> Postgres : reservations_db
+Analytics --> Postgres : usage_analytics_db
+Billing --> Postgres : billing_db
+
+ProviderSync --> RabbitMQ : publish catalog events
+Catalog --> RabbitMQ : publish catalog updates
+Status --> RabbitMQ : publish status/view events
+Reservations --> RabbitMQ : publish reservation events
+Analytics --> RabbitMQ : consume usage events
+Billing --> RabbitMQ : consume/publish billing events
+
+Identity --> GoogleOAuth : OAuth HTTPS
+ProviderSync --> RedPlug : HTTPS list
+ProviderSync --> GreenPlug : HTTPS list
+ProviderSync --> BluePlug : HTTPS list
+Status --> ProviderApis : HTTPS status
+Reservations --> ProviderApis : HTTPS reservation/hold
+Billing --> PaymentGateway : HTTPS payment
+
+note right of Postgres
+  Separate logical DBs/schemas and credentials:
+  identity_db
+  providers_db
+  provider_sync_db
+  catalog_db
+  status_db
+  reservations_db
+  usage_analytics_db
+  billing_db
+end note
+
+note bottom of DockerHost
+  Secrets/environment:
+  provider API keys, JWT signing secret,
+  database password, payment credentials.
+
+  Normal public exposure:
+  only api-gateway host port 8080.
+  Frontend, PostgreSQL and RabbitMQ management
+  host ports are dev-only.
+end note
+
+@enduml
