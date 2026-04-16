@@ -66,6 +66,7 @@
 - First PlantUML deliverable created at `docs/diagrams/intermediate/saasplug_uml_model.md` with 18 embedded PlantUML blocks. Individual editable sources live under `docs/diagrams/intermediate/puml/`.
 - Validation note: all `.puml` sources passed PlantUML `-syntax` locally on 2026-04-16. Full image rendering was not checked because Graphviz `dot` is not installed in the local environment.
 - Line-ending policy: `.gitattributes` enforces LF for PlantUML, Markdown, source/config text files, and marks course documents/assets as binary to avoid CRLF normalization failures.
+- Temporary working folders `tmp/` and `temp/` must stay ignored and untracked. If they were already committed, remove them with `git rm -r --cached tmp temp` while keeping the local files.
 
 ## Repo Notes
 
