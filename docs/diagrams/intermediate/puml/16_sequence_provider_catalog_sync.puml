@@ -1,0 +1,45 @@
+@startuml
+title saasPlug - Sequence Diagram - Provider Catalog Sync
+skinparam shadowing false
+autonumber
+
+actor "Scheduler" as Scheduler
+participant "Provider Sync Service" as ProviderSync
+database "provider_sync_db" as SyncDb
+participant "Provider Registry Service" as Registry
+participant "Provider Client Library" as ProviderClient
+participant "redPlug API / greenPlug API / bluePlug API" as ProviderApi
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Charging Point Catalog Service" as Catalog
+database "catalog_db" as CatalogDb
+
+Scheduler -> ProviderSync : runScheduledSync()
+ProviderSync -> SyncDb : create ProviderSyncRun(STARTED)
+ProviderSync -> Registry : listActiveProviders()
+Registry --> ProviderSync : ProviderDTO[]
+
+loop for each active provider
+  ProviderSync -> ProviderClient : fetchCatalog(ProviderDTO)
+
+  alt redPlug
+    ProviderClient -> ProviderApi : GET /points
+  else greenPlug
+    ProviderClient -> ProviderApi : GET /chargingPoints
+  else bluePlug
+    ProviderClient -> ProviderApi : GET /locations
+  end
+
+  ProviderApi --> ProviderClient : provider-specific point list
+  ProviderClient --> ProviderSync : ProviderCatalogSnapshotDTO
+  ProviderSync -> RabbitMQ : publish ProviderCatalogFetched
+  RabbitMQ -> Catalog : deliver ProviderCatalogFetched
+  Catalog -> CatalogDb : computeCatalogDiff(snapshot)
+  Catalog -> CatalogDb : upsertChargingPoints(diff)
+  Catalog -> RabbitMQ : publish ChargingPointCatalogUpdated
+  RabbitMQ -> ProviderSync : deliver ChargingPointCatalogUpdated
+  ProviderSync -> SyncDb : update ProviderSyncRun(SUCCESS, counts)
+end
+
+ProviderSync --> Scheduler : sync completed
+
+@enduml

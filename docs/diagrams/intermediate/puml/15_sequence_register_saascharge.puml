@@ -1,0 +1,42 @@
+@startuml
+title saasPlug - Sequence Diagram - Register to saasCharge
+skinparam shadowing false
+autonumber
+
+actor "Charging points provider" as Provider
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Identity & Access Service" as Identity
+participant "Provider Registry Service" as Registry
+participant "Provider Client Library" as ProviderClient
+participant "redPlug API / greenPlug API / bluePlug API" as ProviderApi
+database "providers_db" as ProvidersDb
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Provider Sync Service" as ProviderSync
+
+Provider -> Web : Submit provider registration
+Web -> Gateway : GET /api/users/me
+Gateway -> Identity : getCurrentUser()
+Identity --> Gateway : UserDTO(role=PROVIDER_ADMIN)
+Gateway --> Web : UserDTO
+Web -> Gateway : POST /api/providers\nProviderRegistrationDTO
+Gateway -> Registry : registerProvider(request)
+Registry -> Registry : validate request and role
+
+opt Credential probe enabled
+  Registry -> ProviderClient : probeProvider(request)
+  ProviderClient -> ProviderApi : lightweight list/status call
+  ProviderApi --> ProviderClient : accepted
+  ProviderClient --> Registry : credential valid
+end
+
+Registry -> ProvidersDb : save Provider
+Registry -> ProvidersDb : save ProviderCredential(apiKeyRef)
+Registry -> RabbitMQ : publish ProviderCatalogSyncRequested
+RabbitMQ -> ProviderSync : deliver ProviderCatalogSyncRequested
+ProviderSync -> ProviderSync : schedule initial catalog sync
+Registry --> Gateway : ProviderDTO
+Gateway --> Web : ProviderDTO
+Web --> Provider : Registration accepted
+
+@enduml

@@ -1,0 +1,125 @@
+@startuml
+title saasPlug - Class Diagram - Service APIs
+allowmixing
+skinparam shadowing false
+skinparam packageStyle rectangle
+hide circle
+
+package "Public and internal service APIs" {
+  interface IdentityApi {
+    +startGoogleOAuth(): RedirectResponse
+    +completeGoogleOAuth(code: string): AuthTokenDTO
+    +getCurrentUser(): UserDTO
+  }
+
+  interface ProviderRegistryApi {
+    +registerProvider(request: ProviderRegistrationDTO): ProviderDTO
+    +getOwnProvider(): ProviderDTO
+    +listActiveProviders(): ProviderDTO[]
+  }
+
+  interface ChargingPointCatalogApi {
+    +searchChargingPoints(filters: ChargingPointSearchQueryDTO): ChargingPointDTO[]
+    +getChargingPoint(pointId: UUID): ChargingPointDTO
+    +applyCatalogUpdate(snapshot: ProviderCatalogSnapshotDTO): void
+  }
+
+  interface ChargingPointStatusApi {
+    +getPointStatus(pointId: UUID): ChargingPointStatusDTO
+    +refreshPointStatus(pointId: UUID): ChargingPointStatusDTO
+  }
+
+  interface ReservationApi {
+    +createReservation(request: ReservationRequestDTO): ReservationResultDTO
+    +getReservation(reservationId: UUID): ReservationResultDTO
+  }
+
+  interface UsageAnalyticsApi {
+    +getProviderAnalytics(query: AnalyticsQueryDTO): AnalyticsSummaryDTO
+    +getGlobalAnalytics(query: AnalyticsQueryDTO): AnalyticsSummaryDTO
+    +exportProviderUsageLog(query: AnalyticsQueryDTO): ExportFileDTO
+    +recordUsageEvent(event: UsageEventDTO): void
+  }
+
+  interface BillingPaymentApi {
+    +listProviderInvoices(): InvoiceDTO[]
+    +getInvoice(invoiceId: UUID): InvoiceDTO
+    +payInvoice(invoiceId: UUID, payment: PaymentDTO): PaymentDTO
+    +createInvoiceLinesFromReservation(event: DomainEventDTO): void
+  }
+}
+
+package "Implemented by components" {
+  component "Identity & Access Service" as IdentityService
+  component "Provider Registry Service" as ProviderRegistryService
+  component "Charging Point Catalog Service" as CatalogService
+  component "Charging Point Status Service" as StatusService
+  component "Reservation Service" as ReservationService
+  component "Usage & Analytics Service" as AnalyticsService
+  component "Billing & Payment Service" as BillingService
+}
+
+IdentityService ..|> IdentityApi
+ProviderRegistryService ..|> ProviderRegistryApi
+CatalogService ..|> ChargingPointCatalogApi
+StatusService ..|> ChargingPointStatusApi
+ReservationService ..|> ReservationApi
+AnalyticsService ..|> UsageAnalyticsApi
+BillingService ..|> BillingPaymentApi
+
+IdentityApi ..> AuthTokenDTO
+IdentityApi ..> UserDTO
+ProviderRegistryApi ..> ProviderRegistrationDTO
+ProviderRegistryApi ..> ProviderDTO
+ChargingPointCatalogApi ..> ChargingPointSearchQueryDTO
+ChargingPointCatalogApi ..> ChargingPointDTO
+ChargingPointCatalogApi ..> ProviderCatalogSnapshotDTO
+ChargingPointStatusApi ..> ChargingPointStatusDTO
+ReservationApi ..> ReservationRequestDTO
+ReservationApi ..> ReservationResultDTO
+UsageAnalyticsApi ..> AnalyticsQueryDTO
+UsageAnalyticsApi ..> AnalyticsSummaryDTO
+UsageAnalyticsApi ..> ExportFileDTO
+UsageAnalyticsApi ..> UsageEventDTO
+BillingPaymentApi ..> InvoiceDTO
+BillingPaymentApi ..> PaymentDTO
+BillingPaymentApi ..> DomainEventDTO
+
+note right of IdentityApi
+  GET /api/auth/google/start
+  GET /api/auth/google/callback
+  GET /api/users/me
+end note
+
+note right of ProviderRegistryApi
+  POST /api/providers
+  GET /api/providers/me
+end note
+
+note right of ChargingPointCatalogApi
+  GET /api/charging-points
+  GET /api/charging-points/{pointId}
+end note
+
+note right of ChargingPointStatusApi
+  GET /api/status/{pointId}
+end note
+
+note right of ReservationApi
+  POST /api/reservations
+  GET /api/reservations/{reservationId}
+end note
+
+note right of UsageAnalyticsApi
+  GET /api/analytics/provider/me
+  GET /api/analytics/provider/me/export
+  GET /api/analytics/operator/global
+end note
+
+note right of BillingPaymentApi
+  GET /api/billing/provider/me/invoices
+  GET /api/billing/provider/me/invoices/{invoiceId}
+  POST /api/billing/provider/me/invoices/{invoiceId}/pay
+end note
+
+@enduml

@@ -1,0 +1,41 @@
+@startuml
+title saasPlug - Sequence Diagram - View Analytics and Export Logs
+skinparam shadowing false
+autonumber
+
+actor "Charging points provider" as Provider
+actor "saasPlug operator" as Operator
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Usage & Analytics Service" as Analytics
+database "usage_analytics_db" as AnalyticsDb
+
+Provider -> Web : Open provider analytics
+Web -> Gateway : GET /api/analytics/provider/me
+Gateway -> Analytics : getProviderAnalytics(AnalyticsQueryDTO)
+Analytics -> AnalyticsDb : read AnalyticsAggregate and UsageEvent\nfiltered by providerId
+AnalyticsDb --> Analytics : aggregate data
+Analytics --> Gateway : AnalyticsSummaryDTO
+Gateway --> Web : AnalyticsSummaryDTO
+Web --> Provider : Show own analytics
+
+Provider -> Web : Export own logs
+Web -> Gateway : GET /api/analytics/provider/me/export
+Gateway -> Analytics : exportProviderUsageLog(AnalyticsQueryDTO)
+Analytics -> AnalyticsDb : create ExportJob
+Analytics -> AnalyticsDb : read UsageEvent rows
+Analytics -> AnalyticsDb : store fileUrl on ExportJob
+Analytics --> Gateway : ExportFileDTO
+Gateway --> Web : ExportFileDTO
+Web --> Provider : Download usage export
+
+Operator -> Web : Open global analytics
+Web -> Gateway : GET /api/analytics/operator/global
+Gateway -> Analytics : getGlobalAnalytics(AnalyticsQueryDTO)
+Analytics -> AnalyticsDb : read global AnalyticsAggregate
+AnalyticsDb --> Analytics : aggregate data
+Analytics --> Gateway : AnalyticsSummaryDTO
+Gateway --> Web : AnalyticsSummaryDTO
+Web --> Operator : Show global analytics
+
+@enduml

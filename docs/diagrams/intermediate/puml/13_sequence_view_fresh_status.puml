@@ -1,0 +1,48 @@
+@startuml
+title saasPlug - Sequence Diagram - View Fresh Point Status
+skinparam shadowing false
+autonumber
+
+actor "Χρήστης EV" as EVUser
+participant "Web Frontend" as Web
+participant "API Gateway" as Gateway
+participant "Charging Point Status Service" as StatusService
+participant "Charging Point Catalog Service" as Catalog
+database "catalog_db" as CatalogDb
+participant "Provider Client Library" as ProviderClient
+participant "redPlug API / greenPlug API / bluePlug API" as ProviderApi
+database "status_db" as StatusDb
+queue "RabbitMQ Message Broker" as RabbitMQ
+participant "Usage & Analytics Service" as Analytics
+
+EVUser -> Web : Open point details
+Web -> Gateway : GET /api/status/{pointId}
+Gateway -> StatusService : getPointStatus(pointId)
+StatusService -> Catalog : getChargingPoint(pointId)
+Catalog -> CatalogDb : find ChargingPoint
+CatalogDb --> Catalog : ChargingPointDTO
+Catalog --> StatusService : ChargingPointDTO
+StatusService -> ProviderClient : refreshPointStatus(ChargingPointDTO)
+
+alt redPlug
+  ProviderClient -> ProviderApi : GET /point/{pointid}
+else greenPlug
+  ProviderClient -> ProviderApi : GET /chargingPoints/{pointid}
+else bluePlug
+  ProviderClient -> ProviderApi : GET /location/{pointid}/status
+end
+
+ProviderApi --> ProviderClient : provider-specific status DTO
+ProviderClient --> StatusService : ChargingPointStatusDTO
+StatusService -> StatusDb : persist StatusSnapshot
+StatusService -> RabbitMQ : publish ProviderStatusUpdated
+StatusService -> RabbitMQ : publish PointViewed
+RabbitMQ -> Catalog : deliver ProviderStatusUpdated
+Catalog -> CatalogDb : update latestStatus cache
+RabbitMQ -> Analytics : deliver PointViewed
+Analytics -> Analytics : recordUsageEvent(POINT_VIEWED)
+StatusService --> Gateway : ChargingPointStatusDTO
+Gateway --> Web : ChargingPointStatusDTO
+Web --> EVUser : Show fresh status
+
+@enduml

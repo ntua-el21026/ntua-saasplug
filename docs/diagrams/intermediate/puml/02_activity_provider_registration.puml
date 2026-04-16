@@ -1,0 +1,64 @@
+@startuml
+title saasPlug - Activity Diagram - Provider Registration
+skinparam shadowing false
+
+start
+
+partition "Charging points provider" {
+  :Sign in as PROVIDER_ADMIN;
+  :Fill ProviderRegistrationDTO;
+}
+
+partition "Web Frontend" {
+  :Submit provider registration form;
+}
+
+partition "API Gateway" {
+  :POST /api/providers;
+}
+
+partition "Provider Registry Service" {
+  :Validate JWT role;
+  :Validate providerName, providerType,\napiBaseUrl, contactEmail, apiKey;
+}
+
+if (Request valid?) then (yes)
+  if (Credential probe enabled?) then (yes)
+    partition "Provider Client Library" {
+      :Select redPlug, greenPlug,\nor bluePlug adapter;
+      :Call lightweight provider endpoint;
+    }
+    if (Provider credential accepted?) then (yes)
+    else (no)
+      partition "Provider Registry Service" {
+        :Return ApiErrorDTO;
+      }
+      stop
+    endif
+  else (no)
+    partition "Provider Registry Service" {
+      :Skip live credential probe;
+    }
+  endif
+
+  partition "PostgreSQL / providers_db" {
+    :Persist Provider;
+    :Persist ProviderCredential;
+  }
+
+  partition "RabbitMQ Message Broker" {
+    :Publish ProviderCatalogSyncRequested;
+  }
+
+  partition "Provider Registry Service" {
+    :Return ProviderDTO;
+  }
+else (no)
+  partition "Provider Registry Service" {
+    :Return ApiErrorDTO;
+  }
+  stop
+endif
+
+stop
+@enduml

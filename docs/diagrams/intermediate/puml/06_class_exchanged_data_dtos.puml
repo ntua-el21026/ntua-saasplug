@@ -1,0 +1,332 @@
+@startuml
+title saasPlug - Class Diagram - Exchanged Data DTOs
+skinparam shadowing false
+skinparam packageStyle rectangle
+hide circle
+
+package "Normalized saasPlug DTOs" {
+  class AuthTokenDTO <<DTO>> {
+    +accessToken: string
+    +tokenType: string
+    +expiresAt: datetime
+    +user: UserDTO
+  }
+
+  class UserDTO <<DTO>> {
+    +userId: UUID
+    +email: string
+    +displayName: string
+    +role: string
+  }
+
+  class ProviderDTO <<DTO>> {
+    +providerId: UUID
+    +providerName: string
+    +providerType: ProviderType
+    +apiBaseUrl: string
+    +contactEmail: string
+    +status: string
+    +registeredAt: datetime
+  }
+
+  class ProviderRegistrationDTO <<DTO>> {
+    +providerName: string
+    +apiBaseUrl: string
+    +apiKey: string
+    +providerType: ProviderType
+    +contactEmail: string
+  }
+
+  class ChargingPointSearchQueryDTO <<DTO>> {
+    +providerId: UUID?
+    +connectorType: string?
+    +status: ChargingPointStatus?
+    +minCapacityKw: int?
+    +maxPricePerKwh: decimal?
+    +nearAddress: string?
+    +limit: int
+    +offset: int
+  }
+
+  class ChargingPointDTO <<DTO>> {
+    +pointId: UUID
+    +providerId: UUID
+    +providerName: string
+    +externalPointId: string
+    +locationName: string?
+    +address: string?
+    +latitude: decimal?
+    +longitude: decimal?
+    +connectorType: string?
+    +capacityKw: int
+    +pricePerKwh: decimal?
+    +status: ChargingPointStatus
+    +reservationEndsAt: datetime?
+    +lastStatusUpdatedAt: datetime?
+  }
+
+  class ChargingPointStatusDTO <<DTO>> {
+    +pointId: UUID
+    +providerId: UUID
+    +externalPointId: string
+    +status: ChargingPointStatus
+    +reservationEndsAt: datetime?
+    +pricePerKwh: decimal?
+    +observedAt: datetime
+  }
+
+  class ProviderCatalogSnapshotDTO <<DTO>> {
+    +providerId: UUID
+    +providerName: string
+    +fetchedAt: datetime
+    +points: ChargingPointDTO[]
+  }
+
+  class ReservationRequestDTO <<DTO>> {
+    +pointId: UUID
+    +durationMinutes: int
+    +idempotencyKey: string
+  }
+
+  class ReservationResultDTO <<DTO>> {
+    +reservationId: UUID?
+    +pointId: UUID
+    +providerId: UUID
+    +externalPointId: string
+    +status: ReservationStatus
+    +reservationEndsAt: datetime?
+    +pricePerKwh: decimal?
+    +message: string?
+  }
+
+  class UsageEventDTO <<DTO>> {
+    +eventId: UUID
+    +eventType: UsageEventType
+    +actorId: UUID?
+    +providerId: UUID?
+    +pointId: UUID?
+    +reservationId: UUID?
+    +occurredAt: datetime
+    +metadata: object
+  }
+
+  class DomainEventDTO <<DTO>> {
+    +eventId: UUID
+    +eventType: DomainEventType
+    +correlationId: string?
+    +occurredAt: datetime
+    +payload: object
+  }
+
+  class AnalyticsQueryDTO <<DTO>> {
+    +providerId: UUID?
+    +periodStart: datetime
+    +periodEnd: datetime
+    +groupBy: string?
+  }
+
+  class AnalyticsSummaryDTO <<DTO>> {
+    +providerId: UUID?
+    +periodStart: datetime
+    +periodEnd: datetime
+    +searchCount: int
+    +pointViewCount: int
+    +reservationCount: int
+    +confirmedReservationCount: int
+    +revenueAmount: decimal
+  }
+
+  class ExportFileDTO <<DTO>> {
+    +exportJobId: UUID
+    +fileName: string
+    +contentType: string
+    +downloadUrl: string
+    +expiresAt: datetime?
+  }
+
+  class InvoiceDTO <<DTO>> {
+    +invoiceId: UUID
+    +providerId: UUID
+    +periodStart: date
+    +periodEnd: date
+    +status: InvoiceStatus
+    +totalAmount: decimal
+    +issuedAt: datetime
+    +paidAt: datetime?
+    +lines: InvoiceLineDTO[]
+  }
+
+  class InvoiceLineDTO <<DTO>> {
+    +invoiceLineId: UUID
+    +invoiceId: UUID
+    +reservationId: UUID?
+    +description: string
+    +quantity: int
+    +unitAmount: decimal
+    +lineAmount: decimal
+  }
+
+  class PaymentDTO <<DTO>> {
+    +paymentId: UUID
+    +invoiceId: UUID
+    +providerId: UUID
+    +amount: decimal
+    +status: PaymentStatus
+    +externalPaymentId: string?
+    +paidAt: datetime?
+  }
+
+  class ApiErrorDTO <<DTO>> {
+    +code: string
+    +message: string
+    +details: object?
+  }
+}
+
+package "Provider-Specific DTOs" {
+  class RedPoint <<external DTO>> {
+    +pointid: int
+    +providerName: string
+    +status: string
+    +reservationendtime: string?
+    +cap: int
+    +connector: string?
+    +locationName: string?
+    +address: string?
+  }
+
+  class RedReserveResponse <<external DTO>> {
+    +pointid: int
+    +providerName: string
+    +status: string
+    +reservationendtime: string
+  }
+
+  class GreenPoint <<external DTO>> {
+    +id: int
+    +providerName: string
+    +state: string
+    +reservedUntil: string?
+    +kwhRateEur: decimal
+    +cap: int
+    +connector: string?
+    +locationName: string?
+    +address: string?
+  }
+
+  class GreenReservationRequest <<external DTO>> {
+    +duration: int
+  }
+
+  class GreenReserveResponse <<external DTO>> {
+    +id: int
+    +providerName: string
+    +state: string
+    +reservedUntil: string
+    +kwhRateEur: decimal
+  }
+
+  class BluePoint <<external DTO>> {
+    +chargerId: int
+    +providerName: string
+    +currentStatus: string
+    +reservationEnd: string?
+    +pricePerKwh: decimal
+    +cap: int
+    +connector: string?
+    +locationName: string?
+    +address: string?
+  }
+
+  class BlueReserveResponse <<external DTO>> {
+    +chargerId: int
+    +providerName: string
+    +currentStatus: string
+    +reservationEnd: string
+    +pricePerKwh: decimal
+  }
+}
+
+package "Enums" {
+  enum ProviderType {
+    RED_PLUG
+    GREEN_PLUG
+    BLUE_PLUG
+    CUSTOM
+  }
+
+  enum ChargingPointStatus {
+    AVAILABLE
+    OCCUPIED
+    RESERVED
+    UNKNOWN
+    OUT_OF_SERVICE
+  }
+
+  enum ReservationStatus {
+    CONFIRMED
+    REJECTED
+    CANCELLED
+    EXPIRED
+  }
+
+  enum UsageEventType {
+    SEARCH_PERFORMED
+    POINT_VIEWED
+    RESERVATION_CONFIRMED
+    RESERVATION_REJECTED
+    INVOICE_ISSUED
+    INVOICE_PAID
+  }
+
+  enum DomainEventType {
+    PROVIDER_CATALOG_SYNC_REQUESTED
+    PROVIDER_CATALOG_FETCHED
+    CHARGING_POINT_CATALOG_UPDATED
+    PROVIDER_STATUS_UPDATED
+    POINT_VIEWED
+    SEARCH_PERFORMED
+    RESERVATION_CONFIRMED
+    RESERVATION_REJECTED
+    INVOICE_ISSUED
+    INVOICE_PAID
+  }
+
+  enum InvoiceStatus {
+    DRAFT
+    ISSUED
+    PAID
+    OVERDUE
+    CANCELLED
+  }
+
+  enum PaymentStatus {
+    PENDING
+    SUCCEEDED
+    FAILED
+  }
+}
+
+AuthTokenDTO --> UserDTO
+ProviderDTO --> ProviderType
+ProviderRegistrationDTO --> ProviderType
+ChargingPointSearchQueryDTO --> ChargingPointStatus
+ChargingPointDTO --> ChargingPointStatus
+ChargingPointStatusDTO --> ChargingPointStatus
+ProviderCatalogSnapshotDTO "1" o-- "*" ChargingPointDTO
+ReservationResultDTO --> ReservationStatus
+UsageEventDTO --> UsageEventType
+DomainEventDTO --> DomainEventType
+AnalyticsQueryDTO ..> AnalyticsSummaryDTO
+InvoiceDTO --> InvoiceStatus
+InvoiceDTO "1" o-- "*" InvoiceLineDTO
+PaymentDTO --> PaymentStatus
+
+RedPoint ..> ChargingPointDTO : normalized to
+GreenPoint ..> ChargingPointDTO : normalized to
+BluePoint ..> ChargingPointDTO : normalized to
+RedReserveResponse ..> ReservationResultDTO : normalized to
+GreenReserveResponse ..> ReservationResultDTO : normalized to
+BlueReserveResponse ..> ReservationResultDTO : normalized to
+
+@enduml

@@ -1,0 +1,88 @@
+@startuml
+title saasPlug - Activity Diagram - Search and Status Refresh
+skinparam shadowing false
+
+start
+
+partition "Χρήστης EV" {
+  :Enter search filters;
+}
+
+partition "Web Frontend" {
+  :Build ChargingPointSearchQueryDTO;
+}
+
+partition "API Gateway" {
+  :GET /api/charging-points;
+}
+
+partition "Charging Point Catalog Service" {
+  :searchChargingPoints(filters);
+}
+
+partition "PostgreSQL / catalog_db" {
+  :Read ChargingPoint rows\nand latest cached status;
+}
+
+partition "RabbitMQ Message Broker" {
+  :Publish SearchPerformed;
+}
+
+partition "Usage & Analytics Service" {
+  :recordUsageEvent(SearchPerformed);
+}
+
+partition "Web Frontend" {
+  :Render ChargingPointDTO[];
+}
+
+partition "Χρήστης EV" {
+  :Select a charging point;
+}
+
+if (Fresh status needed?) then (yes)
+  partition "API Gateway" {
+    :GET /api/status/{pointId};
+  }
+
+  partition "Charging Point Status Service" {
+    :getPointStatus(pointId);
+  }
+
+  partition "Charging Point Catalog Service" {
+    :getChargingPoint(pointId);
+  }
+
+  partition "Provider Client Library" {
+    :Call provider status API using\nproviderId and externalPointId;
+    :Normalize to ChargingPointStatusDTO;
+  }
+
+  partition "PostgreSQL / status_db" {
+    :Persist StatusSnapshot;
+  }
+
+  partition "RabbitMQ Message Broker" {
+    :Publish ProviderStatusUpdated;
+    :Publish PointViewed;
+  }
+
+  partition "Charging Point Catalog Service" {
+    :Update latest cached status;
+  }
+
+  partition "Usage & Analytics Service" {
+    :recordUsageEvent(PointViewed);
+  }
+else (no)
+  partition "Web Frontend" {
+    :Use cached status from search result;
+  }
+endif
+
+partition "Web Frontend" {
+  :Show point details and status;
+}
+
+stop
+@enduml

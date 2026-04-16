@@ -26,12 +26,12 @@
 - `docs/assignment/Διαγράμματα SRS.vpp`: Visual Paradigm SQLite project containing the same SRS diagrams and model elements.
 - `docs/assignment/providers/`: hypothetical provider API specs in OpenAPI YAML and Postman collection format.
 - `docs/lectures/`: lecture PDFs and slide images, excluding `docs/lectures/bibliography/` for the initial orientation pass.
-- `docs/assignment/Project Notes from Lectures.docx`: intentionally not reviewed yet; it is for the later second part.
+- `docs/assignment/Project Notes from Lectures.docx`: reviewed after user approval; it affects first UML architecture decisions around messaging, provider calls, local catalog/cache, and API gateway usage.
 
 ## SRS Vocabulary To Preserve
 
 - Actors: `Χρήστης EV`, `Charging points provider`, `saasPlug operator`.
-- Use cases: `Search for a point`, `Reservation`, `Register to saasCharge`, `View own analytics`, `View invoice`, `Pay invoice`, `Export own logs`, `View global analytics`.
+- Use cases: `Search for a point`, `Login with Google`, `Reservation`, `Register to saasCharge`, `View own analytics`, `View invoice`, `Pay invoice`, `Export own logs`, `View global analytics`.
 - Dataflow/process terms: `Point selection`, `Charging points service registration`, `Status update`, `Analytics, billing`, `Payment processing`.
 - Data stores: `Charging points & status`, `Log (reservations, views)`.
 - SRS component terms: `saasPlug charging points interface`, `saasPlug core`, `payments service`, `charging points provider 1/2/N`.
@@ -55,6 +55,17 @@
 - First deliverable still needs a consistent complete model: use case, activity, class/data/API, component, deployment, sequence, and persistence design.
 - Main modeling risk is consistency: names, API DTOs, services, and data stores must line up across every diagram.
 - The provider APIs should probably be modeled both as external provider contracts and normalized internal saasPlug contracts.
+- A full diagram-facing architecture/specification document now exists at `docs/diagrams/intermediate/architecture_decisions.md`.
+- Current proposed stack for discussion: React TypeScript frontend, FastAPI backend services, PostgreSQL, RabbitMQ for internal synchronization only, API Gateway/reverse proxy, Docker Compose.
+- Project Notes decision impact: keep a local charging point catalog/cache; minimize provider calls; use provider list calls on a schedule, provider status/reservation calls synchronously on demand, and RabbitMQ for internal synchronization rather than for external provider command queues.
+- Database decision: model database-per-service ownership. A single PostgreSQL container is acceptable in Docker diagrams only as a host for separate logical service databases/schemas with separate credentials; logical DBs are `identity_db`, `providers_db`, `provider_sync_db`, `catalog_db`, `status_db`, `reservations_db`, `usage_analytics_db`, and `billing_db`. Overlapping data is duplicated as event-synced snapshots/read models, not shared through cross-service SQL joins.
+- Catalog ownership decision: `Provider Sync Service` fetches and normalizes provider catalog snapshots, then publishes `ProviderCatalogFetched`; `Charging Point Catalog Service` owns the diff against `catalog_db`, persists changes, and publishes `ChargingPointCatalogUpdated`.
+- Point resolution decision: status and reservation flows resolve `pointId` through `Charging Point Catalog Service` before calling provider-specific status/reservation APIs.
+- Diagram coverage decision: include explicit Google OAuth login, provider registration, provider catalog sync, search/status, reservation/billing, analytics/export, and invoice/payment flows in the first PlantUML deliverable.
+- Use case relationship decision: keep the SRS baseline names, but write `<<extend>>` in standard UML direction: `Reservation` extends `Search for a point`, `View invoice` and `Export own logs` extend `View own analytics`, and `Pay invoice` extends `View invoice`.
+- First PlantUML deliverable created at `docs/diagrams/intermediate/saasplug_uml_model.md` with 18 embedded PlantUML blocks. Individual editable sources live under `docs/diagrams/intermediate/puml/`.
+- Validation note: all `.puml` sources passed PlantUML `-syntax` locally on 2026-04-16. Full image rendering was not checked because Graphviz `dot` is not installed in the local environment.
+- Line-ending policy: `.gitattributes` enforces LF for PlantUML, Markdown, source/config text files, and marks course documents/assets as binary to avoid CRLF normalization failures.
 
 ## Repo Notes
 

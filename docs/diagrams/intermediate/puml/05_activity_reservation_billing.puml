@@ -1,0 +1,75 @@
+@startuml
+title saasPlug - Activity Diagram - Reservation and Billing
+skinparam shadowing false
+
+start
+
+partition "Χρήστης EV" {
+  :Request reservation;
+}
+
+partition "Web Frontend" {
+  :Create ReservationRequestDTO;
+}
+
+partition "API Gateway" {
+  :POST /api/reservations;
+}
+
+partition "Reservation Service" {
+  :Validate JWT role EV_USER;
+  :Validate idempotencyKey;
+}
+
+partition "Charging Point Catalog Service" {
+  :getChargingPoint(pointId);
+}
+
+partition "Provider Registry Service" {
+  :resolveProvider(providerId);
+}
+
+partition "Provider Client Library" {
+  :Call provider reservation/hold API\nsynchronously;
+}
+
+if (Provider accepted reservation?) then (yes)
+  partition "PostgreSQL / reservations_db" {
+    :Persist Reservation as CONFIRMED;
+  }
+
+  partition "Reservation Service" {
+    :Return ReservationResultDTO(CONFIRMED);
+  }
+
+  partition "RabbitMQ Message Broker" {
+    :Publish ReservationConfirmed;
+  }
+
+  partition "Usage & Analytics Service" {
+    :recordUsageEvent(RESERVATION_CONFIRMED);
+  }
+
+  partition "Billing & Payment Service" {
+    :Create InvoiceLine from ReservationConfirmed;
+  }
+else (no)
+  partition "PostgreSQL / reservations_db" {
+    :Persist Reservation as REJECTED;
+  }
+
+  partition "Reservation Service" {
+    :Return ReservationResultDTO(REJECTED);
+  }
+
+  partition "RabbitMQ Message Broker" {
+    :Publish ReservationRejected;
+  }
+
+  partition "Usage & Analytics Service" {
+    :recordUsageEvent(RESERVATION_REJECTED);
+  }
+endif
+
+stop
+@enduml
