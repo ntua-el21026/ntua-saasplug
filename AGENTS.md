@@ -62,6 +62,7 @@
 - Catalog ownership decision: `Provider Sync Service` fetches and normalizes provider catalog snapshots, then publishes `ProviderCatalogFetched`; `Charging Point Catalog Service` owns the diff against `catalog_db`, persists changes, and publishes `ChargingPointCatalogUpdated`.
 - Point resolution decision: status and reservation flows resolve `pointId` through `Charging Point Catalog Service` before calling provider-specific status/reservation APIs.
 - Diagram coverage decision: include explicit Google OAuth login, provider registration, provider catalog sync, search/status, reservation/billing, analytics/export, and invoice/payment flows in the first PlantUML deliverable.
+- Diagram labeling decision: do not annotate use cases with team-size optional labels; keep the labels as clean use-case names.
 - Use case relationship decision: keep the SRS baseline names, but write `<<extend>>` in standard UML direction: `Reservation` extends `Search for a point`, `View invoice` and `Export own logs` extend `View own analytics`, and `Pay invoice` extends `View invoice`.
 - First PlantUML deliverable created at `docs/diagrams/intermediate/saasplug_uml_model.md` with 18 embedded PlantUML blocks. Individual editable sources live under `docs/diagrams/intermediate/puml/`.
 - Validation note: all `.puml` sources passed PlantUML `-syntax` locally on 2026-04-16. Full image rendering was not checked because Graphviz `dot` is not installed in the local environment.

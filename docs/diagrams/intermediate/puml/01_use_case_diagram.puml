@@ -12,14 +12,14 @@ actor "External Payment Gateway" as PaymentGateway <<external>>
 
 rectangle "saasPlug" {
   usecase "Search for a point" as SearchForPoint
-  usecase "Login with Google\n<<optional 5-6>>" as LoginGoogle
+  usecase "Login with Google" as LoginGoogle
   usecase "Reservation" as Reservation
   usecase "Register to saasCharge" as RegisterSaasCharge
   usecase "View own analytics" as ViewOwnAnalytics
   usecase "View invoice" as ViewInvoice
-  usecase "Pay invoice\n<<optional 5-6>>" as PayInvoice
-  usecase "Export own logs\n<<optional 5-6>>" as ExportOwnLogs
-  usecase "View global analytics\n<<optional 5-6>>" as ViewGlobalAnalytics
+  usecase "Pay invoice" as PayInvoice
+  usecase "Export own logs" as ExportOwnLogs
+  usecase "View global analytics" as ViewGlobalAnalytics
 }
 
 EVUser --> SearchForPoint
