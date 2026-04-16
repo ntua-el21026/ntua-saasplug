@@ -424,7 +424,7 @@ Source references:
 
 | Required item | Decision | Status |
 | --- | --- | --- |
-| Use case diagram | Keep all SRS actors/use cases/extensions, correct the exported `<<extend>>` directions, and add `Login with Google` as the assignment-starred authentication use case. | accepted |
+| Use case diagram | Keep all SRS actors/use cases/extensions, correct the exported `<<extend>>` directions, and add `Login with Google` as the authentication use case. | accepted |
 | Activity diagram | Produce four activity diagrams: provider registration, catalog sync, search/status, reservation/billing. | accepted |
 | Class diagram - exchanged data | Model provider-specific DTOs and normalized saasPlug DTOs. | accepted |
 | Class diagram - APIs | Model service API interfaces with operations, request DTOs, and response DTOs. | accepted |
@@ -459,7 +459,7 @@ Use cases and relations:
 Modeling note:
 
 - Keep the exported SRS use case baseline, but write the `<<extend>>` relationships in standard UML direction: the extending use case points to the base use case.
-- Model `Login with Google` because the assignment statement lists it as a starred extra feature for larger teams and the lectures repeatedly use Google login in the SaaS examples. If the team size makes it optional, mark it with `<<optional 5-6>>` rather than deleting it.
+- Model `Login with Google` because the assignment statement and lectures use Google login in the SaaS examples. Do not add team-size labels to the diagram text.
 
 ## Activity Diagram Specifications
 
@@ -1496,7 +1496,6 @@ It should contain these PlantUML blocks in this order:
 ## Open Points Before Final UML Generation
 
 - Confirm whether the team wants `Search for a point` to be anonymous in the model. Current decision: anonymous search allowed, reservation requires authentication.
-- Confirm whether to label `Login with Google` as `<<optional 5-6>>`. Current decision: include it either way because it is in the assignment statement and lectures.
 - Confirm whether the team accepts RabbitMQ in the target architecture. Current decision: yes, for internal synchronization only.
 - Confirm whether the team accepts FastAPI for backend services. Current decision: proposed target.
 - Confirm whether component source links may point to intended future paths before code exists. Current decision: yes, because the assignment needs component-source mapping.
