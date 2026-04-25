@@ -1493,9 +1493,9 @@ It should contain these PlantUML blocks in this order:
 17. `Sequence Diagram - View Analytics and Export Logs`
 18. `Sequence Diagram - View Invoice and Pay Invoice`
 
-## Open Points Before Final UML Generation
+## Resolved Modeling Decisions for This UML Version
 
-- Confirm whether the team wants `Search for a point` to be anonymous in the model. Current decision: anonymous search allowed, reservation requires authentication.
-- Confirm whether the team accepts RabbitMQ in the target architecture. Current decision: yes, for internal synchronization only.
-- Confirm whether the team accepts FastAPI for backend services. Current decision: proposed target.
-- Confirm whether component source links may point to intended future paths before code exists. Current decision: yes, because the assignment needs component-source mapping.
+- `Search for a point` is modeled as available without login; `Reservation` requires an authenticated `EV_USER`.
+- `RabbitMQ Message Broker` is included for internal synchronization and event fan-out, not for queuing external provider reservation commands.
+- React TypeScript and FastAPI remain the proposed implementation target reflected by this UML model.
+- Component source references may point to intended future repository paths before implementation exists, because the assignment requires component-to-source traceability.

@@ -819,42 +819,16 @@ BillingPaymentApi ..> InvoiceDTO
 BillingPaymentApi ..> PaymentDTO
 BillingPaymentApi ..> DomainEventDTO
 
-note right of IdentityApi
-  GET /api/auth/google/start
-  GET /api/auth/google/callback
-  GET /api/users/me
-end note
-
-note right of ProviderRegistryApi
-  POST /api/providers
-  GET /api/providers/me
-end note
-
-note right of ChargingPointCatalogApi
-  GET /api/charging-points
-  GET /api/charging-points/{pointId}
-end note
-
-note right of ChargingPointStatusApi
-  GET /api/status/{pointId}
-end note
-
-note right of ReservationApi
-  POST /api/reservations
-  GET /api/reservations/{reservationId}
-end note
-
-note right of UsageAnalyticsApi
-  GET /api/analytics/provider/me
-  GET /api/analytics/provider/me/export
-  GET /api/analytics/operator/global
-end note
-
-note right of BillingPaymentApi
-  GET /api/billing/provider/me/invoices
-  GET /api/billing/provider/me/invoices/{invoiceId}
-  POST /api/billing/provider/me/invoices/{invoiceId}/pay
-end note
+legend bottom
+  Public REST route map:
+  IdentityApi: GET /api/auth/google/start, GET /api/auth/google/callback, GET /api/users/me
+  ProviderRegistryApi: POST /api/providers, GET /api/providers/me
+  ChargingPointCatalogApi: GET /api/charging-points, GET /api/charging-points/{pointId}
+  ChargingPointStatusApi: GET /api/status/{pointId}
+  ReservationApi: POST /api/reservations, GET /api/reservations/{reservationId}
+  UsageAnalyticsApi: GET /api/analytics/provider/me, GET /api/analytics/provider/me/export, GET /api/analytics/operator/global
+  BillingPaymentApi: GET /api/billing/provider/me/invoices, GET /api/billing/provider/me/invoices/{invoiceId}, POST /api/billing/provider/me/invoices/{invoiceId}/pay
+endlegend
 
 @enduml
 ```
