@@ -65,7 +65,7 @@
 - Diagram labeling decision: do not annotate use cases with team-size optional labels; keep the labels as clean use-case names.
 - Use case relationship decision: keep the SRS baseline names, but write `<<extend>>` in standard UML direction: `Reservation` extends `Search for a point`, `View invoice` and `Export own logs` extend `View own analytics`, and `Pay invoice` extends `View invoice`.
 - First PlantUML deliverable created at `docs/diagrams/intermediate/saasplug_uml_model.md` with 18 embedded PlantUML blocks. Individual editable sources live under `docs/diagrams/intermediate/puml/`.
-- Validation note: all `.puml` sources passed PlantUML `-syntax` locally on 2026-04-16. Full image rendering was not checked because Graphviz `dot` is not installed in the local environment.
+- Validation note: all 18 intermediate `.puml` sources passed PlantUML `-checkonly` and rendered to PNG locally on 2026-04-25. The API class diagram route annotations were moved into a bottom legend so default PlantUML rendering no longer clips them.
 - Line-ending policy: `.gitattributes` enforces LF for PlantUML, Markdown, source/config text files, and marks course documents/assets as binary to avoid CRLF normalization failures.
 - Temporary working folders `tmp/` and `temp/` must stay ignored and untracked. If they were already committed, remove them with `git rm -r --cached tmp temp` while keeping the local files.
 
