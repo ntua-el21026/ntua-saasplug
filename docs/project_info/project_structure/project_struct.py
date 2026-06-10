@@ -9,6 +9,7 @@ Usage:
     ./project_struct.py [--root /path/to/project]
                         [--outdir /dir/for/output]
                         [--top-level-gitignore-only]
+                        [--quiet]
 """
 
 import argparse
@@ -20,7 +21,7 @@ import pathspec  # pip install pathspec
 # Folders to always skip by name (in addition to .gitignore rules)
 DEFAULT_FOLDER_IGNORES = {
     ".git", "node_modules", ".venv", "venv", "dist", "build",
-    ".pytest_cache", ".mypy_cache", ".idea", ".vscode",
+    ".pytest_cache", ".mypy_cache", ".idea", ".vscode", ".shopify",
 }
 
 # Files/dirs that can mark a project root when walking upward (besides .git/)
@@ -89,14 +90,62 @@ def load_gitignore_patterns(root: Path, top_level_only: bool) -> pathspec.PathSp
     return pathspec.PathSpec.from_lines("gitwildmatch", all_patterns)
 
 
-def build_tree(root_dir: Path, ignore_spec: pathspec.PathSpec) -> Dict[str, Any]:
+def collect_non_ignored(root_dir: Path, ignore_spec: pathspec.PathSpec) -> List[Path]:
+    """Collect all non-ignored entries under `root_dir`, including the root itself."""
+    entries: List[Path] = []
+
+    def recurse(path: Path) -> None:
+        rel = path.relative_to(root_dir).as_posix()
+        if path.name in DEFAULT_FOLDER_IGNORES:
+            return
+        if rel and ignore_spec.match_file(rel):
+            return
+
+        entries.append(path)
+        if path.is_dir():
+            for child in sorted(path.iterdir(), key=lambda q: (not q.is_dir(), q.name.lower())):
+                recurse(child)
+
+    recurse(root_dir)
+    return entries
+
+
+def build_tree(
+    root_dir: Path,
+    ignore_spec: pathspec.PathSpec,
+    quiet: bool = False,
+) -> Dict[str, Any]:
     """Return nested dict similar to `tree -J`, filtered by ignore rules."""
+    non_ignored = collect_non_ignored(root_dir, ignore_spec)
+    total_process = len(non_ignored)
+    processed = 0
+    next_update = 0.0
+    bar_length = 40
+
+    def update_progress() -> None:
+        nonlocal processed, next_update
+        if quiet or total_process == 0:
+            return
+
+        processed += 1
+        percent = processed / total_process
+        if percent >= next_update or processed == total_process:
+            filled = int(bar_length * percent)
+            bar = "#" * filled + " " * (bar_length - filled)
+            print(f"\rProcessing:     [{bar}] {percent * 100:6.1f}%", end="", flush=True)
+            next_update += 0.01
+
+    if not quiet:
+        print("Processing non-ignored entries...")
+
     def node_for(p: Path) -> Optional[Dict[str, Any]]:
         rel = p.relative_to(root_dir).as_posix()
         if p.name in DEFAULT_FOLDER_IGNORES:
             return None
         if rel and ignore_spec.match_file(rel):
             return None
+
+        update_progress()
 
         entry: Dict[str, Any] = {"name": p.name}
         if p.is_dir():
@@ -111,7 +160,10 @@ def build_tree(root_dir: Path, ignore_spec: pathspec.PathSpec) -> Dict[str, Any]
             entry["type"] = "file"
         return entry
 
-    return node_for(root_dir) or {"name": root_dir.name, "type": "directory", "contents": []}
+    tree = node_for(root_dir) or {"name": root_dir.name, "type": "directory", "contents": []}
+    if not quiet and total_process > 0:
+        print(f"\rProcessing:     [{'#' * bar_length}] 100.0%")
+    return tree
 
 
 def count_files_dirs(node: Dict[str, Any]) -> Tuple[int, int]:
@@ -159,6 +211,8 @@ def parse_args() -> argparse.Namespace:
                     help="Output directory. Defaults to the script's folder.")
     ap.add_argument("--top-level-gitignore-only", action="store_true",
                     help="Honor only the top-level .gitignore.")
+    ap.add_argument("--quiet", action="store_true",
+                    help="Suppress the progress bar and console output.")
     return ap.parse_args()
 
 
@@ -170,7 +224,7 @@ def main() -> None:
 
     ignore_spec = load_gitignore_patterns(project_root, top_level_only=args.top_level_gitignore_only)
 
-    tree = build_tree(project_root, ignore_spec)
+    tree = build_tree(project_root, ignore_spec, quiet=args.quiet)
     files, dirs = count_files_dirs(tree)
 
     lines = render_ascii(tree)
@@ -178,7 +232,12 @@ def main() -> None:
 
     out_dir = args.outdir.resolve() if args.outdir else script_dir
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "project_struct.txt").write_text("\n".join(lines), encoding="utf-8")
+    output_file = out_dir / "project_struct.txt"
+    output_file.write_text("\n".join(lines), encoding="utf-8")
+
+    if not args.quiet:
+        print(f"\nProject root detected: {project_root}")
+        print(f"Wrote structure report to: {output_file}")
 
 
 if __name__ == "__main__":
