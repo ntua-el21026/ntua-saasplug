@@ -1,0 +1,24 @@
+===== ANALYSIS (With .gitignore) =====
+
+Total directories: 18
+Total files      : 91
+Total lines      : 47,869
+
+By language / type:
+  Archive              Files:  1  Lines: 0
+  Asset/Doc            Files:  1  Lines: 0
+  Asset/Image          Files: 14  Lines: 0
+  Asset/PDF            Files: 29  Lines: 0
+  GitAttributes        Files:  1  Lines: 25
+  GitIgnore            Files:  1  Lines: 79
+  JSON                 Files:  3  Lines: 299
+  License              Files:  1  Lines: 21
+  Markdown             Files:  9  Lines: 3,390
+  Other                Files: 24  Lines: 42,574
+  Python               Files:  2  Lines: 648
+  Text                 Files:  2  Lines: 135
+  YAML                 Files:  3  Lines: 698
+
+Extensions grouped into Other:
+  .puml
+  .vpp

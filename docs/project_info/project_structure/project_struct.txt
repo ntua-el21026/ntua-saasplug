@@ -1,4 +1,4 @@
-saasPlug/
+NTUA-saasPlug/
 ├── docs/
 │   ├── ai_logs/
 │   ├── assignment/
@@ -19,8 +19,8 @@ saasPlug/
 │   │   │   │   ├── greenPlug.yaml
 │   │   │   │   └── redPlug.yaml
 │   │   │   ├── README.md
-│   │   │   └── swagger_apis_hypothetical_providers.md
-│   │   ├── Project Notes from Lectures.docx
+│   │   │   ├── swagger_apis_hypothetical_providers.md
+│   │   │   └── Γενική περιγραφή APIs παρόχων φόρτισης.pdf
 │   │   ├── README.md
 │   │   ├── SRS Εξαμηνιαίας Εργασίας.docx
 │   │   ├── Διαγράμματα SRS.vpp
@@ -28,8 +28,6 @@ saasPlug/
 │   ├── diagrams/
 │   │   ├── final/
 │   │   └── intermediate/
-│   │       ├── image/
-│   │       │   └── saasplug_uml_model/
 │   │       ├── puml/
 │   │       │   ├── 01_use_case_diagram.puml
 │   │       │   ├── 02_activity_provider_registration.puml
@@ -72,17 +70,37 @@ saasPlug/
 │   │   │   ├── Paper_3-Impacts_of_Decomposition_Techniques.pdf
 │   │   │   └── Paper_4-Comparison_of_Event_Choreography.pdf
 │   │   ├── 1.1. Εισαγωγή - Eφαρμογές SaaS, περίγραμμα του μαθήματος.pdf
+│   │   ├── 10 HTML, CSS, DOM, jquery, ajax.pdf
+│   │   ├── 11.1 Data layer - ORM.pdf
+│   │   ├── 11.2  Using LLMs for microservices architectures. Metrics.pdf
+│   │   ├── 11.3 Extra - saas_llm_arch_materials.zip
+│   │   ├── 12.1 BDD, Παραδείγματα αρχιτεκτονικής.pdf
+│   │   ├── 12.2 Συζήτηση για εργασία.pdf
+│   │   ├── 13.1 Σύνοψη αρχιτεκτονικών SaaS.pdf
+│   │   ├── 13.2 BDD.pdf
+│   │   ├── 13.3 Ολοκλήρωση μαθήματος, παλαιά θέματα.pdf
 │   │   ├── 3. JavaScript.pdf
-│   │   ├── 4.1. Εισαγωγή σε Service Oriented Architectures.pdf
-│   │   ├── 4.2. Εισαγωγή σε αρχιτεκτονικές Microservices.pdf
-│   │   ├── 5.1. Αρχιτεκτονικές microservices και SOA παραδείγματα και παραγωγή με LLMs.pdf
-│   │   ├── 5.2. Υπηρεσίες Messaging - concepts.pdf
-│   │   ├── 7. Paper - Enhancing API documentation by inter-endpoint dependency graphs.pdf
-│   │   ├── 7.1. Hands-on lab - messaging.pdf
-│   │   └── 7.2. API gateways και load balancing.pdf
-│   ├── project_structure/
-│   │   ├── project_struct.py
-│   │   └── project_struct.txt
+│   │   ├── 4. Cloud Computing and OpenStack.pdf
+│   │   ├── 5.1 Εισαγωγή σε Service-Oriented-Architectures (SOA).pdf
+│   │   ├── 5.2 Εισαγωγή σε αρχιτεκτονικές Microservices.pdf
+│   │   ├── 6.1 Αρχιτεκτονικές microservices και SOA παραδείγματα και παραγωγή με LLMs.pdf
+│   │   ├── 6.2 Υπηρεσίες Messaging - concepts.pdf
+│   │   ├── 7.1 Hands-on lab - messaging.pdf
+│   │   ├── 7.2 API gateways και load balancing.pdf
+│   │   ├── 7.3 Extra - 1.pdf
+│   │   ├── 7.4 Extra - 2.pdf
+│   │   ├── 8.1 React Intro.pdf
+│   │   ├── 8.2 Next Intro.pdf
+│   │   ├── 8.3 Astro Intro.pdf
+│   │   ├── 9.1 Virtualization, Virtual Machines, Containers & Orchestration Systems.pdf
+│   │   └── 9.2 Docker Lab.pdf
+│   ├── project_info/
+│   │   ├── project_analytics/
+│   │   │   ├── project_analytics.py
+│   │   │   └── project_analytics.txt
+│   │   └── project_structure/
+│   │       ├── project_struct.py
+│   │       └── project_struct.txt
 │   └── README.md
 ├── .gitattributes
 ├── .gitignore
@@ -90,4 +108,4 @@ saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 18, Total files: 73
+Total directories: 18, Total files: 91
