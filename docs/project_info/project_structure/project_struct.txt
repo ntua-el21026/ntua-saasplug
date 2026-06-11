@@ -2,11 +2,13 @@ NTUA-saasPlug/
 ├── docs/
 │   ├── ai/
 │   │   ├── codex-runs/
-│   │   │   └── codex_run_template.md
+│   │   │   ├── _template.md
+│   │   │   └── README.md
 │   │   ├── prompts/
-│   │   │   └── prompt_01_repo_foundation.md
-│   │   ├── CODEX_PROMPTS_README.md
-│   │   └── prompt-log.md
+│   │   │   ├── prompt_01_repo_foundation.md
+│   │   │   └── README.md
+│   │   ├── prompt-log.md
+│   │   └── README.md
 │   ├── assignment/
 │   │   ├── plantUML_diagrams/
 │   │   │   ├── project_semantics_semantics.puml
@@ -33,28 +35,31 @@ NTUA-saasPlug/
 │   │   └── Εκφώνηση Εξαμηνιαίας Εργασίας.pdf
 │   ├── diagrams/
 │   │   ├── final/
-│   │   └── intermediate/
-│   │       ├── puml/
-│   │       │   ├── 01_use_case_diagram.puml
-│   │       │   ├── 02_activity_provider_registration.puml
-│   │       │   ├── 03_activity_provider_catalog_sync.puml
-│   │       │   ├── 04_activity_search_status_refresh.puml
-│   │       │   ├── 05_activity_reservation_billing.puml
-│   │       │   ├── 06_class_exchanged_data_dtos.puml
-│   │       │   ├── 07_class_service_apis.puml
-│   │       │   ├── 08_data_design_persistence_model.puml
-│   │       │   ├── 09_component_diagram.puml
-│   │       │   ├── 10_deployment_diagram.puml
-│   │       │   ├── 11_sequence_login_google.puml
-│   │       │   ├── 12_sequence_search_point.puml
-│   │       │   ├── 13_sequence_view_fresh_status.puml
-│   │       │   ├── 14_sequence_reservation.puml
-│   │       │   ├── 15_sequence_register_saascharge.puml
-│   │       │   ├── 16_sequence_provider_catalog_sync.puml
-│   │       │   ├── 17_sequence_analytics_export.puml
-│   │       │   └── 18_sequence_invoice_payment.puml
-│   │       ├── architecture_decisions.md
-│   │       └── saasplug_uml_model.md
+│   │   │   └── README.md
+│   │   ├── intermediate/
+│   │   │   ├── puml/
+│   │   │   │   ├── 01_use_case_diagram.puml
+│   │   │   │   ├── 02_activity_provider_registration.puml
+│   │   │   │   ├── 03_activity_provider_catalog_sync.puml
+│   │   │   │   ├── 04_activity_search_status_refresh.puml
+│   │   │   │   ├── 05_activity_reservation_billing.puml
+│   │   │   │   ├── 06_class_exchanged_data_dtos.puml
+│   │   │   │   ├── 07_class_service_apis.puml
+│   │   │   │   ├── 08_data_design_persistence_model.puml
+│   │   │   │   ├── 09_component_diagram.puml
+│   │   │   │   ├── 10_deployment_diagram.puml
+│   │   │   │   ├── 11_sequence_login_google.puml
+│   │   │   │   ├── 12_sequence_search_point.puml
+│   │   │   │   ├── 13_sequence_view_fresh_status.puml
+│   │   │   │   ├── 14_sequence_reservation.puml
+│   │   │   │   ├── 15_sequence_register_saascharge.puml
+│   │   │   │   ├── 16_sequence_provider_catalog_sync.puml
+│   │   │   │   ├── 17_sequence_analytics_export.puml
+│   │   │   │   └── 18_sequence_invoice_payment.puml
+│   │   │   ├── architecture_decisions.md
+│   │   │   ├── README.md
+│   │   │   └── saasplug_uml_model.md
+│   │   └── README.md
 │   ├── lectures/
 │   │   ├── 6. Ευκρινείς Εικόνες Διαφανειών/
 │   │   │   ├── slide52.png
@@ -108,6 +113,7 @@ NTUA-saasPlug/
 │   │       ├── project_struct.py
 │   │       └── project_struct.txt
 │   ├── specs/
+│   │   ├── README.md
 │   │   └── SPECIFICATIONS.md
 │   └── README.md
 ├── .gitattributes
@@ -116,4 +122,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 21, Total files: 96
+Total directories: 21, Total files: 102
