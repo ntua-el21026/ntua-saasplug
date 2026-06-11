@@ -13,8 +13,12 @@ administration.
 > Prompt 04 provider-registry status: `provider-registry-service` has local
 > persistence, seeded canonical providers, role/provider-scoped JWT
 > authorization, safe integration configuration metadata, and provider config
-> audit logs. Provider adapters and external provider calls are not implemented
-> yet.
+> audit logs.
+> Prompt 05 provider-service status: `red-provider-service`,
+> `green-provider-service`, and `blue-provider-service` have provider-specific
+> API mappings, normalized internal DTOs, provider-local persistence, raw
+> payload storage, sync runs, internal endpoints, and deterministic tests.
+> Catalog aggregation and user-facing provider flows are not implemented yet.
 
 ## Project Overview
 
@@ -222,13 +226,37 @@ Implemented:
 
 Still not implemented:
 
-- provider adapters or external provider API calls,
-- provider-local charging-point snapshots,
 - catalog sync/search, status cache, or reservation business flow,
 - RabbitMQ business publishers or consumers,
 - analytics, billing, or frontend product screens.
 
-The next implementation prompt is Prompt 05 for provider services.
+Prompt 05 implements the provider-service baselines described below.
+
+## Prompt 05 Scope
+
+Implemented:
+
+- `red-provider-service`, `green-provider-service`, and
+  `blue-provider-service` adapter baselines.
+- Provider-specific list/detail/status/reservation endpoint mappings based on
+  `redPlug.yaml`, `greenPlug.yaml`, and `bluePlug.yaml`.
+- Common normalized point, status, reservation, and provider-error DTOs.
+- Provider-local point snapshots, raw provider payloads, sync runs, and simple
+  point-change metadata in each provider service database.
+- Internal-only provider endpoints under `/internal/...`.
+- Deterministic fake-provider tests for all three provider services.
+- Safe API-key handling that sends optional provider keys through the provider
+  `authorization` header at runtime but never returns raw key values.
+
+Still not implemented:
+
+- catalog aggregation or imports from provider services,
+- catalog viewport/bounds search,
+- `status-service` 5-minute cache,
+- `reservation-service` reservation truth and reservation events,
+- analytics, billing, RabbitMQ business consumers, or frontend product screens.
+
+The next implementation prompt is Prompt 06 for `catalog-service`.
 
 ## Canonical References
 

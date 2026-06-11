@@ -131,6 +131,9 @@ services:
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       PROVIDER_CODE: redPlug
       PROVIDER_BASE_URL: ${RED_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/redPlug/api}
+      PROVIDER_API_TIMEOUT_SECONDS: ${PROVIDER_API_TIMEOUT_SECONDS:-10}
+      PROVIDER_API_KEY_ENV_VAR: RED_PROVIDER_API_KEY
+      RED_PROVIDER_API_KEY: ${RED_PROVIDER_API_KEY:-}
     depends_on:
       red-provider-postgres:
         condition: service_healthy
@@ -152,6 +155,9 @@ services:
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       PROVIDER_CODE: greenPlug
       PROVIDER_BASE_URL: ${GREEN_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/greenPlug/api}
+      PROVIDER_API_TIMEOUT_SECONDS: ${PROVIDER_API_TIMEOUT_SECONDS:-10}
+      PROVIDER_API_KEY_ENV_VAR: GREEN_PROVIDER_API_KEY
+      GREEN_PROVIDER_API_KEY: ${GREEN_PROVIDER_API_KEY:-}
     depends_on:
       green-provider-postgres:
         condition: service_healthy
@@ -173,6 +179,9 @@ services:
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       PROVIDER_CODE: bluePlug
       PROVIDER_BASE_URL: ${BLUE_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/bluePlug/api}
+      PROVIDER_API_TIMEOUT_SECONDS: ${PROVIDER_API_TIMEOUT_SECONDS:-10}
+      PROVIDER_API_KEY_ENV_VAR: BLUE_PROVIDER_API_KEY
+      BLUE_PROVIDER_API_KEY: ${BLUE_PROVIDER_API_KEY:-}
     depends_on:
       blue-provider-postgres:
         condition: service_healthy
