@@ -291,14 +291,20 @@ Use `docs/ai/codex-runs/_template.md` as the format.
 
 The run log must include:
 
-1. the prompt received,
-2. repository state before changes,
-3. files/folders created,
-4. files modified,
-5. checks run,
-6. results,
-7. limitations,
-8. acceptance criteria status.
+1. the exact invocation prompt pasted by the user;
+2. the canonical task prompt file path: `docs/ai/prompts/prompt_01_repo_foundation.md`;
+3. the full content of this canonical prompt file where practical;
+4. visible model/settings/sandbox/approval/network information;
+5. repository state before changes;
+6. canonical sources read;
+7. files/folders created;
+8. files modified;
+9. commands run;
+10. checks/tests run;
+11. results;
+12. warnings/blockers;
+13. acceptance criteria status;
+14. final status and next recommended action.
 
 ## Prompt log update
 

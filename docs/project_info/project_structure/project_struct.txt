@@ -2,9 +2,12 @@ NTUA-saasPlug/
 ├── docs/
 │   ├── ai/
 │   │   ├── codex-runs/
+│   │   │   ├── 000-audit-only.md
+│   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
+│   │   │   ├── prompt_00b_logging_and_github_setup.md
 │   │   │   ├── prompt_01_repo_foundation.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
@@ -122,4 +125,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 21, Total files: 102
+Total directories: 21, Total files: 105

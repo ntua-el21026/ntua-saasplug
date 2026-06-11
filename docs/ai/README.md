@@ -2,18 +2,26 @@
 
 This directory contains the manual AI usage documentation for the saasPlug project.
 
-## Purpose
+The official AI logging subsystem is unavailable for this project, so the repository keeps its own trace of prompts, Codex runs, files changed, commands run, checks, warnings, and GitHub project-management actions.
 
-The course project uses AI-assisted development. Because the official AI logging subsystem is unavailable, this repository keeps a manual, repository-based AI documentation trail.
+## Prompt Types
 
-The documentation in this directory should make it possible to understand:
+AI logging distinguishes two prompt concepts:
 
-- which prompts were used
-- which Codex runs were executed
-- what each run attempted to do
-- what files were changed
-- what tests/checks were run
-- what limitations or blockers were reported
+| Term | Meaning |
+|---|---|
+| Invocation Prompt | The exact text pasted into Codex by the user for a run. It may be a short instruction or a full one-off task prompt. |
+| Canonical Task Prompt | A version-controlled task prompt under `docs/ai/prompts/`, when a run uses one. |
+
+Example invocation prompt:
+
+```text
+Read and execute docs/ai/prompts/prompt_01_repo_foundation.md.
+Follow AGENTS.md and docs/specs/SPECIFICATIONS.md.
+Update docs/ai/codex-runs/001-repo-foundation.md and docs/ai/prompt-log.md.
+```
+
+In that example, the short instruction is the invocation prompt, and `docs/ai/prompts/prompt_01_repo_foundation.md` is the canonical task prompt.
 
 ## Structure
 
@@ -23,50 +31,55 @@ docs/ai/
   prompt-log.md
   prompts/
     README.md
+    prompt_00b_logging_and_github_setup.md
     prompt_01_repo_foundation.md
     ...
   codex-runs/
     README.md
     _template.md
     000-audit-only.md
+    00B-logging-and-github-setup.md
     001-repo-foundation.md
     ...
 ```
 
-## Main files
+## Main Files
 
 | File or folder | Purpose |
 |---|---|
-| `prompt-log.md` | Central chronological index of AI/Codex runs |
-| `prompts/` | Version-controlled prompts used to guide Codex |
-| `codex-runs/` | Execution reports produced after each Codex run |
-| `codex-runs/_template.md` | Template for consistent run reports |
+| `prompt-log.md` | Central chronological index of AI/Codex runs. |
+| `prompts/` | Version-controlled canonical task prompts. |
+| `codex-runs/` | Execution reports produced after each Codex run. |
+| `codex-runs/_template.md` | Required run-report template. |
 
-## Logging rule
+## Required Workflow
 
-Each Codex run should create or update one run report under `docs/ai/codex-runs/`.
+The normal workflow is:
 
-Each run report should include:
+```text
+short invocation prompt -> Codex reads canonical prompt file -> Codex executes task -> Codex writes run report -> Codex updates prompt-log
+```
 
-- exact prompt text or prompt file path
-- visible model/settings, if available
-- goal of the run
-- files inspected
-- files changed
-- commands run
-- tests/checks and results
-- implementation summary
-- limitations/blockers
-- final status
+Each Codex run must update both:
 
-## Prompt workflow
+```text
+docs/ai/prompt-log.md
+docs/ai/codex-runs/<run-id>-<run-name>.md
+```
 
-The preferred workflow is:
+unless the prompt explicitly forbids repository writes.
 
-1. Store the next prompt under `docs/ai/prompts/`.
-2. Ask Codex to read and execute that prompt.
-3. Ask Codex to write a run report under `docs/ai/codex-runs/`.
-4. Update `docs/ai/prompt-log.md`.
-5. Review Codex output before moving to the next prompt.
+Each run report must record:
+
+- the exact invocation prompt;
+- the canonical task prompt file path, when one is used;
+- the full canonical task prompt content where practical;
+- visible model/settings/sandbox/approval/network information;
+- canonical sources read;
+- files changed;
+- commands run;
+- tests/checks and results;
+- GitHub project/issue/milestone actions when applicable;
+- limitations, warnings, blockers, and final status.
 
 Do not treat AI output as automatically accepted. Every Codex run must be reviewed against `AGENTS.md` and `docs/specs/SPECIFICATIONS.md`.
