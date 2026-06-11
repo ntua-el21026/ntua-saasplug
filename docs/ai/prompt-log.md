@@ -29,6 +29,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 002 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_02_docker_gateway.md` | Docker Compose baseline and Nginx gateway | `completed` | `docs/ai/codex-runs/002-docker-gateway.md` |
 | 003 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_03_auth_service.md` | Auth service | `completed` | `docs/ai/codex-runs/003-auth-service.md` |
 | 004 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_04_provider_registry_service.md` | Provider registry service | `completed` | `docs/ai/codex-runs/004-provider-registry-service.md` |
+| 005 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_05_provider_services.md` | red/green/blue provider services | `completed` | `docs/ai/codex-runs/005-provider-services.md` |
 
 ---
 
