@@ -33,6 +33,26 @@ Provider-specific statuses must normalize to the accepted internal values:
 
 Application logic is not implemented in this scaffold.
 
+## Runtime baseline
+
+Prompt 02 adds a minimal FastAPI container scaffold with:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata only. They do not query
+`status-postgres`, call provider services, or implement the five-minute status
+cache.
+
+Gateway health smoke test:
+
+```bash
+curl http://localhost:8080/api/status/health
+```
+
 ## References
 
 - `AGENTS.md`

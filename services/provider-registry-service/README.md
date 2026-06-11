@@ -34,6 +34,26 @@ all providers.
 
 Application logic is not implemented in this scaffold.
 
+## Runtime baseline
+
+Prompt 02 adds a minimal FastAPI container scaffold with:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata only. They do not manage
+providers, validate authorization, connect to `provider-registry-postgres`, or
+call provider services.
+
+Gateway health smoke test:
+
+```bash
+curl http://localhost:8080/api/provider-registry/health
+```
+
 ## References
 
 - `AGENTS.md`

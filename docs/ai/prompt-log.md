@@ -26,6 +26,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 000 | 2026-06-11 | Direct audit prompt | none | Repository/spec/course-source/GitHub readiness audit | `completed` | `docs/ai/codex-runs/000-audit-only.md` |
 | 00B | 2026-06-11 | Direct setup prompt saved as canonical prompt | `docs/ai/prompts/prompt_00b_logging_and_github_setup.md` | Logging workflow and GitHub project setup | `completed_with_warnings` | `docs/ai/codex-runs/00B-logging-and-github-setup.md` |
 | 001 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_01_repo_foundation.md` | Repository foundation | `completed` | `docs/ai/codex-runs/001-repo-foundation.md` |
+| 002 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_02_docker_gateway.md` | Docker Compose baseline and Nginx gateway | `completed` | `docs/ai/codex-runs/002-docker-gateway.md` |
 
 ---
 

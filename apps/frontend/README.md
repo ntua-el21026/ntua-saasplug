@@ -26,7 +26,30 @@ and operator flows.
 All frontend API calls must go through `/api/...` routes exposed by
 `nginx-gateway`.
 
-Application logic is not implemented in this scaffold.
+## Docker baseline
+
+Prompt 02 adds a minimal Vite development container for the local Compose
+baseline.
+
+Important files:
+
+- `Dockerfile`
+- `.dockerignore`
+- `package.json`
+- `index.html`
+- `src/main.tsx`
+- `src/App.tsx`
+- `src/App.css`
+- `vite.config.ts`
+- `tsconfig.json`
+
+The container listens on internal port `5173`. It is not exposed directly to
+the host. Browser access should go through `nginx-gateway` on
+`http://localhost:8080/`.
+
+The current UI is a neutral infrastructure placeholder only. It does not
+implement login, role routing, maps, dashboards, reservations, analytics, or
+billing.
 
 ## References
 

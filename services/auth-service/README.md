@@ -34,6 +34,26 @@ admin emails from `AGENTS.md`. Passwords must never be stored in plaintext.
 
 Application logic is not implemented in this scaffold.
 
+## Runtime baseline
+
+Prompt 02 adds a minimal FastAPI container scaffold with:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata only. They do not issue
+JWTs, handle OAuth, validate credentials, connect to `auth-postgres`, or
+implement user flows.
+
+Gateway health smoke test:
+
+```bash
+curl http://localhost:8080/api/auth/health
+```
+
 ## References
 
 - `AGENTS.md`

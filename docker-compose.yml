@@ -1,0 +1,445 @@
+x-backend-healthcheck: &backend-healthcheck
+  test:
+    - CMD
+    - python
+    - -c
+    - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 20s
+
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 60s
+
+services:
+  frontend:
+    container_name: frontend
+    build:
+      context: ./apps/frontend
+    environment:
+      VITE_PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+    networks:
+      - saasplug-network
+    expose:
+      - "5173"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx-gateway:
+    container_name: nginx-gateway
+    image: nginx:1.27-alpine
+    depends_on:
+      frontend:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      provider-registry-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      status-service:
+        condition: service_healthy
+      reservation-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - saasplug-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  auth-service:
+    container_name: auth-service
+    build:
+      context: ./services/auth-service
+    environment:
+      SERVICE_NAME: auth-service
+      DATABASE_URL: ${AUTH_DATABASE_URL:-postgresql://saasplug:saasplug@auth-postgres:5432/auth}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  provider-registry-service:
+    container_name: provider-registry-service
+    build:
+      context: ./services/provider-registry-service
+    environment:
+      SERVICE_NAME: provider-registry-service
+      DATABASE_URL: ${PROVIDER_REGISTRY_DATABASE_URL:-postgresql://saasplug:saasplug@provider-registry-postgres:5432/provider_registry}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      provider-registry-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  red-provider-service:
+    container_name: red-provider-service
+    build:
+      context: ./services/red-provider-service
+    environment:
+      SERVICE_NAME: red-provider-service
+      DATABASE_URL: ${RED_PROVIDER_DATABASE_URL:-postgresql://saasplug:saasplug@red-provider-postgres:5432/red_provider}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      PROVIDER_CODE: redPlug
+      PROVIDER_BASE_URL: ${RED_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/redPlug/api}
+    depends_on:
+      red-provider-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  green-provider-service:
+    container_name: green-provider-service
+    build:
+      context: ./services/green-provider-service
+    environment:
+      SERVICE_NAME: green-provider-service
+      DATABASE_URL: ${GREEN_PROVIDER_DATABASE_URL:-postgresql://saasplug:saasplug@green-provider-postgres:5432/green_provider}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      PROVIDER_CODE: greenPlug
+      PROVIDER_BASE_URL: ${GREEN_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/greenPlug/api}
+    depends_on:
+      green-provider-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  blue-provider-service:
+    container_name: blue-provider-service
+    build:
+      context: ./services/blue-provider-service
+    environment:
+      SERVICE_NAME: blue-provider-service
+      DATABASE_URL: ${BLUE_PROVIDER_DATABASE_URL:-postgresql://saasplug:saasplug@blue-provider-postgres:5432/blue_provider}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      PROVIDER_CODE: bluePlug
+      PROVIDER_BASE_URL: ${BLUE_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/bluePlug/api}
+    depends_on:
+      blue-provider-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  catalog-service:
+    container_name: catalog-service
+    build:
+      context: ./services/catalog-service
+    environment:
+      SERVICE_NAME: catalog-service
+      DATABASE_URL: ${CATALOG_DATABASE_URL:-postgresql://saasplug:saasplug@catalog-postgres:5432/catalog}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      catalog-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  status-service:
+    container_name: status-service
+    build:
+      context: ./services/status-service
+    environment:
+      SERVICE_NAME: status-service
+      DATABASE_URL: ${STATUS_DATABASE_URL:-postgresql://saasplug:saasplug@status-postgres:5432/status}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      status-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  reservation-service:
+    container_name: reservation-service
+    build:
+      context: ./services/reservation-service
+    environment:
+      SERVICE_NAME: reservation-service
+      DATABASE_URL: ${RESERVATION_DATABASE_URL:-postgresql://saasplug:saasplug@reservation-postgres:5432/reservation}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      reservation-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  analytics-service:
+    container_name: analytics-service
+    build:
+      context: ./services/analytics-service
+    environment:
+      SERVICE_NAME: analytics-service
+      DATABASE_URL: ${ANALYTICS_DATABASE_URL:-postgresql://saasplug:saasplug@analytics-postgres:5432/analytics}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      analytics-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  billing-service:
+    container_name: billing-service
+    build:
+      context: ./services/billing-service
+    environment:
+      SERVICE_NAME: billing-service
+      DATABASE_URL: ${BILLING_DATABASE_URL:-postgresql://saasplug:saasplug@billing-postgres:5432/billing}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+    depends_on:
+      billing-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    user: root
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-saasplug-local-cookie}
+    entrypoint:
+      - sh
+      - -lc
+      - |
+        rm -f /var/lib/rabbitmq/.erlang.cookie
+        printf '%s' "$$RABBITMQ_ERLANG_COOKIE" > /var/lib/rabbitmq/.erlang.cookie
+        chown -R rabbitmq:rabbitmq /var/lib/rabbitmq
+        chmod 400 /var/lib/rabbitmq/.erlang.cookie
+        exec gosu rabbitmq /usr/local/bin/docker-entrypoint.sh rabbitmq-server
+    ports:
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - saasplug-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 180s
+
+  auth-postgres:
+    container_name: auth-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: auth
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  provider-registry-postgres:
+    container_name: provider-registry-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: provider_registry
+    volumes:
+      - provider-registry-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  red-provider-postgres:
+    container_name: red-provider-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: red_provider
+    volumes:
+      - red-provider-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  green-provider-postgres:
+    container_name: green-provider-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: green_provider
+    volumes:
+      - green-provider-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  blue-provider-postgres:
+    container_name: blue-provider-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: blue_provider
+    volumes:
+      - blue-provider-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  catalog-postgres:
+    container_name: catalog-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: catalog
+    volumes:
+      - catalog-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  status-postgres:
+    container_name: status-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: status
+    volumes:
+      - status-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  reservation-postgres:
+    container_name: reservation-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: reservation
+    volumes:
+      - reservation-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  analytics-postgres:
+    container_name: analytics-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: analytics
+    volumes:
+      - analytics-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+  billing-postgres:
+    container_name: billing-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: billing
+    volumes:
+      - billing-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
+networks:
+  saasplug-network:
+    name: saasplug-network
+
+volumes:
+  auth-postgres-data:
+  provider-registry-postgres-data:
+  red-provider-postgres-data:
+  green-provider-postgres-data:
+  blue-provider-postgres-data:
+  catalog-postgres-data:
+  status-postgres-data:
+  reservation-postgres-data:
+  analytics-postgres-data:
+  billing-postgres-data:
+  rabbitmq-data:

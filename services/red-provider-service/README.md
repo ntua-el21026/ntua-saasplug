@@ -34,6 +34,22 @@ endpoint names and schemas.
 
 Application logic is not implemented in this scaffold.
 
+## Runtime baseline
+
+Prompt 02 adds a minimal FastAPI container scaffold with:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata only. They do not call
+the `redPlug` API, normalize provider payloads, connect to
+`red-provider-postgres`, or publish events.
+
+This service remains internal-only in the gateway baseline.
+
 ## References
 
 - `AGENTS.md`
