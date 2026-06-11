@@ -1,123 +1,131 @@
 # Codex Run <RUN_ID> - <RUN_TITLE>
 
-## 1. Run metadata
+## 1. Run Metadata
+
+Record the stable facts for the run.
 
 | Field | Value |
 |---|---|
 | Run ID | `<RUN_ID>` |
-| Prompt file | `<docs/ai/prompts/...>` |
 | Date/time | `<YYYY-MM-DD HH:MM TZ>` |
-| Codex environment | `<local / cloud / unknown>` |
+| Working directory | `<absolute path>` |
 | Repository branch | `<branch>` |
 | Commit before run | `<commit hash or unknown>` |
 | Commit after run | `<commit hash or not committed>` |
-| Status | `<planned / completed / partial / failed>` |
+| Codex model | `<visible model or not visible to Codex>` |
+| Reasoning effort | `<visible setting or not visible to Codex>` |
+| Approval policy | `<visible setting or not visible to Codex>` |
+| Sandbox mode | `<visible setting or not visible to Codex>` |
+| Network access | `<visible setting or not visible to Codex>` |
+| Status | `<completed / completed_with_warnings / failed / blocked / audit_only>` |
 
----
+## 2. Invocation Prompt
 
-## 2. Prompt received
-
-Paste the full prompt used for this run, or include a precise reference if the full prompt is already committed in `docs/ai/prompts/` and was not modified.
+Paste the exact text the user provided to invoke this Codex run.
 
 ```text
-<prompt text or reference>
+<exact invocation prompt>
 ```
 
----
+## 3. Canonical Task Prompt
 
-## 3. Goal
+Record the version-controlled prompt file used as the task authority, if any.
 
-Describe the intended goal of this run.
+| Field | Value |
+|---|---|
+| Canonical prompt file | `<docs/ai/prompts/... or none>` |
+| Relationship to invocation prompt | `<direct prompt / invocation references canonical prompt / canonical prompt saved from invocation>` |
 
----
+If no canonical task prompt exists, write `none` and explain that the invocation prompt is the only task prompt.
 
-## 4. Pre-flight repository state
+## 4. Canonical Task Prompt Content
 
-Summarize the relevant repository state before changes.
+Copy the full canonical task prompt content where practical.
 
-Include:
+```text
+<full canonical prompt content, or a precise file reference plus the reason it is not copied>
+```
 
-- important existing files,
-- missing expected files,
-- notable constraints,
-- any ambiguity found before editing.
+## 5. Goal
 
----
+Describe the intended goal and explicit non-goals for this run.
 
-## 5. Files created
+## 6. Canonical Sources Read
+
+List the canonical project files and any task-specific files read before making changes.
+
+| File | Purpose |
+|---|---|
+| `<path>` | `<why it was read>` |
+
+## 7. Files Changed
+
+List created and modified files separately. State `none` when applicable.
+
+### Created
 
 | File | Purpose |
 |---|---|
 | `<path>` | `<purpose>` |
 
----
+### Modified
 
-## 6. Files modified
-
-| File | Summary of changes |
+| File | Summary |
 |---|---|
 | `<path>` | `<summary>` |
 
----
-
-## 7. Files intentionally not changed
-
-List important files or areas that were intentionally preserved.
+### Intentionally Not Changed
 
 | File/area | Reason |
 |---|---|
-| `<path>` | `<reason>` |
+| `<path or area>` | `<reason>` |
 
----
+## 8. Commands Run
 
-## 8. Implementation summary
-
-Summarize the actual implementation work completed in this run.
-
----
-
-## 9. Checks and commands run
+Record every relevant command, including failed commands.
 
 | Command | Result | Notes |
 |---|---|---|
-| `<command>` | `<pass/fail/not applicable>` | `<notes>` |
+| `<command>` | `<pass/fail/partial/not applicable>` | `<notes>` |
 
----
+## 9. Implementation / Audit Summary
 
-## 10. Acceptance criteria verification
+Summarize what was actually done. For audit-only runs, summarize findings instead of implementation.
 
-| Criterion | Status | Notes |
+## 10. Tests and Checks
+
+Record tests, lint, type checks, build checks, GitHub verification, or explain why they were not applicable.
+
+| Check | Result | Notes |
 |---|---|---|
-| `<criterion>` | `<pass/fail/partial/not applicable>` | `<notes>` |
+| `<check>` | `<pass/fail/partial/not applicable>` | `<notes>` |
 
----
+## 11. Limitations, Warnings, and Blockers
 
-## 11. Known limitations
+Document incomplete work, warnings, blockers, assumptions, missing tools, failed commands, and follow-up requirements.
 
-List any known limitations, incomplete tasks, skipped checks, or assumptions.
+## 12. GitHub Project / Issue / Milestone Actions
 
----
+If GitHub project-management actions were requested, record exactly what was created, reused, skipped, or failed. If no GitHub actions were requested, write `Not applicable`.
 
-## 12. Errors or failures
+| Action | Result | Notes |
+|---|---|---|
+| `<labels/milestones/project/issues/etc.>` | `<created/reused/failed/skipped>` | `<details>` |
 
-Document errors, failed commands, permission issues, missing tools, missing files, or external-service failures.
+Do not create fallback Markdown project-management artifacts unless explicitly requested.
 
-If GitHub CLI/API actions were requested and failed, report that failure here. Do not create fallback Markdown project-management substitutes unless explicitly requested.
+## 13. Final Status
 
----
-
-## 13. Manual follow-up required
-
-List required human actions, if any.
-
----
-
-## 14. Next recommended prompt
-
-State the next prompt that should run, if appropriate.
-
-Example:
+Use one final status and explain it briefly.
 
 ```text
-Next: docs/ai/prompts/prompt_02_docker_gateway.md
+<COMPLETED / COMPLETED_WITH_WARNINGS / FAILED / BLOCKED / AUDIT_ONLY>
+```
+
+## 14. Next Recommended Action
+
+State the exact next prompt or manual action, if any.
+
+```text
+<next action>
 ```

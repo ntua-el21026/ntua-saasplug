@@ -2,25 +2,43 @@
 
 This directory contains the staged Codex prompts used to implement the saasPlug project.
 
-The prompt pack exists to keep implementation deterministic, reviewable, and aligned with the accepted project specifications. Do not ask Codex to implement the full system in one run. Each prompt must have a narrow scope, explicit acceptance criteria, and a run log under `docs/ai/codex-runs/`.
+The prompt pack keeps implementation deterministic, reviewable, and aligned with `AGENTS.md` and `docs/specs/SPECIFICATIONS.md`. Do not ask Codex to implement the full system in one run.
 
----
+## Prompt-File Workflow
 
-## Canonical inputs
+The standard workflow is:
+
+```text
+short invocation prompt -> Codex reads canonical prompt file -> Codex executes task -> Codex writes run report -> Codex updates prompt-log
+```
+
+The short instruction pasted into Codex is the **Invocation Prompt**.
+
+The `.md` file under this directory is the **Canonical Task Prompt**.
+
+Example invocation:
+
+```text
+Read and execute docs/ai/prompts/prompt_01_repo_foundation.md.
+Follow AGENTS.md and docs/specs/SPECIFICATIONS.md.
+Update docs/ai/codex-runs/001-repo-foundation.md and docs/ai/prompt-log.md.
+```
+
+The run report must record both the invocation prompt and the canonical task prompt file path. It should copy the full canonical prompt content where practical.
+
+## Canonical Inputs
 
 Every Codex run must treat the following files as mandatory context:
 
 1. `AGENTS.md`
 2. `docs/specs/SPECIFICATIONS.md`
-3. The current prompt file under `docs/ai/prompts/`
+3. The current prompt file under `docs/ai/prompts/`, when one is used
 4. Relevant service/package README files, if they already exist
 5. Relevant provider OpenAPI YAML files when working on provider adapters
 
-If any mandatory file is missing, Codex must report the missing file before proceeding, unless the prompt explicitly asks Codex to create it.
+If any mandatory file is missing, Codex must report it before proceeding, unless the prompt explicitly asks Codex to create it.
 
----
-
-## Execution rules
+## Execution Rules
 
 1. Run prompts sequentially.
 2. Do not start the next prompt until the previous Codex output has been reviewed.
@@ -36,12 +54,12 @@ If any mandatory file is missing, Codex must report the missing file before proc
 12. Update `docs/ai/prompt-log.md` after every run.
 13. If GitHub CLI/API project-management actions are requested and fail, report the failure clearly. Do not create fallback Markdown project-management substitutes unless explicitly requested.
 
----
+## Planned Prompt Sequence
 
-## Prompt sequence
-
-| Prompt | File | Purpose |
+| Run | File | Purpose |
 |---:|---|---|
+| 000 | direct audit prompt | Repository/spec/course-source/GitHub readiness audit |
+| 00B | `prompt_00b_logging_and_github_setup.md` | AI logging workflow update and GitHub project setup |
 | 01 | `prompt_01_repo_foundation.md` | Repository foundation, documentation structure, README scaffolding, `.env.example`, AI log structure |
 | 02 | `prompt_02_docker_gateway.md` | Docker Compose baseline, Nginx gateway, service/database container skeletons, healthchecks |
 | 03 | `prompt_03_auth_service.md` | `auth-service`, JWT, email/password login, Google OAuth hooks, role model, seed users |
@@ -57,11 +75,9 @@ If any mandatory file is missing, Codex must report the missing file before proc
 | 13 | `prompt_13_frontend_admin_dashboards.md` | Provider and operator dashboards, analytics, billing, pricing, sync controls |
 | 14 | `prompt_14_docs_uml_finalization.md` | Final documentation, PlantUML diagrams, README completion, final verification |
 
-Only `prompt_01_repo_foundation.md` is expected to exist initially. Later prompts should be written after reviewing the previous Codex output, so they can reference the real repository state.
+Only Prompt 01 is expected to exist before foundation work. Later prompts should be written after reviewing the previous Codex output so they can reference the real repository state.
 
----
-
-## Run log requirement
+## Run Log Requirement
 
 For each prompt execution, Codex must create or update:
 
@@ -69,36 +85,10 @@ For each prompt execution, Codex must create or update:
 docs/ai/codex-runs/<run-id>-<short-name>.md
 ```
 
-Each run log must include:
-
-- the prompt received,
-- the goal,
-- files changed,
-- implementation summary,
-- tests or checks run,
-- command results,
-- known limitations,
-- whether the acceptance criteria were met.
-
 Use `docs/ai/codex-runs/_template.md` as the canonical run-log format.
-
----
-
-## Prompt log index
 
 After every run, update:
 
 ```text
 docs/ai/prompt-log.md
 ```
-
-The prompt log is the central index of all Codex implementation runs.
-
----
-
-## Current status
-
-| Prompt | Status |
-|---:|---|
-| 01 | Ready |
-| 02-14 | Planned, not written yet |

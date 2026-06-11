@@ -546,6 +546,26 @@ Exact ChatGPT/Codex answers are captured only when explicitly provided or when C
 
 ---
 
+## AI Run Logging Policy
+
+Every Codex run must update both of these repository-based AI logging artifacts unless the current prompt explicitly forbids repository writes:
+
+```text
+docs/ai/prompt-log.md
+docs/ai/codex-runs/<run-id>-<run-name>.md
+```
+
+Run reports must distinguish between:
+
+- **Invocation Prompt**: the exact text pasted into Codex by the user for that run.
+- **Canonical Task Prompt**: a version-controlled prompt file under `docs/ai/prompts/`, when the run is invoked from one.
+
+When a canonical task prompt is used, the run report must record the invocation prompt, the canonical prompt file path, and the full canonical prompt content where practical. If the full canonical prompt content is not copied into the run report, the report must record the file path and explain why.
+
+Direct one-off prompts without a corresponding prompt file must be recorded as direct invocation prompts in both the run report and `docs/ai/prompt-log.md`.
+
+---
+
 ## 26. Testing Rules
 
 At minimum, implement and maintain tests for:
