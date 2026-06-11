@@ -1,8 +1,17 @@
 NTUA-saasPlug/
+├── apps/
+│   ├── frontend/
+│   │   └── README.md
+│   └── README.md
+├── deploy/
+│   ├── nginx/
+│   │   └── README.md
+│   └── README.md
 ├── docs/
 │   ├── ai/
 │   │   ├── codex-runs/
 │   │   │   ├── 000-audit-only.md
+│   │   │   ├── 001-repo-foundation.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
@@ -119,10 +128,43 @@ NTUA-saasPlug/
 │   │   ├── README.md
 │   │   └── SPECIFICATIONS.md
 │   └── README.md
+├── packages/
+│   ├── event-contracts/
+│   │   └── README.md
+│   ├── provider-normalization/
+│   │   └── README.md
+│   ├── shared-contracts/
+│   │   └── README.md
+│   └── README.md
+├── scripts/
+│   └── README.md
+├── services/
+│   ├── analytics-service/
+│   │   └── README.md
+│   ├── auth-service/
+│   │   └── README.md
+│   ├── billing-service/
+│   │   └── README.md
+│   ├── blue-provider-service/
+│   │   └── README.md
+│   ├── catalog-service/
+│   │   └── README.md
+│   ├── green-provider-service/
+│   │   └── README.md
+│   ├── provider-registry-service/
+│   │   └── README.md
+│   ├── red-provider-service/
+│   │   └── README.md
+│   ├── reservation-service/
+│   │   └── README.md
+│   ├── status-service/
+│   │   └── README.md
+│   └── README.md
+├── .env.example
 ├── .gitattributes
 ├── .gitignore
 ├── AGENTS.md
 ├── LICENSE
 └── README.md
 
-Total directories: 21, Total files: 105
+Total directories: 41, Total files: 127
