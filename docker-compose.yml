@@ -78,6 +78,13 @@ services:
     environment:
       SERVICE_NAME: auth-service
       DATABASE_URL: ${AUTH_DATABASE_URL:-postgresql://saasplug:saasplug@auth-postgres:5432/auth}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-change-me-demo-password}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-replace-me}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-replace-me}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8080/api/auth/auth/google/callback}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
     depends_on:
       auth-postgres:

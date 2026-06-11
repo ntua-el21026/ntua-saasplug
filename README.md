@@ -7,7 +7,10 @@ administration.
 
 > Prompt 02 baseline status: Docker Compose, Nginx gateway, service
 > containers, database containers, RabbitMQ, and health endpoints are present.
-> Business workflows are not implemented yet.
+> Prompt 03 auth status: `auth-service` has local persistence, seeded demo
+> users, email/password login, JWT access tokens, refresh tokens, role/provider
+> scope helpers, and safe Google OAuth hook endpoints. Other business domains
+> are not implemented yet.
 
 ## Project Overview
 
@@ -102,6 +105,31 @@ curl http://localhost:8080/api/catalog/health
 curl http://localhost:8080/api/reservations/health
 ```
 
+Auth-service local demo endpoints are available through the gateway under
+`/api/auth/auth/...` because the gateway maps `/api/auth/` to the service root:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"operator@saasplug.local","password":"change-me-demo-password"}'
+
+curl http://localhost:8080/api/auth/auth/me \
+  -H "Authorization: Bearer <access-token>"
+```
+
+The local demo users are:
+
+| Email | Role | Provider scope |
+|---|---|---|
+| `operator@saasplug.local` | `OPERATOR` | none |
+| `evuser@saasplug.local` | `EV_USER` | none |
+| `red-admin@saasplug.local` | `PROVIDER_ADMIN` | `redPlug` |
+| `green-admin@saasplug.local` | `PROVIDER_ADMIN` | `greenPlug` |
+| `blue-admin@saasplug.local` | `PROVIDER_ADMIN` | `bluePlug` |
+
+The safe local demo password is controlled by `DEMO_USER_PASSWORD` in
+`.env.example`. Change it in your uncommitted `.env` for local use.
+
 Stop the baseline and remove local development volumes with:
 
 ```bash
@@ -123,16 +151,41 @@ Implemented:
   service.
 - Minimal Vite frontend placeholder on internal port `5173`.
 
-Not implemented yet:
+Still not implemented by Prompt 02:
 
-- authentication, JWT, OAuth, or user flows,
 - provider adapters or provider API calls,
 - catalog sync, status cache, or reservation business flow,
 - RabbitMQ business publishers or consumers,
 - analytics, billing, schemas, migrations, seed data, or frontend product
   screens.
 
-The next implementation prompt is Prompt 03 for `auth-service`.
+## Prompt 03 Scope
+
+Implemented:
+
+- `auth-service` local table creation for MVP development.
+- Hashed password storage.
+- Idempotent seeded demo users.
+- JSON email/password register and login.
+- JWT access tokens with `sub`, `email`, `roles`, `provider_id`,
+  `provider_code`, and `exp`.
+- Hashed persisted refresh tokens with logout revocation.
+- `/auth/me`, `/auth/require-operator`, and
+  `/auth/require-provider-admin` verification endpoints.
+- Safe Google OAuth login/callback hooks that return clear local-demo JSON when
+  credentials are placeholders.
+
+Not implemented yet:
+
+- frontend login screens,
+- real Google token exchange,
+- provider-registry business logic,
+- provider adapters or provider API calls,
+- catalog sync, status cache, or reservation business flow,
+- RabbitMQ business publishers or consumers,
+- analytics, billing, or frontend product screens.
+
+The next implementation prompt is Prompt 04 for `provider-registry-service`.
 
 ## Canonical References
 

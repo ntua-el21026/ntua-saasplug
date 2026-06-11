@@ -24,6 +24,7 @@ NTUA-saasPlug/
 │   │   │   ├── 000-audit-only.md
 │   │   │   ├── 001-repo-foundation.md
 │   │   │   ├── 002-docker-gateway.md
+│   │   │   ├── 003-auth-service.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
@@ -31,6 +32,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_00b_logging_and_github_setup.md
 │   │   │   ├── prompt_01_repo_foundation.md
 │   │   │   ├── prompt_02_docker_gateway.md
+│   │   │   ├── prompt_03_auth_service.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -163,7 +165,17 @@ NTUA-saasPlug/
 │   ├── auth-service/
 │   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── main.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── dependencies.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── routes.py
+│   │   │   ├── schemas.py
+│   │   │   ├── security.py
+│   │   │   └── seed.py
+│   │   ├── tests/
+│   │   │   └── test_auth_api.py
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── README.md
@@ -241,4 +253,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 52, Total files: 190
+Total directories: 53, Total files: 201
