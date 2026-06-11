@@ -5,8 +5,9 @@ academic year 2025-2026. It is a SaaS web application for EV charging point
 discovery, reservation, provider analytics, billing, and operator
 administration.
 
-> Prompt 01 foundation status: the repository structure and documentation
-> scaffold are present, but the application is not fully implemented yet.
+> Prompt 02 baseline status: Docker Compose, Nginx gateway, service
+> containers, database containers, RabbitMQ, and health endpoints are present.
+> Business workflows are not implemented yet.
 
 ## Project Overview
 
@@ -80,18 +81,58 @@ rabbitmq
 | `docs/` | Specifications, diagrams, assignment material, AI logs |
 | `scripts/` | Repository utility scripts |
 
-## Quick Start Placeholder
+## Local Development Baseline
 
-Full Docker runtime, service bootstrapping, and frontend implementation will be
-added in later prompts. For now, use `.env.example` as the safe configuration
-template and do not create or commit a real `.env` file with secrets.
+Use `.env.example` as the safe configuration template. Do not commit a real
+`.env` file.
 
 ```bash
 cp .env.example .env
+docker compose config
+docker compose up -d --build
+docker compose ps
 ```
 
-The command above is only a local preparation step for future runtime work.
-There is no complete `docker compose up` workflow after Prompt 01.
+Expected baseline health checks:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/api/auth/health
+curl http://localhost:8080/api/catalog/health
+curl http://localhost:8080/api/reservations/health
+```
+
+Stop the baseline and remove local development volumes with:
+
+```bash
+docker compose down -v
+```
+
+The `-v` flag deletes local PostgreSQL and RabbitMQ volumes. Use it only when a
+fresh local baseline is intended.
+
+## Prompt 02 Scope
+
+Implemented:
+
+- `docker-compose.yml` with canonical container names.
+- Nginx gateway on host port `8080`.
+- RabbitMQ with management UI on host port `15672`.
+- One PostgreSQL container per stateful service, using named volumes.
+- Minimal FastAPI `/`, `/health`, and `/ready` endpoints for each backend
+  service.
+- Minimal Vite frontend placeholder on internal port `5173`.
+
+Not implemented yet:
+
+- authentication, JWT, OAuth, or user flows,
+- provider adapters or provider API calls,
+- catalog sync, status cache, or reservation business flow,
+- RabbitMQ business publishers or consumers,
+- analytics, billing, schemas, migrations, seed data, or frontend product
+  screens.
+
+The next implementation prompt is Prompt 03 for `auth-service`.
 
 ## Canonical References
 

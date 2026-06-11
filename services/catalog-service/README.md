@@ -33,6 +33,26 @@ Map search must use viewport/bounds-based loading, for example
 
 Application logic is not implemented in this scaffold.
 
+## Runtime baseline
+
+Prompt 02 adds a minimal FastAPI container scaffold with:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata only. They do not query
+`catalog-postgres`, import provider snapshots, implement bounds search, or
+publish catalog events.
+
+Gateway health smoke test:
+
+```bash
+curl http://localhost:8080/api/catalog/health
+```
+
 ## References
 
 - `AGENTS.md`

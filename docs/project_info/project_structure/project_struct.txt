@@ -1,10 +1,21 @@
 NTUA-saasPlug/
 ├── apps/
 │   ├── frontend/
-│   │   └── README.md
+│   │   ├── src/
+│   │   │   ├── App.css
+│   │   │   ├── App.tsx
+│   │   │   └── main.tsx
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── index.html
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   ├── tsconfig.json
+│   │   └── vite.config.ts
 │   └── README.md
 ├── deploy/
 │   ├── nginx/
+│   │   ├── default.conf
 │   │   └── README.md
 │   └── README.md
 ├── docs/
@@ -12,12 +23,14 @@ NTUA-saasPlug/
 │   │   ├── codex-runs/
 │   │   │   ├── 000-audit-only.md
 │   │   │   ├── 001-repo-foundation.md
+│   │   │   ├── 002-docker-gateway.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
 │   │   │   ├── prompt_00b_logging_and_github_setup.md
 │   │   │   ├── prompt_01_repo_foundation.md
+│   │   │   ├── prompt_02_docker_gateway.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -140,31 +153,92 @@ NTUA-saasPlug/
 │   └── README.md
 ├── services/
 │   ├── analytics-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── auth-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── billing-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── blue-provider-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── catalog-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── green-provider-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── provider-registry-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── red-provider-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── reservation-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── status-service/
-│   │   └── README.md
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   ├── .dockerignore
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   └── README.md
 ├── .env.example
 ├── .gitattributes
 ├── .gitignore
 ├── AGENTS.md
+├── docker-compose.yml
 ├── LICENSE
 └── README.md
 
-Total directories: 41, Total files: 127
+Total directories: 52, Total files: 190

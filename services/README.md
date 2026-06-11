@@ -37,7 +37,48 @@ analytics-service
 billing-service
 ```
 
-Application logic is not implemented in this scaffold.
+## Docker baseline
+
+Prompt 02 adds a minimal FastAPI runtime scaffold for each canonical backend
+service.
+
+Each service exposes only:
+
+```text
+GET /
+GET /health
+GET /ready
+```
+
+These endpoints return static infrastructure metadata. They do not connect to
+PostgreSQL, call provider APIs, publish RabbitMQ events, or implement business
+logic.
+
+Each service folder contains:
+
+```text
+Dockerfile
+.dockerignore
+requirements.txt
+app/__init__.py
+app/main.py
+```
+
+Run the full baseline from the repository root:
+
+```bash
+docker compose up -d --build
+```
+
+Do not expose backend service ports to the host. Access public service health
+through the gateway, for example:
+
+```bash
+curl http://localhost:8080/api/auth/health
+curl http://localhost:8080/api/catalog/health
+```
+
+Application business logic is not implemented in this scaffold.
 
 ## References
 

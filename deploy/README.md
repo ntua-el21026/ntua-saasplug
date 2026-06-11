@@ -4,12 +4,12 @@ This folder contains deployment and gateway configuration for saasPlug.
 
 ## Purpose
 
-Later prompts will add Docker Compose runtime files, service container
-definitions, Nginx gateway configuration, and deployment documentation here.
+This folder contains deployment and gateway configuration for the local
+development baseline.
 
 ## Belongs here
 
-- Docker Compose files when implementation reaches deployment setup.
+- Docker Compose files and deployment notes.
 - Nginx gateway configuration.
 - Deployment README notes and safe templates.
 
@@ -20,7 +20,37 @@ definitions, Nginx gateway configuration, and deployment documentation here.
 - Frontend source code.
 - Real secrets or local `.env` files.
 
-Runtime deployment files are not implemented in this scaffold.
+## Docker baseline
+
+Prompt 02 adds the root `docker-compose.yml` and the Nginx gateway
+configuration under `deploy/nginx/default.conf`.
+
+Run the baseline from the repository root:
+
+```bash
+cp .env.example .env
+docker compose config
+docker compose up -d --build
+docker compose ps
+```
+
+Health checks:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/api/auth/health
+curl http://localhost:8080/api/catalog/health
+curl http://localhost:8080/api/reservations/health
+```
+
+Stop and remove local volumes:
+
+```bash
+docker compose down -v
+```
+
+The baseline does not implement schemas, migrations, business workflows, or
+real secrets.
 
 ## References
 
