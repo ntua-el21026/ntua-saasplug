@@ -9,8 +9,12 @@ administration.
 > containers, database containers, RabbitMQ, and health endpoints are present.
 > Prompt 03 auth status: `auth-service` has local persistence, seeded demo
 > users, email/password login, JWT access tokens, refresh tokens, role/provider
-> scope helpers, and safe Google OAuth hook endpoints. Other business domains
-> are not implemented yet.
+> scope helpers, and safe Google OAuth hook endpoints.
+> Prompt 04 provider-registry status: `provider-registry-service` has local
+> persistence, seeded canonical providers, role/provider-scoped JWT
+> authorization, safe integration configuration metadata, and provider config
+> audit logs. Provider adapters and external provider calls are not implemented
+> yet.
 
 ## Project Overview
 
@@ -101,6 +105,8 @@ Expected baseline health checks:
 ```bash
 curl http://localhost:8080/health
 curl http://localhost:8080/api/auth/health
+curl http://localhost:8080/api/provider-registry/health
+curl http://localhost:8080/api/providers/health
 curl http://localhost:8080/api/catalog/health
 curl http://localhost:8080/api/reservations/health
 ```
@@ -129,6 +135,18 @@ The local demo users are:
 
 The safe local demo password is controlled by `DEMO_USER_PASSWORD` in
 `.env.example`. Change it in your uncommitted `.env` for local use.
+
+Provider-registry endpoints are available through the gateway under
+`/api/providers/providers...` because the gateway maps `/api/providers/` to the
+service root:
+
+```bash
+curl http://localhost:8080/api/providers/providers \
+  -H "Authorization: Bearer <access-token>"
+
+curl http://localhost:8080/api/providers/providers/redPlug/integration-config \
+  -H "Authorization: Bearer <access-token>"
+```
 
 Stop the baseline and remove local development volumes with:
 
@@ -185,7 +203,32 @@ Not implemented yet:
 - RabbitMQ business publishers or consumers,
 - analytics, billing, or frontend product screens.
 
-The next implementation prompt is Prompt 04 for `provider-registry-service`.
+Prompt 04 implements the `provider-registry-service` baseline described below.
+
+## Prompt 04 Scope
+
+Implemented:
+
+- `provider-registry-service` local table creation for MVP development.
+- Idempotent seed data for `redPlug`, `greenPlug`, and `bluePlug`.
+- Provider metadata, activation status, safe integration-config, and audit-log
+  JSON endpoints.
+- JWT bearer authorization using `auth-service` token claims and shared
+  `JWT_SECRET`.
+- Operator access for all providers and provider-admin access scoped to the
+  provider in the token.
+- Safe secret handling that stores and returns only environment-variable names,
+  never raw provider API keys.
+
+Still not implemented:
+
+- provider adapters or external provider API calls,
+- provider-local charging-point snapshots,
+- catalog sync/search, status cache, or reservation business flow,
+- RabbitMQ business publishers or consumers,
+- analytics, billing, or frontend product screens.
+
+The next implementation prompt is Prompt 05 for provider services.
 
 ## Canonical References
 
