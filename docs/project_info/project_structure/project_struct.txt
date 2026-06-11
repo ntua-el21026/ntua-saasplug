@@ -1,6 +1,12 @@
 NTUA-saasPlug/
 ├── docs/
-│   ├── ai_logs/
+│   ├── ai/
+│   │   ├── codex-runs/
+│   │   │   └── codex_run_template.md
+│   │   ├── prompts/
+│   │   │   └── prompt_01_repo_foundation.md
+│   │   ├── CODEX_PROMPTS_README.md
+│   │   └── prompt-log.md
 │   ├── assignment/
 │   │   ├── plantUML_diagrams/
 │   │   │   ├── project_semantics_semantics.puml
@@ -101,6 +107,8 @@ NTUA-saasPlug/
 │   │   └── project_structure/
 │   │       ├── project_struct.py
 │   │       └── project_struct.txt
+│   ├── specs/
+│   │   └── SPECIFICATIONS.md
 │   └── README.md
 ├── .gitattributes
 ├── .gitignore
@@ -108,4 +116,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 18, Total files: 91
+Total directories: 21, Total files: 96
