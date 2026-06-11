@@ -104,6 +104,11 @@ services:
     environment:
       SERVICE_NAME: provider-registry-service
       DATABASE_URL: ${PROVIDER_REGISTRY_DATABASE_URL:-postgresql://saasplug:saasplug@provider-registry-postgres:5432/provider_registry}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      PROVIDER_API_TIMEOUT_SECONDS: ${PROVIDER_API_TIMEOUT_SECONDS:-10}
+      RED_PROVIDER_BASE_URL: ${RED_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/redPlug/api}
+      GREEN_PROVIDER_BASE_URL: ${GREEN_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/greenPlug/api}
+      BLUE_PROVIDER_BASE_URL: ${BLUE_PROVIDER_BASE_URL:-https://davinci.softlab.ntua.gr/saas26/bluePlug/api}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
     depends_on:
       provider-registry-postgres:
