@@ -2,12 +2,42 @@ NTUA-saasPlug/
 ├── apps/
 │   ├── frontend/
 │   │   ├── src/
-│   │   │   ├── App.css
+│   │   │   ├── components/
+│   │   │   │   ├── AppShell.tsx
+│   │   │   │   ├── Feedback.tsx
+│   │   │   │   └── StatusBadge.tsx
+│   │   │   ├── features/
+│   │   │   │   ├── auth/
+│   │   │   │   │   ├── AuthContext.tsx
+│   │   │   │   │   ├── AuthLayout.tsx
+│   │   │   │   │   ├── LoginPage.tsx
+│   │   │   │   │   ├── LogoutPage.tsx
+│   │   │   │   │   ├── ProfilePage.tsx
+│   │   │   │   │   └── RegisterPage.tsx
+│   │   │   │   ├── catalog/
+│   │   │   │   │   ├── CatalogMap.tsx
+│   │   │   │   │   ├── CatalogPage.tsx
+│   │   │   │   │   └── PointDetailPage.tsx
+│   │   │   │   └── reservations/
+│   │   │   │       └── ReservationsPage.tsx
+│   │   │   ├── lib/
+│   │   │   │   ├── api.ts
+│   │   │   │   ├── formatting.ts
+│   │   │   │   ├── routing.ts
+│   │   │   │   ├── storage.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── styles/
+│   │   │   │   └── app.css
+│   │   │   ├── test/
+│   │   │   │   ├── app-smoke.test.tsx
+│   │   │   │   ├── routing.test.ts
+│   │   │   │   └── setup.ts
 │   │   │   ├── App.tsx
 │   │   │   └── main.tsx
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── index.html
+│   │   ├── package-lock.json
 │   │   ├── package.json
 │   │   ├── README.md
 │   │   ├── tsconfig.json
@@ -34,6 +64,7 @@ NTUA-saasPlug/
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── 010-analytics-service.md
 │   │   │   ├── 011-billing-service.md
+│   │   │   ├── 012-frontend-ev-flows.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -49,6 +80,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_09_rabbitmq_event_infrastructure.md
 │   │   │   ├── prompt_10_analytics_service.md
 │   │   │   ├── prompt_11_billing_service.md
+│   │   │   ├── prompt_12_frontend_ev_flows.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -387,4 +419,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 65, Total files: 323
+Total directories: 73, Total files: 347

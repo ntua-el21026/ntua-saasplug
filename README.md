@@ -44,7 +44,10 @@ administration.
 > charge records, invoices, invoice lines, mock full-invoice payments, billing
 > event ingestion, RabbitMQ billing queue draining, billing outbox publishing,
 > JWT role/provider scoping, and deterministic tests.
-> Frontend product screens are not implemented yet.
+> Prompt 12 EV frontend status: the React/Vite frontend implements EV login,
+> registration, logout, session handling, map/search/list, point details,
+> status lookup, reservation creation, own reservation history, profile, and
+> deterministic frontend tests/build validation.
 
 ## Project Overview
 
@@ -495,12 +498,49 @@ Implemented:
 
 Still not implemented:
 
-- frontend product screens,
+- frontend billing/pricing/invoice UI,
 - real payment gateway, refunds, partial payments, subscriptions, and
   tax/accounting compliance,
 - scheduler/orchestrator/worker containers.
 
-The next implementation prompt is Prompt 12 for EV frontend flows.
+Prompt 12 implements the EV frontend flows described below.
+
+## Prompt 12 Scope
+
+Implemented:
+
+- One React + TypeScript + Vite EV user experience in `apps/frontend`.
+- Public login, registration, and logout screens using gateway auth endpoints.
+- Local session persistence with JWT access/refresh token handling and
+  `/api/auth/auth/me` validation.
+- EV-only route guards for map, point detail, and reservation pages.
+- Bounds-based catalog search/list/map view through
+  `GET /api/catalog/points`.
+- Cached point details through
+  `GET /api/catalog/points/{provider_code}/{external_point_id}`.
+- Status lookup and forced refresh through
+  `GET /api/status/points/{provider_code}/{external_point_id}/status`.
+- Reservation creation through
+  `POST /api/reservations/points/{provider_code}/{external_point_id}/reservations`.
+- Own reservation history through
+  `GET /api/reservations/reservations/me`.
+- Profile/session page and polished responsive states for loading, empty,
+  errors, forms, map/list, detail, and reservation outcomes.
+- Vitest and Testing Library coverage for routing helpers and app smoke
+  rendering.
+
+Still not implemented:
+
+- provider administrator dashboards,
+- operator dashboards,
+- analytics dashboard UI,
+- billing/pricing/invoice UI,
+- provider settings UI,
+- operator sync controls,
+- real external map provider integration.
+
+The next implementation prompt is Prompt 13 for provider and operator
+dashboards.
 
 ## Canonical References
 
