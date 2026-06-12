@@ -40,7 +40,11 @@ administration.
 > ingestion, idempotent event storage, RabbitMQ analytics queue draining,
 > precomputed aggregate/cache tables, provider/operator analytics endpoints,
 > usage CSV export, JWT role/provider scoping, and deterministic tests.
-> Billing and frontend product screens are not implemented yet.
+> Prompt 11 billing-service status: `billing-service` owns pricing rules,
+> charge records, invoices, invoice lines, mock full-invoice payments, billing
+> event ingestion, RabbitMQ billing queue draining, billing outbox publishing,
+> JWT role/provider scoping, and deterministic tests.
+> Frontend product screens are not implemented yet.
 
 ## Project Overview
 
@@ -406,7 +410,8 @@ DLX:      saasplug.events.dlx
 analytics.events <- usage.*, status.point_checked, reservation.*,
                     catalog.points.imported, billing.charge_created,
                     billing.invoice.*
-billing.reservations <- reservation.succeeded, reservation.failed
+billing.reservations <- reservation.succeeded, reservation.failed,
+                        usage.point_viewed
 catalog.provider_snapshots <- provider.points.snapshot_ready
 
 DLQs:
@@ -452,14 +457,50 @@ Implemented:
 
 Still not implemented:
 
-- billing-service business logic, pricing rules, charge records, invoices, or
-  payment flow,
 - frontend product screens,
 - provider API calls from analytics-service,
 - live cross-service dashboard joins,
 - scheduler/orchestrator/worker containers.
 
-The next implementation prompt is Prompt 11 for `billing-service`.
+Prompt 11 implements the `billing-service` baseline described below.
+
+## Prompt 11 Scope
+
+Implemented:
+
+- `billing-service` local table creation for pricing rules, billing events,
+  charge records, invoices, invoice lines, payments, and billing outbox rows.
+- Idempotent default global pricing seed:
+  `0.50 EUR` successful reservation fee, `0.01 EUR` point-view fee, enabled
+  point-view charging, and `0.00 EUR` failed-reservation fee.
+- Operator pricing APIs for global/default and provider-specific rules, plus
+  provider-scoped effective pricing reads.
+- Operator-only deterministic event ingestion:
+  `POST /api/billing/events/ingest`.
+- Operator-only limited RabbitMQ drain from `billing.reservations`:
+  `POST /api/billing/events/drain?limit=...`.
+- Charge creation from `reservation.succeeded` and optionally
+  `usage.point_viewed`; `reservation.failed` is recorded and skipped by
+  default.
+- Charge idempotency by `source_event_id`.
+- Operator-only invoice issuance from unbilled charges.
+- Provider-admin invoice viewing and full-invoice mock payment scoped to the
+  provider in the JWT.
+- Operator/provider billing overview endpoints.
+- Billing outbox staging for `billing.charge_created`,
+  `billing.invoice_issued`, and `billing.invoice_paid`, with operator-only
+  pending publish endpoint.
+- Deterministic tests for pricing, ingestion, idempotency, invoices, payment,
+  role/provider scoping, fake outbox publishing, and fake RabbitMQ drain.
+
+Still not implemented:
+
+- frontend product screens,
+- real payment gateway, refunds, partial payments, subscriptions, and
+  tax/accounting compliance,
+- scheduler/orchestrator/worker containers.
+
+The next implementation prompt is Prompt 12 for EV frontend flows.
 
 ## Canonical References
 

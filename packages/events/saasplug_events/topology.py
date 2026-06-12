@@ -46,6 +46,7 @@ QUEUE_DEFINITIONS = (
         bindings=(
             QueueBinding(BILLING_RESERVATIONS_QUEUE, EventType.RESERVATION_SUCCEEDED.value),
             QueueBinding(BILLING_RESERVATIONS_QUEUE, EventType.RESERVATION_FAILED.value),
+            QueueBinding(BILLING_RESERVATIONS_QUEUE, EventType.USAGE_POINT_VIEWED.value),
         ),
     ),
     QueueDefinition(

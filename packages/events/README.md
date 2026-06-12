@@ -81,6 +81,7 @@ analytics.events <- billing.charge_created
 analytics.events <- billing.invoice.*
 billing.reservations <- reservation.succeeded
 billing.reservations <- reservation.failed
+billing.reservations <- usage.point_viewed
 catalog.provider_snapshots <- provider.points.snapshot_ready
 ```
 
@@ -103,7 +104,9 @@ RabbitMQ acknowledgement behavior:
 - `requeue`: transient failure, retry later;
 - `reject`: non-retryable failure, route to DLQ when queue policy allows.
 
-Prompt 09 does not implement analytics or billing consumers.
+Prompt 11 uses the `billing.reservations` queue for manual bounded billing
+drains. The queue name remains stable from Prompt 09 and now also receives
+`usage.point_viewed` because billing can optionally charge point-view events.
 
 ## Idempotency
 
