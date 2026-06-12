@@ -1,26 +1,40 @@
-import os
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
-SERVICE_NAME = os.getenv("SERVICE_NAME", "status-service")
+from app.config import get_settings
+from app.database import configure_database, init_db
+from app.routes import router
 
-app = FastAPI(title=f"{SERVICE_NAME} baseline", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    configure_database()
+    init_db()
+    yield
+
+
+settings = get_settings()
+
+app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
+app.include_router(router)
 
 
 @app.get("/")
 def root() -> dict[str, str]:
     return {
-        "service": SERVICE_NAME,
+        "service": settings.service_name,
         "status": "running",
-        "scope": "infrastructure-baseline",
+        "scope": "status-cache",
     }
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"service": SERVICE_NAME, "status": "healthy"}
+    return {"service": settings.service_name, "status": "healthy"}
 
 
 @app.get("/ready")
 def ready() -> dict[str, str]:
-    return {"service": SERVICE_NAME, "status": "ready"}
+    return {"service": settings.service_name, "status": "ready"}

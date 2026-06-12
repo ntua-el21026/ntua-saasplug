@@ -226,6 +226,12 @@ services:
       SERVICE_NAME: status-service
       DATABASE_URL: ${STATUS_DATABASE_URL:-postgresql://saasplug:saasplug@status-postgres:5432/status}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      STATUS_CACHE_TTL_SECONDS: ${STATUS_CACHE_TTL_SECONDS:-300}
+      STATUS_PROVIDER_TIMEOUT_SECONDS: ${STATUS_PROVIDER_TIMEOUT_SECONDS:-10}
+      RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
+      GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
+      BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}
     depends_on:
       status-postgres:
         condition: service_healthy
