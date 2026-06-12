@@ -77,6 +77,7 @@ analytics.events <- usage.*
 analytics.events <- status.point_checked
 analytics.events <- reservation.*
 analytics.events <- catalog.points.imported
+analytics.events <- billing.charge_created
 analytics.events <- billing.invoice.*
 billing.reservations <- reservation.succeeded
 billing.reservations <- reservation.failed

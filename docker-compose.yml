@@ -276,11 +276,17 @@ services:
   analytics-service:
     container_name: analytics-service
     build:
-      context: ./services/analytics-service
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
     environment:
       SERVICE_NAME: analytics-service
       DATABASE_URL: ${ANALYTICS_DATABASE_URL:-postgresql://saasplug:saasplug@analytics-postgres:5432/analytics}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
+      ANALYTICS_RABBITMQ_CONSUME_BATCH_SIZE: ${ANALYTICS_RABBITMQ_CONSUME_BATCH_SIZE:-50}
+      ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS: ${ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS:-5}
+      ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP: ${ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP:-false}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
     depends_on:
       analytics-postgres:
         condition: service_healthy
