@@ -30,6 +30,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 003 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_03_auth_service.md` | Auth service | `completed` | `docs/ai/codex-runs/003-auth-service.md` |
 | 004 | 2026-06-11 | Canonical prompt invocation | `docs/ai/prompts/prompt_04_provider_registry_service.md` | Provider registry service | `completed` | `docs/ai/codex-runs/004-provider-registry-service.md` |
 | 005 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_05_provider_services.md` | red/green/blue provider services | `completed` | `docs/ai/codex-runs/005-provider-services.md` |
+| 006 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_06_catalog_service.md` | Catalog service | `completed_with_warnings` | `docs/ai/codex-runs/006-catalog-service.md` |
 
 ---
 

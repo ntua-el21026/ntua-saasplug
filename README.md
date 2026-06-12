@@ -18,7 +18,13 @@ administration.
 > `green-provider-service`, and `blue-provider-service` have provider-specific
 > API mappings, normalized internal DTOs, provider-local persistence, raw
 > payload storage, sync runs, internal endpoints, and deterministic tests.
-> Catalog aggregation and user-facing provider flows are not implemented yet.
+> Prompt 06 catalog-service status: `catalog-service` owns aggregated catalog
+> persistence, imports normalized provider-service snapshots, supports full
+> upsert/change detection, stale/inactive handling, viewport/bounds point
+> queries, cached point details, freshness metadata, import run records, and
+> deterministic tests.
+> Status cache, reservations, analytics, billing, and frontend product screens
+> are not implemented yet.
 
 ## Project Overview
 
@@ -250,13 +256,46 @@ Implemented:
 
 Still not implemented:
 
-- catalog aggregation or imports from provider services,
-- catalog viewport/bounds search,
 - `status-service` 5-minute cache,
 - `reservation-service` reservation truth and reservation events,
 - analytics, billing, RabbitMQ business consumers, or frontend product screens.
 
-The next implementation prompt is Prompt 06 for `catalog-service`.
+Prompt 06 implements the `catalog-service` baseline described below.
+
+## Prompt 06 Scope
+
+Implemented:
+
+- `catalog-service` local table creation for aggregated normalized catalog
+  points, import runs, and point-change records.
+- Operator-only imports from internal provider-service endpoints:
+  `POST /internal/sync` and `GET /internal/points`.
+- Full upsert/change detection keyed by `provider_code:external_point_id`.
+- Stale/inactive handling for provider points missing from the latest import.
+- Gateway-facing catalog endpoints:
+  `GET /api/catalog/points`,
+  `GET /api/catalog/points/{provider_code}/{external_point_id}`,
+  `POST /api/catalog/imports/providers/{provider_code}`,
+  `POST /api/catalog/imports/all`,
+  `GET /api/catalog/imports/runs`, and
+  `GET /api/catalog/freshness`.
+- Viewport/bounds point queries with sane limits and optional filters.
+- Cached point details from local catalog rows only.
+- Public non-sensitive freshness metadata.
+- Deterministic fake-provider tests for catalog import and query behavior.
+
+Provider APIs do not expose coordinates in the normalized Prompt 05 DTOs, so
+catalog imports assign stable Athens-area demo coordinates and expose
+`coordinate_source=demo_synthetic`.
+
+Still not implemented:
+
+- `status-service` 5-minute cache,
+- `reservation-service` reservation truth and reservation events,
+- analytics, billing, RabbitMQ business consumers/publishers, or frontend
+  product screens.
+
+The next implementation prompt is Prompt 07 for `status-service`.
 
 ## Canonical References
 

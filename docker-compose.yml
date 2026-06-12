@@ -201,6 +201,12 @@ services:
       SERVICE_NAME: catalog-service
       DATABASE_URL: ${CATALOG_DATABASE_URL:-postgresql://saasplug:saasplug@catalog-postgres:5432/catalog}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
+      GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
+      BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}
+      CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS: ${CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS:-10}
+      CATALOG_IMPORT_ON_STARTUP: ${CATALOG_IMPORT_ON_STARTUP:-false}
     depends_on:
       catalog-postgres:
         condition: service_healthy
