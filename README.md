@@ -23,8 +23,12 @@ administration.
 > upsert/change detection, stale/inactive handling, viewport/bounds point
 > queries, cached point details, freshness metadata, import run records, and
 > deterministic tests.
-> Status cache, reservations, analytics, billing, and frontend product screens
-> are not implemented yet.
+> Prompt 07 status-service status: `status-service` owns a configurable
+> 5-minute status cache, status check logs, provider-service status lookups,
+> timeout/error fallback to last known cached status, role-gated log access,
+> freshness metadata, and deterministic tests.
+> Reservations, analytics, billing, and frontend product screens are not
+> implemented yet.
 
 ## Project Overview
 
@@ -118,6 +122,7 @@ curl http://localhost:8080/api/auth/health
 curl http://localhost:8080/api/provider-registry/health
 curl http://localhost:8080/api/providers/health
 curl http://localhost:8080/api/catalog/health
+curl http://localhost:8080/api/status/health
 curl http://localhost:8080/api/reservations/health
 ```
 
@@ -256,7 +261,6 @@ Implemented:
 
 Still not implemented:
 
-- `status-service` 5-minute cache,
 - `reservation-service` reservation truth and reservation events,
 - analytics, billing, RabbitMQ business consumers, or frontend product screens.
 
@@ -290,12 +294,42 @@ catalog imports assign stable Athens-area demo coordinates and expose
 
 Still not implemented:
 
-- `status-service` 5-minute cache,
 - `reservation-service` reservation truth and reservation events,
 - analytics, billing, RabbitMQ business consumers/publishers, or frontend
   product screens.
 
-The next implementation prompt is Prompt 07 for `status-service`.
+Prompt 07 implements the `status-service` baseline described below.
+
+## Prompt 07 Scope
+
+Implemented:
+
+- `status-service` local table creation for `status_cache` and
+  `status_check_logs`.
+- Authenticated status lookup through gateway paths:
+  `GET /api/status/points/{provider_code}/{external_point_id}/status` and
+  `GET /api/status/points/{provider_code}/{external_point_id}`.
+- Configurable status cache TTL with default `STATUS_CACHE_TTL_SECONDS=300`.
+- Provider-service status lookup through internal provider-service URLs only:
+  `GET /internal/points/{external_point_id}/status`.
+- Valid cache hits that avoid provider-service calls.
+- Cache miss, expired cache, and `forceRefresh=true` provider refresh paths.
+- Provider timeout/error fallback to last known cached status with a
+  non-sensitive warning.
+- Normalized 502 response and failed status-check log when provider lookup
+  fails without prior cache.
+- Role-gated `GET /api/status/logs` where operators see all logs and provider
+  admins see only their provider.
+- Public non-sensitive `GET /api/status/freshness` metadata.
+- Deterministic fake-provider tests for cache and fallback behavior.
+
+Still not implemented:
+
+- `reservation-service` reservation truth and reservation events,
+- analytics, billing, RabbitMQ business consumers/publishers, or frontend
+  product screens.
+
+The next implementation prompt is Prompt 08 for `reservation-service`.
 
 ## Canonical References
 

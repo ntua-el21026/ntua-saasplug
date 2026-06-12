@@ -28,6 +28,7 @@ NTUA-saasPlug/
 │   │   │   ├── 004-provider-registry-service.md
 │   │   │   ├── 005-provider-services.md
 │   │   │   ├── 006-catalog-service.md
+│   │   │   ├── 007-status-service.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
@@ -39,6 +40,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_04_provider_registry_service.md
 │   │   │   ├── prompt_05_provider_services.md
 │   │   │   ├── prompt_06_catalog_service.md
+│   │   │   ├── prompt_07_status_service.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -299,7 +301,17 @@ NTUA-saasPlug/
 │   ├── status-service/
 │   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── main.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── provider_client.py
+│   │   │   ├── routes.py
+│   │   │   ├── schemas.py
+│   │   │   ├── security.py
+│   │   │   └── status_logic.py
+│   │   ├── tests/
+│   │   │   └── test_status_service_api.py
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── README.md
@@ -313,4 +325,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 58, Total files: 256
+Total directories: 59, Total files: 267
