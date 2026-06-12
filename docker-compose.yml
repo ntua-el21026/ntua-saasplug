@@ -251,6 +251,12 @@ services:
       SERVICE_NAME: reservation-service
       DATABASE_URL: ${RESERVATION_DATABASE_URL:-postgresql://saasplug:saasplug@reservation-postgres:5432/reservation}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      RESERVATION_CATALOG_SERVICE_URL: ${RESERVATION_CATALOG_SERVICE_URL:-http://catalog-service:8000}
+      RESERVATION_PROVIDER_TIMEOUT_SECONDS: ${RESERVATION_PROVIDER_TIMEOUT_SECONDS:-5}
+      RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
+      GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
+      BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}
     depends_on:
       reservation-postgres:
         condition: service_healthy
