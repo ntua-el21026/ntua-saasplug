@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.catalog_client import CatalogServiceClient
 from app.config import Settings, get_settings
 from app.database import get_db
+from app.event_publisher import build_rabbitmq_publisher, publish_pending_outbox
 from app.models import Reservation, ReservationAttempt, ReservationEventOutbox
 from app.provider_client import ProviderServiceClient
 from app.reservation_logic import (
@@ -18,6 +19,7 @@ from app.reservation_logic import (
 from app.schemas import (
     CurrentPrincipal,
     OutboxEventResponse,
+    OutboxPublishResponse,
     ReservationAttemptResponse,
     ReservationCreateRequest,
     ReservationResponse,
@@ -179,3 +181,27 @@ def list_outbox_events(
         query = query.where(ReservationEventOutbox.publish_status == publish_status)
     events = db.scalars(query.order_by(ReservationEventOutbox.created_at.desc()).limit(limit)).all()
     return [outbox_response(event) for event in events]
+
+
+@router.post("/events/outbox/publish-pending", response_model=OutboxPublishResponse)
+def publish_pending_outbox_events(
+    limit: int | None = Query(default=None, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> OutboxPublishResponse:
+    ensure_operator(principal)
+    batch_size = limit or settings.reservation_outbox_publish_batch_size
+    publisher = build_rabbitmq_publisher(settings)
+    try:
+        result = publish_pending_outbox(db, publisher, batch_size)
+    finally:
+        publisher.close()
+    return OutboxPublishResponse(
+        selected_count=result.selected_count,
+        published_count=result.published_count,
+        failed_count=result.failed_count,
+        skipped_count=result.skipped_count,
+        published_event_ids=result.published_event_ids,
+        failed_event_ids=result.failed_event_ids,
+    )

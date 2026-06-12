@@ -6,6 +6,7 @@ from app import routes
 from app.catalog_client import CatalogServiceError
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
+from app.event_publisher import outbox_row_to_envelope, publish_pending_outbox
 from app.main import app
 from app.models import Reservation, ReservationAttempt, ReservationEventOutbox
 from app.provider_client import ProviderServiceError
@@ -91,6 +92,21 @@ class FakeProviderServiceClient:
         return ProviderReservationDTO.model_validate(self.reservations[(provider_code, external_point_id)])
 
 
+class FakeOutboxPublisher:
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.envelopes = []
+        self.closed = False
+
+    def publish(self, envelope) -> None:
+        if self.fail:
+            raise RuntimeError("publish failed")
+        self.envelopes.append(envelope)
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def access_token(roles: list[str], email: str, provider_code: str | None = None) -> str:
     return jwt.encode(
         {
@@ -129,6 +145,10 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "reservation-test-secret")
     monkeypatch.setenv("RESERVATION_CATALOG_SERVICE_URL", "http://catalog-service:8000")
     monkeypatch.setenv("RESERVATION_PROVIDER_TIMEOUT_SECONDS", "2")
+    monkeypatch.setenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")
+    monkeypatch.setenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "2")
+    monkeypatch.setenv("RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP", "false")
+    monkeypatch.setenv("RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE", "50")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     call_order: list[str] = []
@@ -367,6 +387,106 @@ def test_operator_can_list_all_reservations_attempts_and_outbox(test_context) ->
     assert len(reservations_response.json()) == 2
     assert len(attempts_response.json()) == 2
     assert len(outbox_response.json()) == 2
+
+
+def test_outbox_row_builds_valid_event_envelope(test_context) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    db = get_session_factory()()
+    try:
+        event = db.query(ReservationEventOutbox).one()
+        envelope = outbox_row_to_envelope(event)
+        assert str(envelope.event_id) == event.event_id
+        assert envelope.event_type == "reservation.succeeded"
+        assert envelope.event_version == 1
+        assert str(envelope.correlation_id) == event.correlation_id
+        assert envelope.producer == "reservation-service"
+        assert envelope.payload["reservation_id"] == event.aggregate_id
+    finally:
+        db.close()
+
+
+def test_successful_outbox_publish_marks_row_as_published(test_context) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    fake_publisher = FakeOutboxPublisher()
+    db = get_session_factory()()
+    try:
+        result = publish_pending_outbox(db, fake_publisher, limit=50)
+        event = db.query(ReservationEventOutbox).one()
+        assert result.selected_count == 1
+        assert result.published_count == 1
+        assert result.failed_count == 0
+        assert event.publish_status == "published"
+        assert event.publish_attempts == 1
+        assert event.last_publish_error is None
+        assert event.published_at is not None
+        assert len(fake_publisher.envelopes) == 1
+    finally:
+        db.close()
+
+
+def test_failed_outbox_publish_keeps_row_pending_with_error_metadata(test_context) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    fake_publisher = FakeOutboxPublisher(fail=True)
+    db = get_session_factory()()
+    try:
+        result = publish_pending_outbox(db, fake_publisher, limit=50)
+        event = db.query(ReservationEventOutbox).one()
+        assert result.selected_count == 1
+        assert result.published_count == 0
+        assert result.failed_count == 1
+        assert event.publish_status == "pending"
+        assert event.publish_attempts == 1
+        assert event.last_publish_error == "publish failed"
+        assert event.last_publish_attempt_at is not None
+        assert event.published_at is None
+    finally:
+        db.close()
+
+
+def test_already_published_outbox_row_is_not_republished(test_context) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    db = get_session_factory()()
+    try:
+        event = db.query(ReservationEventOutbox).one()
+        event.publish_status = "published"
+        db.commit()
+        fake_publisher = FakeOutboxPublisher()
+        result = publish_pending_outbox(db, fake_publisher, limit=50)
+        assert result.selected_count == 0
+        assert result.published_count == 0
+        assert len(fake_publisher.envelopes) == 0
+    finally:
+        db.close()
+
+
+def test_operator_can_publish_pending_outbox_through_endpoint(test_context, monkeypatch) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    fake_publisher = FakeOutboxPublisher()
+    monkeypatch.setattr(routes, "build_rabbitmq_publisher", lambda settings: fake_publisher)
+
+    response = client.post("/events/outbox/publish-pending", headers=operator_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["published_count"] == 1
+    assert payload["failed_count"] == 0
+    assert fake_publisher.closed is True
+
+
+def test_ev_user_cannot_publish_pending_outbox(test_context, monkeypatch) -> None:
+    client, _, _, _ = test_context
+    fake_publisher = FakeOutboxPublisher()
+    monkeypatch.setattr(routes, "build_rabbitmq_publisher", lambda settings: fake_publisher)
+
+    response = client.post("/events/outbox/publish-pending", headers=ev_headers())
+
+    assert response.status_code == 403
+    assert fake_publisher.envelopes == []
 
 
 def test_ev_user_cannot_list_global_reservations_attempts_or_outbox(test_context) -> None:

@@ -85,6 +85,11 @@ def outbox_response(event: ReservationEventOutbox) -> OutboxEventResponse:
         producer=event.producer,
         payload=event.payload,
         publish_status=event.publish_status,
+        publish_attempts=event.publish_attempts,
+        last_publish_error=event.last_publish_error,
+        last_publish_attempt_at=event.last_publish_attempt_at.isoformat()
+        if event.last_publish_attempt_at
+        else None,
         published_at=event.published_at.isoformat() if event.published_at else None,
         created_at=event.created_at.isoformat(),
     )

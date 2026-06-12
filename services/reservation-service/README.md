@@ -44,7 +44,9 @@ Prompt 08 implements:
 - JWT-compatible role and provider scoping;
 - safe normalized error responses that do not expose raw provider errors.
 
-The event outbox is staged data only. Prompt 08 does not publish to RabbitMQ.
+Prompt 09 adds explicit RabbitMQ publishing for staged outbox rows. Publishing
+is triggered separately from the reservation provider-call path so user-facing
+reservation creation does not depend on RabbitMQ delivery.
 
 ## Endpoints
 
@@ -59,15 +61,53 @@ GET /reservations/{reservation_id}
 GET /reservations/{reservation_id}/attempts
 GET /attempts
 GET /events/outbox
+POST /events/outbox/publish-pending
 ```
 
 Access rules:
 
 - `EV_USER` can create reservations and read their own reservations.
 - `OPERATOR` can create reservations for administrative/testing workflows and
-  can inspect all reservations, attempts, and pending outbox events.
+  can inspect all reservations, attempts, pending outbox events, and trigger
+  pending outbox publishing.
 - `PROVIDER_ADMIN` cannot create EV-user reservations and can inspect only
   reservations/attempts for the provider in the JWT claims.
+
+## RabbitMQ outbox publishing
+
+Reservation events are stored first in `reservation_event_outbox` with the
+common event envelope fields:
+
+```text
+event_id
+event_type
+event_version
+occurred_at
+correlation_id
+producer
+payload
+```
+
+Operators can publish pending rows after the reservation result is already
+persisted:
+
+```bash
+curl -X POST \
+  "http://localhost:8080/api/reservations/events/outbox/publish-pending?limit=50" \
+  -H "Authorization: Bearer <operator-access-token>"
+```
+
+On successful RabbitMQ publish, the row is marked `published` and
+`published_at` is set. On failure, the row remains `pending`,
+`publish_attempts` is incremented, and `last_publish_error` plus
+`last_publish_attempt_at` are recorded for retry visibility.
+
+The publisher declares the shared RabbitMQ topology before publishing. Optional
+startup topology declaration is available through
+`RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP=true`; startup declaration is non-fatal.
+
+Prompt 09 does not add a scheduler or background loop. The explicit endpoint is
+the MVP trigger.
 
 Gateway health smoke test:
 
@@ -96,10 +136,13 @@ RED_PROVIDER_SERVICE_URL
 GREEN_PROVIDER_SERVICE_URL
 BLUE_PROVIDER_SERVICE_URL
 RABBITMQ_URL
+RABBITMQ_EVENT_EXCHANGE
+RABBITMQ_PUBLISH_TIMEOUT_SECONDS
+RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP
+RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE
 ```
 
-`RABBITMQ_URL` is present for stack consistency. Prompt 08 does not publish
-reservation events to RabbitMQ.
+`RABBITMQ_EVENT_EXCHANGE` defaults to `saasplug.events`.
 
 ## Tests
 

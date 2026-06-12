@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.database import configure_database, init_db
+from app.event_publisher import declare_rabbitmq_topology
 from app.routes import router
 
 
@@ -11,6 +12,12 @@ from app.routes import router
 async def lifespan(_: FastAPI):
     configure_database()
     init_db()
+    settings = get_settings()
+    if settings.rabbitmq_topology_declare_on_startup:
+        try:
+            declare_rabbitmq_topology(settings)
+        except Exception:
+            pass
     yield
 
 

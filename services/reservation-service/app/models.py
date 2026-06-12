@@ -86,5 +86,8 @@ class ReservationEventOutbox(Base):
     producer: Mapped[str] = mapped_column(String(128), nullable=False, default="reservation-service")
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     publish_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    publish_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_publish_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_publish_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)

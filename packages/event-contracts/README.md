@@ -2,8 +2,17 @@
 
 ## Purpose
 
-This package will hold RabbitMQ event envelope and routing contracts for
-`saasplug.events`.
+This folder is a historical foundation placeholder for RabbitMQ event
+contracts.
+
+The active Prompt 09 implementation is:
+
+```text
+packages/events/
+```
+
+Use `packages/events` for the shared Python event envelope, routing,
+topology, publisher, consumer, idempotency helpers, and tests.
 
 ## Belongs here
 
@@ -18,7 +27,7 @@ This package will hold RabbitMQ event envelope and routing contracts for
 - Synchronous request/response API code.
 - Business logic owned by one service.
 
-Application logic is not implemented in this scaffold.
+No runtime code is implemented in this placeholder.
 
 ## References
 

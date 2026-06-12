@@ -246,14 +246,19 @@ services:
   reservation-service:
     container_name: reservation-service
     build:
-      context: ./services/reservation-service
+      context: .
+      dockerfile: services/reservation-service/Dockerfile
     environment:
       SERVICE_NAME: reservation-service
       DATABASE_URL: ${RESERVATION_DATABASE_URL:-postgresql://saasplug:saasplug@reservation-postgres:5432/reservation}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
+      RABBITMQ_PUBLISH_TIMEOUT_SECONDS: ${RABBITMQ_PUBLISH_TIMEOUT_SECONDS:-5}
+      RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP: ${RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP:-false}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       RESERVATION_CATALOG_SERVICE_URL: ${RESERVATION_CATALOG_SERVICE_URL:-http://catalog-service:8000}
       RESERVATION_PROVIDER_TIMEOUT_SECONDS: ${RESERVATION_PROVIDER_TIMEOUT_SECONDS:-5}
+      RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE: ${RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE:-50}
       RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
       GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
       BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}

@@ -32,6 +32,10 @@ administration.
 > synchronously, stores successful/failed/unknown attempts, stages reservation
 > outbox events, enforces JWT role/provider scoping, and has deterministic
 > tests.
+> Prompt 09 event-infrastructure status: `packages/events` defines the common
+> event envelope, routing keys, topology and DLQ declarations, publisher,
+> consumer, and idempotency primitives; `reservation-service` can publish
+> pending reservation outbox events to RabbitMQ through an operator endpoint.
 > Analytics, billing, and frontend product screens are not implemented yet.
 
 ## Project Overview
@@ -358,11 +362,60 @@ Implemented:
 
 Still not implemented:
 
-- RabbitMQ reservation event publishing,
 - analytics, billing, frontend product screens, cancellation, refunds, invoice
   generation, or real payment flows.
 
-The next implementation prompt is Prompt 09 for RabbitMQ event infrastructure.
+Prompt 09 implements the RabbitMQ event infrastructure baseline described
+below.
+
+## Prompt 09 Scope
+
+Implemented:
+
+- `packages/events` shared Python package with:
+  - Pydantic `EventEnvelope`;
+  - canonical event type and routing-key constants;
+  - RabbitMQ topic exchange topology for `saasplug.events`;
+  - primary queues and DLQs for analytics, billing reservations, and catalog
+    provider snapshots;
+  - blocking publisher helper;
+  - consumer acknowledgement primitive;
+  - in-memory idempotency helper for tests/local primitives.
+- Reservation outbox publisher in `reservation-service`.
+- Operator-only endpoint:
+  `POST /api/reservations/events/outbox/publish-pending`.
+- Outbox publish metadata:
+  `publish_attempts`, `last_publish_error`, and
+  `last_publish_attempt_at`.
+- Deterministic tests for event contracts, topology, publisher/consumer
+  helpers, idempotency, outbox envelope construction, successful publish,
+  failed publish retry metadata, and duplicate prevention.
+
+Topology summary:
+
+```text
+Exchange: saasplug.events
+DLX:      saasplug.events.dlx
+
+analytics.events <- usage.*, status.point_checked, reservation.*,
+                    catalog.points.imported, billing.invoice.*
+billing.reservations <- reservation.succeeded, reservation.failed
+catalog.provider_snapshots <- provider.points.snapshot_ready
+
+DLQs:
+analytics.events.dlq
+billing.reservations.dlq
+catalog.provider_snapshots.dlq
+```
+
+Still not implemented:
+
+- analytics-service event consumption or aggregate logic,
+- billing-service event consumption, charge creation, invoices, or payments,
+- provider sync choreography beyond shared event contracts/topology,
+- frontend product screens.
+
+The next implementation prompt is Prompt 10 for `analytics-service`.
 
 ## Canonical References
 
