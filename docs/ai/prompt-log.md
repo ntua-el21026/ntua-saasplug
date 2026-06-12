@@ -35,6 +35,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 008 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_08_reservation_service.md` | Reservation service | `completed` | `docs/ai/codex-runs/008-reservation-service.md` |
 | 009 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_09_rabbitmq_event_infrastructure.md` | RabbitMQ event infrastructure | `completed` | `docs/ai/codex-runs/009-rabbitmq-event-infrastructure.md` |
 | 010 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_10_analytics_service.md` | Analytics service | `completed` | `docs/ai/codex-runs/010-analytics-service.md` |
+| 011 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_11_billing_service.md` | Billing service | `completed` | `docs/ai/codex-runs/011-billing-service.md` |
 
 ---
 

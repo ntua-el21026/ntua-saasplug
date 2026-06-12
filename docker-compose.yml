@@ -301,11 +301,23 @@ services:
   billing-service:
     container_name: billing-service
     build:
-      context: ./services/billing-service
+      context: .
+      dockerfile: services/billing-service/Dockerfile
     environment:
       SERVICE_NAME: billing-service
       DATABASE_URL: ${BILLING_DATABASE_URL:-postgresql://saasplug:saasplug@billing-postgres:5432/billing}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
+      RABBITMQ_PUBLISH_TIMEOUT_SECONDS: ${RABBITMQ_PUBLISH_TIMEOUT_SECONDS:-5}
+      BILLING_RABBITMQ_CONSUME_BATCH_SIZE: ${BILLING_RABBITMQ_CONSUME_BATCH_SIZE:-50}
+      BILLING_RABBITMQ_CONSUME_TIMEOUT_SECONDS: ${BILLING_RABBITMQ_CONSUME_TIMEOUT_SECONDS:-5}
+      BILLING_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP: ${BILLING_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP:-false}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      BILLING_DEFAULT_CURRENCY: ${BILLING_DEFAULT_CURRENCY:-EUR}
+      BILLING_DEFAULT_RESERVATION_SUCCESS_FEE: ${BILLING_DEFAULT_RESERVATION_SUCCESS_FEE:-0.50}
+      BILLING_DEFAULT_POINT_VIEW_FEE: ${BILLING_DEFAULT_POINT_VIEW_FEE:-0.01}
+      BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED: ${BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED:-true}
+      BILLING_DEFAULT_RESERVATION_FAILURE_FEE: ${BILLING_DEFAULT_RESERVATION_FAILURE_FEE:-0.00}
     depends_on:
       billing-postgres:
         condition: service_healthy

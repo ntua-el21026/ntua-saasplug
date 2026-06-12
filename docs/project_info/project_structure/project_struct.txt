@@ -33,6 +33,7 @@ NTUA-saasPlug/
 │   │   │   ├── 009-rabbitmq-event-infrastructure.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── 010-analytics-service.md
+│   │   │   ├── 011-billing-service.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -47,6 +48,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_08_reservation_service.md
 │   │   │   ├── prompt_09_rabbitmq_event_infrastructure.md
 │   │   │   ├── prompt_10_analytics_service.md
+│   │   │   ├── prompt_11_billing_service.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -226,7 +228,20 @@ NTUA-saasPlug/
 │   ├── billing-service/
 │   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── main.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── event_ingestion.py
+│   │   │   ├── event_publisher.py
+│   │   │   ├── invoicing.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── pricing.py
+│   │   │   ├── rabbitmq_consumer.py
+│   │   │   ├── routes.py
+│   │   │   ├── schemas.py
+│   │   │   └── security.py
+│   │   ├── tests/
+│   │   │   └── test_billing_service_api.py
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── README.md
@@ -372,4 +387,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 64, Total files: 309
+Total directories: 65, Total files: 323
