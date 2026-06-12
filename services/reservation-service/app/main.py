@@ -1,26 +1,38 @@
-import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-SERVICE_NAME = os.getenv("SERVICE_NAME", "reservation-service")
+from app.config import get_settings
+from app.database import configure_database, init_db
+from app.routes import router
 
-app = FastAPI(title=f"{SERVICE_NAME} baseline", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    configure_database()
+    init_db()
+    yield
+
+
+app = FastAPI(title="reservation-service", version="0.8.0", lifespan=lifespan)
+app.include_router(router)
 
 
 @app.get("/")
 def root() -> dict[str, str]:
+    settings = get_settings()
     return {
-        "service": SERVICE_NAME,
+        "service": settings.service_name,
         "status": "running",
-        "scope": "infrastructure-baseline",
+        "scope": "reservation-truth",
     }
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"service": SERVICE_NAME, "status": "healthy"}
+    return {"service": get_settings().service_name, "status": "healthy"}
 
 
 @app.get("/ready")
 def ready() -> dict[str, str]:
-    return {"service": SERVICE_NAME, "status": "ready"}
+    return {"service": get_settings().service_name, "status": "ready"}

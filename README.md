@@ -27,8 +27,12 @@ administration.
 > 5-minute status cache, status check logs, provider-service status lookups,
 > timeout/error fallback to last known cached status, role-gated log access,
 > freshness metadata, and deterministic tests.
-> Reservations, analytics, billing, and frontend product screens are not
-> implemented yet.
+> Prompt 08 reservation-service status: `reservation-service` owns reservation
+> truth, resolves points through `catalog-service`, calls provider services
+> synchronously, stores successful/failed/unknown attempts, stages reservation
+> outbox events, enforces JWT role/provider scoping, and has deterministic
+> tests.
+> Analytics, billing, and frontend product screens are not implemented yet.
 
 ## Project Overview
 
@@ -325,11 +329,40 @@ Implemented:
 
 Still not implemented:
 
-- `reservation-service` reservation truth and reservation events,
 - analytics, billing, RabbitMQ business consumers/publishers, or frontend
   product screens.
 
-The next implementation prompt is Prompt 08 for `reservation-service`.
+Prompt 08 implements the `reservation-service` baseline described below.
+
+## Prompt 08 Scope
+
+Implemented:
+
+- `reservation-service` local table creation for `reservations`,
+  `reservation_attempts`, and `reservation_event_outbox`.
+- Authenticated reservation creation through
+  `POST /api/reservations/points/{provider_code}/{external_point_id}/reservations`.
+- Catalog point resolution through internal `catalog-service` HTTP before any
+  provider reservation call.
+- Synchronous provider-service reservation calls through Docker-internal
+  service URLs only.
+- Successful reservation persistence, successful attempt persistence, and
+  pending `reservation.succeeded` outbox records.
+- Failed or unknown reservation persistence for provider errors/timeouts,
+  failed/unknown attempt persistence, and pending `reservation.failed` outbox
+  records.
+- EV-user, provider-admin, and operator JWT authorization/scoping for
+  reservation, attempt, and outbox inspection endpoints.
+- Deterministic fake-client tests for reservation success, catalog rejection,
+  provider failure/timeout, persistence, outbox staging, and role scoping.
+
+Still not implemented:
+
+- RabbitMQ reservation event publishing,
+- analytics, billing, frontend product screens, cancellation, refunds, invoice
+  generation, or real payment flows.
+
+The next implementation prompt is Prompt 09 for RabbitMQ event infrastructure.
 
 ## Canonical References
 
