@@ -2,13 +2,17 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY packages/events /tmp/packages/events
+COPY services/analytics-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir /tmp/packages/events
 
-COPY app ./app
+COPY services/analytics-service/app ./app
+COPY services/analytics-service/tests ./tests
 
 EXPOSE 8000
 

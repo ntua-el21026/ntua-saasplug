@@ -36,6 +36,7 @@ QUEUE_DEFINITIONS = (
             QueueBinding(ANALYTICS_EVENTS_QUEUE, EventType.STATUS_POINT_CHECKED.value),
             QueueBinding(ANALYTICS_EVENTS_QUEUE, "reservation.*"),
             QueueBinding(ANALYTICS_EVENTS_QUEUE, EventType.CATALOG_POINTS_IMPORTED.value),
+            QueueBinding(ANALYTICS_EVENTS_QUEUE, EventType.BILLING_CHARGE_CREATED.value),
             QueueBinding(ANALYTICS_EVENTS_QUEUE, "billing.invoice.*"),
         ),
     ),

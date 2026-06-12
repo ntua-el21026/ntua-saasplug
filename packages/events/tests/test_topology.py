@@ -54,3 +54,8 @@ def test_declare_topology_declares_exchange_queues_dlqs_and_bindings() -> None:
         "exchange": DEFAULT_EVENT_EXCHANGE,
         "routing_key": "reservation.*",
     } in channel.bindings
+    assert {
+        "queue": ANALYTICS_EVENTS_QUEUE,
+        "exchange": DEFAULT_EVENT_EXCHANGE,
+        "routing_key": "billing.charge_created",
+    } in channel.bindings

@@ -36,7 +36,11 @@ administration.
 > event envelope, routing keys, topology and DLQ declarations, publisher,
 > consumer, and idempotency primitives; `reservation-service` can publish
 > pending reservation outbox events to RabbitMQ through an operator endpoint.
-> Analytics, billing, and frontend product screens are not implemented yet.
+> Prompt 10 analytics-service status: `analytics-service` owns raw usage event
+> ingestion, idempotent event storage, RabbitMQ analytics queue draining,
+> precomputed aggregate/cache tables, provider/operator analytics endpoints,
+> usage CSV export, JWT role/provider scoping, and deterministic tests.
+> Billing and frontend product screens are not implemented yet.
 
 ## Project Overview
 
@@ -132,6 +136,8 @@ curl http://localhost:8080/api/providers/health
 curl http://localhost:8080/api/catalog/health
 curl http://localhost:8080/api/status/health
 curl http://localhost:8080/api/reservations/health
+curl http://localhost:8080/api/analytics/health
+curl http://localhost:8080/api/billing/health
 ```
 
 Auth-service local demo endpoints are available through the gateway under
@@ -398,7 +404,8 @@ Exchange: saasplug.events
 DLX:      saasplug.events.dlx
 
 analytics.events <- usage.*, status.point_checked, reservation.*,
-                    catalog.points.imported, billing.invoice.*
+                    catalog.points.imported, billing.charge_created,
+                    billing.invoice.*
 billing.reservations <- reservation.succeeded, reservation.failed
 catalog.provider_snapshots <- provider.points.snapshot_ready
 
@@ -408,14 +415,51 @@ billing.reservations.dlq
 catalog.provider_snapshots.dlq
 ```
 
-Still not implemented:
+Still not implemented by Prompt 09:
 
 - analytics-service event consumption or aggregate logic,
 - billing-service event consumption, charge creation, invoices, or payments,
 - provider sync choreography beyond shared event contracts/topology,
 - frontend product screens.
 
-The next implementation prompt is Prompt 10 for `analytics-service`.
+Prompt 10 implements the `analytics-service` baseline described below.
+
+## Prompt 10 Scope
+
+Implemented:
+
+- `analytics-service` local table creation for `usage_events`,
+  provider/hourly/daily metrics, point daily metrics, status distribution
+  metrics, operator daily metrics, catalog health snapshots, billing summary
+  snapshots, and export jobs.
+- Idempotent ingestion of canonical `packages/events` event envelopes keyed by
+  unique `event_id`.
+- Operator-only deterministic event ingestion:
+  `POST /api/analytics/events/ingest`.
+- Operator-only limited RabbitMQ drain from `analytics.events`:
+  `POST /api/analytics/events/consume?limit=...`.
+- Operator-only aggregate rebuild:
+  `POST /api/analytics/aggregates/refresh`.
+- Provider-scoped analytics endpoints for summaries, daily trends, top points,
+  status distribution, freshness, and usage CSV export.
+- Operator analytics endpoints for summary, provider comparison, daily trends,
+  catalog health, and freshness.
+- Provider-admin JWT scoping that prevents access to another provider's
+  analytics or export.
+- Deterministic tests for ingestion, idempotency, aggregate refresh,
+  reservation/status metrics, role/provider scoping, CSV export, and fake
+  RabbitMQ drain behavior.
+
+Still not implemented:
+
+- billing-service business logic, pricing rules, charge records, invoices, or
+  payment flow,
+- frontend product screens,
+- provider API calls from analytics-service,
+- live cross-service dashboard joins,
+- scheduler/orchestrator/worker containers.
+
+The next implementation prompt is Prompt 11 for `billing-service`.
 
 ## Canonical References
 
