@@ -89,5 +89,17 @@ class OutboxEventResponse(BaseModel):
     producer: str
     payload: dict
     publish_status: str
+    publish_attempts: int
+    last_publish_error: str | None
+    last_publish_attempt_at: str | None
     published_at: str | None
     created_at: str
+
+
+class OutboxPublishResponse(BaseModel):
+    selected_count: int
+    published_count: int
+    failed_count: int
+    skipped_count: int
+    published_event_ids: list[str]
+    failed_event_ids: list[str]

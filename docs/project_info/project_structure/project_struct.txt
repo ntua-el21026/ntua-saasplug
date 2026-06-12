@@ -30,6 +30,7 @@ NTUA-saasPlug/
 │   │   │   ├── 006-catalog-service.md
 │   │   │   ├── 007-status-service.md
 │   │   │   ├── 008-reservation-service.md
+│   │   │   ├── 009-rabbitmq-event-infrastructure.md
 │   │   │   ├── 00B-logging-and-github-setup.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
@@ -43,6 +44,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_06_catalog_service.md
 │   │   │   ├── prompt_07_status_service.md
 │   │   │   ├── prompt_08_reservation_service.md
+│   │   │   ├── prompt_09_rabbitmq_event_infrastructure.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -155,6 +157,24 @@ NTUA-saasPlug/
 │   └── README.md
 ├── packages/
 │   ├── event-contracts/
+│   │   └── README.md
+│   ├── events/
+│   │   ├── saasplug_events/
+│   │   │   ├── __init__.py
+│   │   │   ├── consumer.py
+│   │   │   ├── envelope.py
+│   │   │   ├── idempotency.py
+│   │   │   ├── publisher.py
+│   │   │   ├── routing.py
+│   │   │   └── topology.py
+│   │   ├── tests/
+│   │   │   ├── test_consumer.py
+│   │   │   ├── test_envelope.py
+│   │   │   ├── test_idempotency.py
+│   │   │   ├── test_publisher.py
+│   │   │   ├── test_routing.py
+│   │   │   └── test_topology.py
+│   │   ├── pyproject.toml
 │   │   └── README.md
 │   ├── provider-normalization/
 │   │   └── README.md
@@ -298,6 +318,7 @@ NTUA-saasPlug/
 │   │   │   ├── catalog_client.py
 │   │   │   ├── config.py
 │   │   │   ├── database.py
+│   │   │   ├── event_publisher.py
 │   │   │   ├── main.py
 │   │   │   ├── models.py
 │   │   │   ├── provider_client.py
@@ -338,4 +359,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 60, Total files: 279
+Total directories: 63, Total files: 297

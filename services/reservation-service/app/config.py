@@ -18,6 +18,14 @@ class Settings:
             "http://catalog-service:8000",
         ).rstrip("/")
         self.provider_timeout_seconds = float(os.getenv("RESERVATION_PROVIDER_TIMEOUT_SECONDS", "5"))
+        self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+        self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")
+        self.rabbitmq_publish_timeout_seconds = float(os.getenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "5"))
+        self.rabbitmq_topology_declare_on_startup = (
+            os.getenv("RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP", "false").strip().lower()
+            in {"1", "true", "yes"}
+        )
+        self.reservation_outbox_publish_batch_size = int(os.getenv("RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE", "50"))
         self.red_provider_service_url = os.getenv(
             "RED_PROVIDER_SERVICE_URL",
             "http://red-provider-service:8000",
