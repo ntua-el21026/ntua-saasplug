@@ -37,6 +37,36 @@ export function formatPrice(value: number | null | undefined): string {
   }).format(value);
 }
 
+export function formatMoney(value: number | null | undefined, currency = "EUR"): string {
+  if (value === null || value === undefined) {
+    return "Not available";
+  }
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+export function formatNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "Not available";
+  }
+  return new Intl.NumberFormat("en", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+export function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "Not available";
+  }
+  return new Intl.NumberFormat("en", {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 export function formatCapacity(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return "Capacity unavailable";

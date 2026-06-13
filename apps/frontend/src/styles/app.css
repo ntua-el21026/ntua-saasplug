@@ -696,11 +696,214 @@ dd {
   font-weight: 800;
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.admin-page {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-metric-card {
+  border: 1px solid #dbe2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgb(23 32 42 / 7%);
+}
+
+.admin-metric-card span,
+.admin-metric-card small {
+  display: block;
+  color: #60706b;
+}
+
+.admin-metric-card strong {
+  display: block;
+  margin-top: 4px;
+  color: #10211d;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-panel {
+  min-width: 0;
+}
+
+.admin-panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-toolbar,
+.admin-form,
+.admin-inline-form {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-toolbar {
+  grid-template-columns: minmax(220px, 1fr) repeat(3, auto);
+  margin-bottom: 4px;
+}
+
+.admin-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-form button,
+.admin-inline-form button {
+  align-self: end;
+}
+
+.admin-inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 16px;
+}
+
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid #e4ebe7;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: #52615d;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  overflow-wrap: anywhere;
+}
+
+.admin-definition-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.admin-definition-list div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.55fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bar-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.85fr) minmax(120px, 1.3fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.bar-row span,
+.bar-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bar-row strong {
+  color: #20322e;
+  text-align: right;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e5ece8;
+  overflow: hidden;
+}
+
+.bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0f766e;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.health-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e0e8e4;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.health-card small {
+  color: #61706c;
+  overflow-wrap: anywhere;
+}
+
+.health-pill {
+  width: max-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.health-ok {
+  background: #eaf8ee;
+  color: #176533;
+}
+
+.health-bad {
+  background: #fff0f0;
+  color: #8a2222;
+}
+
 @media (max-width: 1040px) {
   .auth-page,
   .map-layout,
   .detail-layout,
-  .profile-grid {
+  .profile-grid,
+  .admin-grid {
     grid-template-columns: 1fr;
   }
 
@@ -714,7 +917,10 @@ dd {
   }
 
   .catalog-toolbar,
-  .metric-strip {
+  .metric-strip,
+  .admin-metric-grid,
+  .admin-form,
+  .health-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -741,7 +947,13 @@ dd {
   .auth-proof,
   .catalog-toolbar,
   .metric-strip,
-  .reservation-meta {
+  .reservation-meta,
+  .admin-metric-grid,
+  .admin-toolbar,
+  .admin-form,
+  .admin-inline-form,
+  .health-grid,
+  .bar-row {
     grid-template-columns: 1fr;
   }
 
@@ -763,5 +975,14 @@ dd {
 
   .detail-list div {
     grid-template-columns: 1fr;
+  }
+
+  .admin-definition-list div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .bar-row strong {
+    text-align: left;
   }
 }
