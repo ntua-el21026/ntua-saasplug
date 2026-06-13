@@ -170,6 +170,7 @@ def test_green_http_client_uses_provider_specific_reservation_body(monkeypatch) 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["path"] = request.url.path
         captured["body"] = request.read().decode("utf-8")
+        captured["authorization"] = request.headers.get("authorization")
         return httpx.Response(200, json=reservation_payload())
 
     monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
@@ -182,5 +183,6 @@ def test_green_http_client_uses_provider_specific_reservation_body(monkeypatch) 
         client.close()
 
     assert captured["path"] == "/chargingPoints/201/reservations"
+    assert captured["authorization"] == "Bearer secret-value"
     assert json.loads(captured["body"]) == {"duration": 45}
     assert result.payload["id"] == 201

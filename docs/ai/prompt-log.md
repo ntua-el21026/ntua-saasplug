@@ -39,6 +39,8 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 012 | 2026-06-12 | Canonical prompt invocation | `docs/ai/prompts/prompt_12_frontend_ev_flows.md` | EV frontend flows | `completed_with_warnings` | `docs/ai/codex-runs/012-frontend-ev-flows.md` |
 | 013 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_13_provider_operator_dashboards.md` | Provider and operator frontend dashboards | `completed_with_warnings` | `docs/ai/codex-runs/013-provider-operator-dashboards.md` |
 | 014 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_14_final_docs_uml.md` | Final documentation and UML finalization | `completed_with_warnings` | `docs/ai/codex-runs/014-final-docs-uml.md` |
+| 015 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_15_finalization_project_audit.md` | Finalization project setup and Phase A repository audit | `completed_with_warnings` | `docs/ai/codex-runs/015-finalization-project-audit.md` |
+| 016 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_16_live_env_verification.md` | Live environment and provider contract verification | `completed_with_warnings` | `docs/ai/codex-runs/016-live-env-verification.md` |
 
 ---
 

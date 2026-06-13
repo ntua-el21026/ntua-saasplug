@@ -18,6 +18,7 @@ class Settings:
             "PROVIDER_API_KEY_ENV_VAR",
             provider_config.API_KEY_ENV_VAR_DEFAULT,
         )
+        self.provider_auth_scheme = os.getenv("PROVIDER_AUTH_SCHEME", "Bearer").strip()
         self.request_timeout_seconds = float(os.getenv("PROVIDER_API_TIMEOUT_SECONDS", "10"))
 
     @property

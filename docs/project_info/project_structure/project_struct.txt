@@ -72,6 +72,8 @@ NTUA-saasPlug/
 │   │   │   ├── 012-frontend-ev-flows.md
 │   │   │   ├── 013-provider-operator-dashboards.md
 │   │   │   ├── 014-final-docs-uml.md
+│   │   │   ├── 015-finalization-project-audit.md
+│   │   │   ├── 016-live-env-verification.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -90,6 +92,8 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_12_frontend_ev_flows.md
 │   │   │   ├── prompt_13_provider_operator_dashboards.md
 │   │   │   ├── prompt_14_final_docs_uml.md
+│   │   │   ├── prompt_15_finalization_project_audit.md
+│   │   │   ├── prompt_16_live_env_verification.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -442,6 +446,7 @@ NTUA-saasPlug/
 ├── AGENTS.md
 ├── docker-compose.yml
 ├── LICENSE
+├── openapi.json
 └── README.md
 
-Total directories: 74, Total files: 371
+Total directories: 74, Total files: 376

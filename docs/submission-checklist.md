@@ -92,11 +92,23 @@ Use this checklist before packaging or presenting the final course submission.
 | Gateway health smoke | Done | `docs/final-verification.md` |
 | Authenticated EV/provider/operator smoke | Done | `docs/final-verification.md` |
 | Final static forbidden-pattern checks | Done | `docs/ai/codex-runs/014-final-docs-uml.md` |
+| Phase A finalization audit | Done with warning | `docs/ai/codex-runs/015-finalization-project-audit.md` |
+| GitHub finalization project setup | Done | GitHub Project #2 with Phase A-D issues |
+| PlantUML validation and render | Done | `docs/final-verification.md` |
+| Dockerized backend service tests | Done | `docs/final-verification.md` |
+| Phase B live environment verification | Done with warnings | `docs/ai/codex-runs/016-live-env-verification.md` |
 
 ## Manual Review Notes
 
 - Use `.env.example` only as a template. Do not submit a real `.env`.
+- Prompt 15 found a local ignored root `.env` file during verification. It was
+  not read, modified, printed, or committed by the audit, but it should be
+  removed before packaging if the submission process copies ignored files.
 - Live external provider behavior depends on real provider credentials outside
   the committed repository.
+- Prompt 16 verified live provider read-only list and detail/status checks for
+  redPlug, greenPlug, and bluePlug with Bearer provider auth. Live reservation
+  mutations were intentionally not run.
+- Prompt 16 closed Phase B issue #16 and moved its Project #2 item to `Done`.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

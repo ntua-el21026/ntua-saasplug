@@ -168,6 +168,7 @@ def test_blue_http_client_uses_provider_specific_reservation_query(monkeypatch) 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["path"] = request.url.path
         captured["query"] = request.url.query.decode("utf-8")
+        captured["authorization"] = request.headers.get("authorization")
         return httpx.Response(200, json=reservation_payload())
 
     monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
@@ -180,5 +181,6 @@ def test_blue_http_client_uses_provider_specific_reservation_query(monkeypatch) 
         client.close()
 
     assert captured["path"] == "/location/301/hold"
+    assert captured["authorization"] == "Bearer secret-value"
     assert captured["query"] == "minutes=45"
     assert result.payload["chargerId"] == 301

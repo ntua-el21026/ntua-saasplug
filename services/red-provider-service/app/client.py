@@ -40,7 +40,10 @@ class ProviderHttpClient:
         self.settings = settings
         headers = {}
         if settings.api_key_value:
-            headers["authorization"] = settings.api_key_value
+            auth_value = settings.api_key_value
+            if settings.provider_auth_scheme:
+                auth_value = f"{settings.provider_auth_scheme} {auth_value}"
+            headers["Authorization"] = auth_value
         self.client = httpx.Client(
             base_url=settings.provider_base_url,
             headers=headers,

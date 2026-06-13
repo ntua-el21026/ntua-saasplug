@@ -1,7 +1,9 @@
 # Final Verification Report
 
-This report records the Prompt 14 verification pass for the saasPlug MVP. The
-canonical architecture remains `docs/specs/SPECIFICATIONS.md`.
+This report records the Prompt 14 verification pass for the saasPlug MVP, the
+Prompt 15 Phase A finalization audit update, and the Prompt 16 Phase B live
+environment verification update. The canonical architecture remains
+`docs/specs/SPECIFICATIONS.md`.
 
 ## Environment
 
@@ -75,8 +77,93 @@ Final static checks passed for:
 - PlantUML rendering was not performed because the `plantuml` CLI is not
   installed in the local WSL environment.
 
+## Prompt 15 Phase A Audit Update
+
+Prompt 15 executed Phase A only. It closed the completed implementation
+GitHub Project, created the new finalization/hardening GitHub Project, created
+Phase A-D issues, completed Phase A issue tracking, reran repository
+verification, and validated/rendered PlantUML diagrams with the local tooling.
+No Phase B, Phase C, or Phase D implementation was started.
+
+| Check | Result | Notes |
+|---|---|---|
+| GitHub CLI permissions | Pass | Authenticated as `ntua-el21026` with `repo` and `project` scopes; repository permission was `ADMIN` |
+| Close implementation GitHub Project | Pass | Closed user project #1, `saasPlug Implementation` |
+| Create finalization GitHub Project | Pass | Created user project #2, `saasPlug Finalization and Hardening` |
+| Create Phase A-D issues | Pass | Created issues #15, #16, #18, and #17; project item order is A, B, C, D |
+| Complete Phase A issue/project item | Pass | Closed issue #15 and set its project item to `Done`; Phase B-D remain `Todo` |
+| `git diff --check` | Pass | No whitespace errors in the current Phase A diff |
+| `test ! -f .env` | Failed | A local ignored root `.env` file existed during Prompt 15; it was not created, read, modified, printed, or committed by this run |
+| Required final documentation presence | Pass | Required final docs and AI prompt files were present |
+| Required final PlantUML source presence | Pass | All 13 final `.puml` files were present |
+| Forbidden frontend source pattern scan | Pass | No matches for direct service ports, RabbitMQ, provider-service routes, or provider API leakage patterns |
+| Obsolete final documentation name scan | Pass | No matches for obsolete names such as `PointService`, `StatsService`, or `PaymentService` |
+| PlantUML CLI availability | Pass | `plantuml` 1.2020.02, Java 21, and Graphviz `dot` were available |
+| `plantuml -checkonly docs/diagrams/final/*.puml` | Pass | One sequence diagram needed a documentation-only compatibility fix before the final pass |
+| PlantUML PNG render | Pass | Rendered all 13 final diagrams to `/tmp/saasplug-plantuml-render` without adding generated images to the repository |
+| `cd apps/frontend && npm run test` | Pass | 3 test files, 6 tests passed |
+| `cd apps/frontend && npm run build` | Pass | TypeScript no-emit check and Vite production build passed |
+| `PYTHONPATH=packages/events python -m pytest packages/events/tests -q` | Failed due local toolchain issue | Python 3.14/pytest capture raised `FileNotFoundError` before running tests |
+| `PYTHONPATH=packages/events python -m pytest packages/events/tests -q -s` | Pass | 10 tests passed with capture disabled |
+| `docker info` | Pass | Docker Desktop Linux engine was reachable |
+| `docker compose config --quiet` | Pass | Compose configuration validated without printing interpolated environment values |
+| `docker compose up -d --build` | Pass | Stack built and started |
+| `docker compose ps` | Pass | Frontend, gateway, RabbitMQ, all services, and all PostgreSQL containers were healthy |
+| Gateway/public health checks | Pass | `/`, `/health`, and all public service health routes returned HTTP 200 |
+| Authenticated EV smoke | Pass | `evuser@saasplug.local` login and `/api/auth/auth/me` succeeded through gateway |
+| Authenticated provider-admin smoke | Pass | `red-admin@saasplug.local` login and provider analytics summary succeeded through gateway |
+| Authenticated operator smoke | Pass | `operator@saasplug.local` login and operator analytics summary succeeded through gateway |
+| Dockerized service-local tests | Pass | Existing backend service tests passed: 115 tests across the 10 service suites |
+| `docker compose down -v` | Pass | Containers, network, and volumes created by this verification run were removed |
+| `docker compose ps -a` | Pass | No Compose containers remained after cleanup |
+
+## Prompt 16 Phase B Live Environment Verification Update
+
+Prompt 16 executed Phase B only. It verified the local provider OpenAPI and
+official Postman collection behavior against the provider adapter
+implementation, structurally checked the local ignored `.env` with redacted
+output only, verified safe read-only live provider API checks, and reran Docker
+Compose, gateway, Google OAuth configuration, and authenticated role smoke
+checks. A minimal provider-client auth fix was required because the official
+Postman collections and live provider APIs use `Authorization: Bearer <apiKey>`
+rather than the earlier plain-header assumption. `.env`, secrets, migrations,
+deployments, Phase C, Phase D, and live reservation mutations were not changed.
+
+| Check | Result | Notes |
+|---|---|---|
+| `openapi.json` availability | Pass | Local root `openapi.json` was present and used as verification input; it remains untracked |
+| OpenAPI provider route comparison | Pass | Provider adapters match the checked redPlug, greenPlug, and bluePlug paths and reservation duration handling |
+| Provider auth comparison | Pass with warning | Official Postman collections and live providers require `Authorization: Bearer <apiKey>`; provider clients now send Bearer auth by default through `PROVIDER_AUTH_SCHEME=Bearer` |
+| Redacted `.env` structural validation | Pass | Required keys were present, non-placeholder, and redacted |
+| Provider API key structural checks | Pass | redPlug, greenPlug, and bluePlug API keys were present, non-empty, non-placeholder, and not printed |
+| Live redPlug read-only check | Pass | List returned HTTP 200, valid JSON, 459 records; detail returned HTTP 200 |
+| Live greenPlug read-only check | Pass | List returned HTTP 200, valid JSON, 509 records; detail returned HTTP 200 |
+| Live bluePlug read-only check | Pass | List returned HTTP 200, valid JSON, 486 records; status/detail returned HTTP 200 |
+| Live provider detail/status checks | Pass | One read-only detail/status request succeeded per provider |
+| Live reservation smoke | Skipped | `RUN_LIVE_RESERVATION_SMOKE=true` was not set |
+| Red provider-service tests | Pass | 8 tests passed |
+| Green provider-service tests | Pass | 8 tests passed |
+| Blue provider-service tests | Pass | 8 tests passed |
+| `git diff --check` | Pass | No whitespace errors |
+| `docker compose config --quiet` | Pass | Quiet mode was used to avoid printing interpolated secrets |
+| `docker compose up -d --build` | Pass | Stack built and started |
+| `docker compose ps` | Pass | Frontend, gateway, RabbitMQ, all services, and PostgreSQL containers were healthy |
+| Gateway/public health checks | Pass | `/`, `/health`, and all public service health routes returned HTTP 200 |
+| Authenticated EV smoke | Pass | Login, `/api/auth/auth/me`, and read-only EV flow succeeded through the gateway |
+| Authenticated provider-admin smoke | Pass | Login, `/api/auth/auth/me`, and provider-admin read flow succeeded through the gateway |
+| Authenticated operator smoke | Pass | Login, `/api/auth/auth/me`, and operator read flow succeeded through the gateway |
+| Google OAuth configuration | Pass | OAuth login endpoint reported configured credentials and generated a Google authorization URL with the expected local callback |
+| Full browser Google OAuth callback | Not run | Interactive browser OAuth login was outside this prompt's verification |
+| `docker compose down -v` | Pass | Containers, network, and volumes created by this verification run were removed |
+| `docker compose ps -a` | Pass | No Compose containers remained after cleanup |
+| GitHub Phase B issue/project item | Done | Issue #16 was closed and its Project #2 item was moved to `Done`; Phase C and Phase D were not modified |
+
 ## Conclusion
 
-The final documentation and verification pass confirm that the repository is in
-submission-ready shape for the implemented MVP, subject to the documented local
-MVP limitations in `docs/architecture-summary.md`.
+The final documentation and verification passes confirm that the repository is
+in submission-ready shape for the implemented local MVP, subject to the
+documented local MVP limitations in `docs/architecture-summary.md`. Phase B live
+environment verification passed with accepted warnings: live reservation
+mutations were intentionally skipped by safety policy, full interactive Google
+OAuth was not performed, and the official Postman/live-provider Bearer-auth
+behavior superseded the earlier plain-header assumption.

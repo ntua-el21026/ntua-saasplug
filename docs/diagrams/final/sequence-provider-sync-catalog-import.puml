@@ -4,8 +4,8 @@ title Provider sync and catalog import sequence
 actor "OPERATOR" as Operator
 participant "frontend" as Frontend
 participant "nginx-gateway" as Gateway
-participant "provider service\nred/green/blue" as ProviderService
-cloud "External provider API" as ProviderApi
+participant ProviderService
+participant "External provider API" as ProviderApi
 database "provider-local PostgreSQL" as ProviderDb
 participant "catalog-service" as Catalog
 database "catalog-postgres" as CatalogDb
