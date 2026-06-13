@@ -41,6 +41,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 014 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_14_final_docs_uml.md` | Final documentation and UML finalization | `completed_with_warnings` | `docs/ai/codex-runs/014-final-docs-uml.md` |
 | 015 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_15_finalization_project_audit.md` | Finalization project setup and Phase A repository audit | `completed_with_warnings` | `docs/ai/codex-runs/015-finalization-project-audit.md` |
 | 016 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_16_live_env_verification.md` | Live environment and provider contract verification | `completed_with_warnings` | `docs/ai/codex-runs/016-live-env-verification.md` |
+| 017 | 2026-06-13 | Direct design prompt saved as canonical prompt | `docs/ai/prompts/prompt_17_scheduler_design.md` | Phase C scheduler control-plane design | `completed` | `docs/ai/codex-runs/017-scheduler-design.md` |
 
 ---
 
