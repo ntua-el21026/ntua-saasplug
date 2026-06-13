@@ -1,0 +1,63 @@
+@startuml
+title saasPlug final use cases
+left to right direction
+
+actor "EV User\nEV_USER" as EvUser
+actor "Provider Admin\nPROVIDER_ADMIN" as ProviderAdmin
+actor "Operator\nOPERATOR" as Operator
+actor "External Provider APIs\nredPlug / greenPlug / bluePlug" as ProviderApis
+
+rectangle "saasPlug SaaS application" {
+  usecase "Register and login" as UCAuth
+  usecase "Search charging points\nby map bounds" as UCSearch
+  usecase "View cached point details" as UCDetails
+  usecase "Check live point status" as UCStatus
+  usecase "Reserve charging point" as UCReserve
+  usecase "View own reservations" as UCReservations
+
+  usecase "View provider dashboard" as UCProviderDashboard
+  usecase "Inspect own points" as UCProviderPoints
+  usecase "View provider analytics" as UCProviderAnalytics
+  usecase "Export own usage logs" as UCProviderExport
+  usecase "View and pay own invoices" as UCProviderInvoices
+  usecase "Manage limited provider settings" as UCProviderSettings
+
+  usecase "Manage providers" as UCManageProviders
+  usecase "Trigger provider/catalog sync" as UCSync
+  usecase "View operator analytics" as UCOperatorAnalytics
+  usecase "Manage pricing rules" as UCPricing
+  usecase "Issue invoices" as UCIssueInvoices
+  usecase "Inspect system status" as UCSystem
+
+  usecase "Expose provider catalog,\nstatus, and reservation APIs" as UCProviderApis
+}
+
+EvUser --> UCAuth
+EvUser --> UCSearch
+EvUser --> UCDetails
+EvUser --> UCStatus
+EvUser --> UCReserve
+EvUser --> UCReservations
+
+ProviderAdmin --> UCAuth
+ProviderAdmin --> UCProviderDashboard
+ProviderAdmin --> UCProviderPoints
+ProviderAdmin --> UCProviderAnalytics
+ProviderAdmin --> UCProviderExport
+ProviderAdmin --> UCProviderInvoices
+ProviderAdmin --> UCProviderSettings
+
+Operator --> UCAuth
+Operator --> UCManageProviders
+Operator --> UCSync
+Operator --> UCOperatorAnalytics
+Operator --> UCPricing
+Operator --> UCIssueInvoices
+Operator --> UCSystem
+
+UCStatus --> UCProviderApis
+UCReserve --> UCProviderApis
+UCSync --> UCProviderApis
+ProviderApis --> UCProviderApis
+
+@enduml

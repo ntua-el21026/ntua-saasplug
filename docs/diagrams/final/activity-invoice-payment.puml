@@ -1,0 +1,42 @@
+@startuml
+title Billing charge, invoice, and mock payment activity
+
+start
+:billing-service receives reservation or usage event;
+if (event already processed?) then (yes)
+  :Record duplicate/idempotent outcome;
+  stop
+else (no)
+  :Resolve effective pricing rule;
+  if (chargeable event?) then (yes)
+    :Create unbilled charge record;
+    :Stage billing.charge_created outbox event;
+  else (no)
+    :Record skipped billing event;
+  endif
+endif
+
+:OPERATOR opens invoice issuance;
+:Select provider and billing period;
+:billing-service selects unbilled charges;
+if (charges exist?) then (yes)
+  :Create invoice and invoice lines;
+  :Mark charges invoiced;
+  :Stage billing.invoice_issued outbox event;
+else (no)
+  :Return no-charge invoice issue result;
+  stop
+endif
+
+:PROVIDER_ADMIN views own issued invoice;
+if (provider scope matches invoice?) then (yes)
+  :Submit mock full-invoice payment;
+  :Create payment record;
+  :Mark invoice and charges paid;
+  :Stage billing.invoice_paid outbox event;
+else (no)
+  :Reject with authorization error;
+endif
+
+stop
+@enduml

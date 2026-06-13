@@ -1,0 +1,79 @@
+@startuml
+title saasPlug final deployment diagram
+left to right direction
+
+node "Developer machine" as Host {
+  node "Docker Compose project\nntua-saasplug" as Compose {
+    node "nginx-gateway\nnginx:1.27-alpine\nhost 8080 -> container 80" as Gateway
+    node "frontend\nVite dev server\ninternal 5173" as Frontend
+
+    node "FastAPI services\ninternal 8000" as Services {
+      node "auth-service" as Auth
+      node "provider-registry-service" as Registry
+      node "red-provider-service" as RedProvider
+      node "green-provider-service" as GreenProvider
+      node "blue-provider-service" as BlueProvider
+      node "catalog-service" as Catalog
+      node "status-service" as Status
+      node "reservation-service" as Reservation
+      node "analytics-service" as Analytics
+      node "billing-service" as Billing
+    }
+
+    queue "rabbitmq\nAMQP internal 5672\nmanagement host 15672" as RabbitMQ
+
+    database "auth-postgres\ninternal 5432" as AuthDb
+    database "provider-registry-postgres\ninternal 5432" as RegistryDb
+    database "red-provider-postgres\ninternal 5432" as RedDb
+    database "green-provider-postgres\ninternal 5432" as GreenDb
+    database "blue-provider-postgres\ninternal 5432" as BlueDb
+    database "catalog-postgres\ninternal 5432" as CatalogDb
+    database "status-postgres\ninternal 5432" as StatusDb
+    database "reservation-postgres\ninternal 5432" as ReservationDb
+    database "analytics-postgres\ninternal 5432" as AnalyticsDb
+    database "billing-postgres\ninternal 5432" as BillingDb
+  }
+}
+
+cloud "External provider APIs\nredPlug / greenPlug / bluePlug" as ProviderApis
+
+Host --> Gateway : http://localhost:8080
+Gateway --> Frontend
+Gateway --> Auth
+Gateway --> Registry
+Gateway --> Catalog
+Gateway --> Status
+Gateway --> Reservation
+Gateway --> Analytics
+Gateway --> Billing
+
+Auth --> AuthDb
+Registry --> RegistryDb
+RedProvider --> RedDb
+GreenProvider --> GreenDb
+BlueProvider --> BlueDb
+Catalog --> CatalogDb
+Status --> StatusDb
+Reservation --> ReservationDb
+Analytics --> AnalyticsDb
+Billing --> BillingDb
+
+RedProvider --> ProviderApis
+GreenProvider --> ProviderApis
+BlueProvider --> ProviderApis
+Reservation --> RedProvider
+Reservation --> GreenProvider
+Reservation --> BlueProvider
+Status --> RedProvider
+Status --> GreenProvider
+Status --> BlueProvider
+Catalog --> RedProvider
+Catalog --> GreenProvider
+Catalog --> BlueProvider
+
+Reservation --> RabbitMQ
+Catalog --> RabbitMQ
+Analytics --> RabbitMQ
+Billing --> RabbitMQ
+
+@enduml

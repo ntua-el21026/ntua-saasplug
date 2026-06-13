@@ -1,0 +1,27 @@
+@startuml
+title Login and current-user lookup
+
+actor User
+participant "frontend" as Frontend
+participant "nginx-gateway" as Gateway
+participant "auth-service" as Auth
+database "auth-postgres" as AuthDb
+
+User -> Frontend : Submit email/password
+Frontend -> Gateway : POST /api/auth/auth/login
+Gateway -> Auth : POST /auth/login
+Auth -> AuthDb : Load user by normalized email
+Auth -> Auth : Verify password hash and active flag
+Auth -> AuthDb : Persist hashed refresh token
+Auth --> Gateway : JWT access token, refresh token, user claims
+Gateway --> Frontend : Auth response
+Frontend -> Frontend : Store local session
+
+User -> Frontend : Open profile/current session
+Frontend -> Gateway : GET /api/auth/auth/me\nAuthorization: Bearer token
+Gateway -> Auth : GET /auth/me
+Auth -> Auth : Validate JWT and role/provider claims
+Auth --> Gateway : Current user
+Gateway --> Frontend : Current user
+
+@enduml

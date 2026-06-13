@@ -1,68 +1,68 @@
 # Final UML Diagrams
 
-This directory contains the final PlantUML diagrams for the saasPlug project submission.
+This directory contains the final PlantUML diagram sources for the saasPlug
+course submission. These files are the authoritative final diagrams; older
+drafts and intermediate diagrams elsewhere in the repository are historical
+only.
 
-## Purpose
+## Diagram Index
 
-The files in this directory are the authoritative final diagram artifacts for the course deliverable. Older or draft diagrams may exist elsewhere, but only this directory should be treated as the final diagram source.
+| File | Purpose |
+|---|---|
+| `use-case.puml` | Actor goals and MVP use cases |
+| `component.puml` | Repository components, gateway, services, databases, RabbitMQ, and provider APIs |
+| `deployment.puml` | Docker Compose containers, public ports, internal ports, and persistence |
+| `data-model.puml` | Service-owned persistence model and logical relationships |
+| `activity-search-reservation.puml` | EV search, status, and reservation activity |
+| `activity-provider-sync.puml` | Provider sync, snapshot, catalog import, and analytics propagation activity |
+| `activity-invoice-payment.puml` | Billing charge, invoice issuance, and mock payment activity |
+| `sequence-login.puml` | Login and current-user lookup sequence |
+| `sequence-search-map.puml` | Bounds-based catalog map search sequence |
+| `sequence-status-lookup.puml` | Status cache hit/miss/fallback sequence |
+| `sequence-reservation.puml` | Synchronous reservation provider-call sequence |
+| `sequence-provider-sync-catalog-import.puml` | Provider snapshot and catalog import sequence |
+| `sequence-analytics-billing-events.puml` | Reservation event propagation to analytics and billing |
 
-## Expected contents
+## Naming Rules
 
-The final diagram set should include, at minimum:
-
-- use case diagram
-- activity diagrams for the main flows
-- component diagram
-- deployment diagram
-- sequence diagrams
-- data/persistence model diagram
-- relevant class/interface/data-structure diagrams
-
-Suggested filenames:
+Final diagrams use the accepted service names from
+`docs/specs/SPECIFICATIONS.md`:
 
 ```text
-use-case.puml
-activity-search-reservation.puml
-activity-provider-sync.puml
-activity-invoice-payment.puml
-component.puml
-deployment.puml
-sequence-search-map.puml
-sequence-status-lookup.puml
-sequence-reservation.puml
-sequence-provider-sync.puml
-sequence-analytics-billing.puml
-data-model.puml
+auth-service
+provider-registry-service
+red-provider-service
+green-provider-service
+blue-provider-service
+catalog-service
+status-service
+reservation-service
+analytics-service
+billing-service
 ```
 
-## Naming rules
+Provider codes are `redPlug`, `greenPlug`, and `bluePlug`. Roles are
+`EV_USER`, `PROVIDER_ADMIN`, and `OPERATOR`.
 
-Use the exact accepted service names from `docs/specs/SPECIFICATIONS.md`, including:
+## Traceability
 
-- `auth-service`
-- `provider-registry-service`
-- `red-provider-service`
-- `green-provider-service`
-- `blue-provider-service`
-- `catalog-service`
-- `status-service`
-- `reservation-service`
-- `analytics-service`
-- `billing-service`
-
-Do not introduce alternative names such as `PointService`, `StatsService`, `PaymentService`, or `ProviderAdapterService`.
-
-## Traceability rule
-
-Every component in the final component and deployment diagrams should be traceable to a repository path where possible.
-
-Example:
+Component and deployment diagrams include repository paths or container names
+where practical, for example:
 
 ```plantuml
 component "catalog-service\nservices/catalog-service" as CatalogService
 database "catalog-postgres" as CatalogPostgres
 ```
 
-## Update policy
+## Rendering
 
-Update final diagrams after implementation or after major service/API changes. The final diagrams must match the implemented repository structure and Docker runtime.
+Render with any PlantUML-compatible tool. Example:
+
+```bash
+plantuml docs/diagrams/final/*.puml
+```
+
+## Update Policy
+
+Update these final diagrams whenever implementation, public routes, container
+topology, persistence ownership, or accepted specifications change.

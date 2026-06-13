@@ -1,0 +1,32 @@
+@startuml
+title Provider sync and catalog import sequence
+
+actor "OPERATOR" as Operator
+participant "frontend" as Frontend
+participant "nginx-gateway" as Gateway
+participant "provider service\nred/green/blue" as ProviderService
+cloud "External provider API" as ProviderApi
+database "provider-local PostgreSQL" as ProviderDb
+participant "catalog-service" as Catalog
+database "catalog-postgres" as CatalogDb
+queue "RabbitMQ\nsaasplug.events" as RabbitMQ
+
+Operator -> Frontend : Trigger sync/import control
+Frontend -> Gateway : POST /api/providers or /api/catalog control endpoint
+Gateway -> ProviderService : Internal or operator-scoped sync request
+ProviderService -> ProviderApi : Fetch provider-specific catalog
+ProviderApi --> ProviderService : Provider-specific payload
+ProviderService -> ProviderService : Normalize to internal DTOs
+ProviderService -> ProviderDb : Store raw payloads, snapshots, sync run, changes
+ProviderService -> RabbitMQ : provider.points.snapshot_ready event
+
+Gateway -> Catalog : POST import for provider
+Catalog -> ProviderService : GET internal normalized snapshots
+ProviderService --> Catalog : Snapshot page
+Catalog -> CatalogDb : Upsert catalog_points and import records
+Catalog -> RabbitMQ : catalog.points.imported event
+Catalog --> Gateway : Import summary and freshness
+Gateway --> Frontend : Control result
+Frontend --> Operator : Show sync/import result
+
+@enduml

@@ -1,31 +1,53 @@
 # Deploy
 
-This folder contains deployment and gateway configuration for saasPlug.
+This folder contains deployment and gateway configuration for the local
+Dockerized saasPlug runtime.
 
 ## Purpose
 
-This folder contains deployment and gateway configuration for the local
-development baseline.
+The MVP uses Docker Compose for local orchestration and Nginx as the single
+browser-facing gateway. Compose starts the frontend, canonical backend
+services, one PostgreSQL container per stateful service, and RabbitMQ.
 
-## Belongs here
+## Contents
 
-- Docker Compose files and deployment notes.
-- Nginx gateway configuration.
-- Deployment README notes and safe templates.
+| Path | Purpose |
+|---|---|
+| `deploy/nginx/default.conf` | Nginx reverse-proxy routes for frontend and `/api/...` service prefixes |
+| `deploy/nginx/README.md` | Gateway route documentation |
+| `docker-compose.yml` | Local runtime topology at repository root |
+| `.env.example` | Safe placeholder configuration at repository root |
 
-## Must not be placed here
+## Public Ports
 
-- Application business logic.
-- Service source code.
-- Frontend source code.
-- Real secrets or local `.env` files.
+| Component | Host port | Purpose |
+|---|---:|---|
+| `nginx-gateway` | `8080` | Frontend and public API gateway |
+| `rabbitmq` | `15672` | RabbitMQ management UI for local inspection |
 
-## Docker baseline
+Backend services, frontend port `5173`, PostgreSQL containers, and RabbitMQ
+AMQP port are Docker-internal for the MVP.
 
-Prompt 02 adds the root `docker-compose.yml` and the Nginx gateway
-configuration under `deploy/nginx/default.conf`.
+## Gateway Routes
 
-Run the baseline from the repository root:
+```text
+/                       -> frontend:5173
+/health                 -> nginx-gateway health response
+/api/auth/...           -> auth-service:8000
+/api/providers/...      -> provider-registry-service:8000
+/api/catalog/...        -> catalog-service:8000
+/api/status/...         -> status-service:8000
+/api/reservations/...   -> reservation-service:8000
+/api/analytics/...      -> analytics-service:8000
+/api/billing/...        -> billing-service:8000
+```
+
+Provider services are intentionally not exposed through Nginx. They remain
+internal to provider sync, status lookup, and reservation flows.
+
+## Commands
+
+From the repository root:
 
 ```bash
 cp .env.example .env
@@ -34,13 +56,17 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Health checks:
+Smoke checks:
 
 ```bash
 curl http://localhost:8080/health
 curl http://localhost:8080/api/auth/health
+curl http://localhost:8080/api/providers/health
 curl http://localhost:8080/api/catalog/health
+curl http://localhost:8080/api/status/health
 curl http://localhost:8080/api/reservations/health
+curl http://localhost:8080/api/analytics/health
+curl http://localhost:8080/api/billing/health
 ```
 
 Stop and remove local volumes:
@@ -49,10 +75,18 @@ Stop and remove local volumes:
 docker compose down -v
 ```
 
-The baseline does not implement schemas, migrations, business workflows, or
-real secrets.
+## Constraints
+
+- Do not commit `.env` or real secrets.
+- Do not expose backend service ports to the host.
+- Do not add new runtime containers outside the accepted specifications without
+  explicit approval.
+- Do not add a dedicated orchestrator, scheduler, or worker service for the
+  MVP.
 
 ## References
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
+- `docs/architecture-summary.md`
+- `docs/diagrams/final/deployment.puml`

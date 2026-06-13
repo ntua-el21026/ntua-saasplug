@@ -1,7 +1,8 @@
 # Documentation
 
 This folder contains project documentation, accepted specifications,
-professor-provided assignment material, diagrams, and AI run logs.
+professor-provided assignment material, final UML diagrams, verification
+records, submission notes, and AI run logs.
 
 ## Purpose
 
@@ -11,6 +12,9 @@ deliverable and for future implementation prompts.
 ## Belongs here
 
 - Accepted specifications under `docs/specs/`.
+- Final architecture summary in `docs/architecture-summary.md`.
+- Final verification report in `docs/final-verification.md`.
+- Submission checklist in `docs/submission-checklist.md`.
 - Final PlantUML diagrams under `docs/diagrams/final/`.
 - Professor-provided assignment and lecture material under `docs/assignment/`
   and `docs/lectures/`.
@@ -28,4 +32,8 @@ deliverable and for future implementation prompts.
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
+- `docs/architecture-summary.md`
+- `docs/final-verification.md`
+- `docs/submission-checklist.md`
+- `docs/diagrams/final/README.md`
 - `docs/ai/prompt-log.md`

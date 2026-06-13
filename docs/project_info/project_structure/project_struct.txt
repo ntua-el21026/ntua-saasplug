@@ -71,6 +71,7 @@ NTUA-saasPlug/
 │   │   │   ├── 011-billing-service.md
 │   │   │   ├── 012-frontend-ev-flows.md
 │   │   │   ├── 013-provider-operator-dashboards.md
+│   │   │   ├── 014-final-docs-uml.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -88,6 +89,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_11_billing_service.md
 │   │   │   ├── prompt_12_frontend_ev_flows.md
 │   │   │   ├── prompt_13_provider_operator_dashboards.md
+│   │   │   ├── prompt_14_final_docs_uml.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -117,7 +119,20 @@ NTUA-saasPlug/
 │   │   └── Εκφώνηση Εξαμηνιαίας Εργασίας.pdf
 │   ├── diagrams/
 │   │   ├── final/
-│   │   │   └── README.md
+│   │   │   ├── activity-invoice-payment.puml
+│   │   │   ├── activity-provider-sync.puml
+│   │   │   ├── activity-search-reservation.puml
+│   │   │   ├── component.puml
+│   │   │   ├── data-model.puml
+│   │   │   ├── deployment.puml
+│   │   │   ├── README.md
+│   │   │   ├── sequence-analytics-billing-events.puml
+│   │   │   ├── sequence-login.puml
+│   │   │   ├── sequence-provider-sync-catalog-import.puml
+│   │   │   ├── sequence-reservation.puml
+│   │   │   ├── sequence-search-map.puml
+│   │   │   ├── sequence-status-lookup.puml
+│   │   │   └── use-case.puml
 │   │   ├── intermediate/
 │   │   │   ├── puml/
 │   │   │   │   ├── 01_use_case_diagram.puml
@@ -197,7 +212,10 @@ NTUA-saasPlug/
 │   ├── specs/
 │   │   ├── README.md
 │   │   └── SPECIFICATIONS.md
-│   └── README.md
+│   ├── architecture-summary.md
+│   ├── final-verification.md
+│   ├── README.md
+│   └── submission-checklist.md
 ├── packages/
 │   ├── event-contracts/
 │   │   └── README.md
@@ -426,4 +444,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 74, Total files: 353
+Total directories: 74, Total files: 371

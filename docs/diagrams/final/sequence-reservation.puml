@@ -1,0 +1,42 @@
+@startuml
+title Synchronous reservation flow
+
+actor "EV_USER" as EvUser
+participant "frontend" as Frontend
+participant "nginx-gateway" as Gateway
+participant "reservation-service" as Reservation
+participant "catalog-service" as Catalog
+participant "provider service\nred/green/blue" as ProviderService
+database "reservation-postgres" as ReservationDb
+queue "RabbitMQ\nsaasplug.events" as RabbitMQ
+
+EvUser -> Frontend : Submit reservation request
+Frontend -> Gateway : POST /api/reservations/points/{provider_code}/{external_point_id}/reservations
+Gateway -> Reservation : POST /points/{provider_code}/{external_point_id}/reservations
+Reservation -> Reservation : Validate EV_USER JWT
+Reservation -> Catalog : GET cached point detail
+Catalog --> Reservation : Point snapshot or not found
+
+alt point exists
+  Reservation -> ProviderService : POST /internal/points/{external_point_id}/reservations
+  alt provider reservation succeeds
+    ProviderService --> Reservation : Provider reservation id
+    Reservation -> ReservationDb : Store reservation and successful attempt
+    Reservation -> ReservationDb : Stage reservation.succeeded outbox
+    Reservation --> Gateway : Created reservation
+  else provider failure or timeout
+    ProviderService --> Reservation : Error or timeout
+    Reservation -> ReservationDb : Store failed or unknown attempt
+    Reservation -> ReservationDb : Stage reservation.failed outbox
+    Reservation --> Gateway : Failed or unknown reservation result
+  end
+else point missing or inactive
+  Reservation --> Gateway : Reject without provider call
+end
+
+Gateway --> Frontend : Reservation response
+Frontend --> EvUser : Show result
+
+Reservation -> RabbitMQ : Operator-triggered outbox publish
+
+@enduml
