@@ -158,6 +158,7 @@ def test_red_http_client_uses_provider_specific_reservation_path(monkeypatch) ->
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["path"] = request.url.path
+        captured["authorization"] = request.headers.get("authorization")
         return httpx.Response(200, json=reservation_payload())
 
     monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
@@ -170,4 +171,5 @@ def test_red_http_client_uses_provider_specific_reservation_path(monkeypatch) ->
         client.close()
 
     assert captured["path"] == "/reserve/101/45"
+    assert captured["authorization"] == "Bearer secret-value"
     assert result.payload["pointid"] == 101
