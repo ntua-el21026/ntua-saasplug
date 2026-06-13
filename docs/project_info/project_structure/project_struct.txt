@@ -3,10 +3,14 @@ NTUA-saasPlug/
 │   ├── frontend/
 │   │   ├── src/
 │   │   │   ├── components/
+│   │   │   │   ├── AccessDenied.tsx
 │   │   │   │   ├── AppShell.tsx
 │   │   │   │   ├── Feedback.tsx
 │   │   │   │   └── StatusBadge.tsx
 │   │   │   ├── features/
+│   │   │   │   ├── admin/
+│   │   │   │   │   ├── AdminPages.tsx
+│   │   │   │   │   └── AdminUi.tsx
 │   │   │   │   ├── auth/
 │   │   │   │   │   ├── AuthContext.tsx
 │   │   │   │   │   ├── AuthLayout.tsx
@@ -29,6 +33,7 @@ NTUA-saasPlug/
 │   │   │   ├── styles/
 │   │   │   │   └── app.css
 │   │   │   ├── test/
+│   │   │   │   ├── admin-routing.test.tsx
 │   │   │   │   ├── app-smoke.test.tsx
 │   │   │   │   ├── routing.test.ts
 │   │   │   │   └── setup.ts
@@ -65,6 +70,7 @@ NTUA-saasPlug/
 │   │   │   ├── 010-analytics-service.md
 │   │   │   ├── 011-billing-service.md
 │   │   │   ├── 012-frontend-ev-flows.md
+│   │   │   ├── 013-provider-operator-dashboards.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -81,6 +87,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_10_analytics_service.md
 │   │   │   ├── prompt_11_billing_service.md
 │   │   │   ├── prompt_12_frontend_ev_flows.md
+│   │   │   ├── prompt_13_provider_operator_dashboards.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -419,4 +426,4 @@ NTUA-saasPlug/
 ├── LICENSE
 └── README.md
 
-Total directories: 73, Total files: 347
+Total directories: 74, Total files: 353

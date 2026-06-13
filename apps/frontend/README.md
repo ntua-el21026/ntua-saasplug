@@ -5,13 +5,15 @@ application for saasPlug.
 
 ## Purpose
 
-It serves public/auth pages and, as of Prompt 12, the EV user journey:
+It serves public/auth pages, the EV user journey, provider administrator
+workspaces, and operator workspaces:
 
 ```text
-login/register -> map/search/list -> point details -> status lookup -> reservation -> my reservations/profile
+login/register -> role-aware workspace -> EV flows / provider dashboard / operator dashboard
 ```
 
-Provider administrator and operator dashboards remain Prompt 13 scope.
+Prompt 13 added the provider administrator and operator frontend dashboards on
+top of the Prompt 12 EV flows.
 
 ## Belongs here
 
@@ -31,13 +33,16 @@ Provider administrator and operator dashboards remain Prompt 13 scope.
 All frontend API calls must go through `/api/...` routes exposed by
 `nginx-gateway`.
 
-Allowed EV frontend route groups for Prompt 12:
+Allowed frontend route groups:
 
 ```text
 /api/auth/*
+/api/providers/*
 /api/catalog/*
 /api/status/*
 /api/reservations/*
+/api/analytics/*
+/api/billing/*
 ```
 
 The browser must not call Docker-internal service hostnames, internal service
@@ -45,7 +50,7 @@ ports, RabbitMQ, or external provider APIs directly.
 
 ## Routes
 
-Implemented EV frontend routes:
+Implemented frontend routes:
 
 | Route | Purpose |
 |---|---|
@@ -57,9 +62,27 @@ Implemented EV frontend routes:
 | `/points/:providerCode/:externalPointId` | Cached catalog point details, live status lookup, and reservation creation |
 | `/reservations` | Current user's reservation history |
 | `/profile` | Current session, role, and provider-scope information |
+| `/provider/dashboard` | Provider-admin command center with analytics, billing, and catalog posture |
+| `/provider/points` | Provider-scoped catalog points and status-cache freshness |
+| `/provider/analytics` | Provider analytics aggregates, top points, status distribution, and trends |
+| `/provider/invoices` | Provider invoice list and billing exposure |
+| `/provider/invoices/:invoiceId` | Invoice detail and mock full-invoice payment |
+| `/provider/export` | Provider-scoped usage CSV export |
+| `/provider/settings` | Provider metadata, integration metadata, pricing, and audit logs |
+| `/operator/dashboard` | Global operator command center |
+| `/operator/providers` | Provider-registry management and activation controls |
+| `/operator/analytics` | Global analytics aggregate views |
+| `/operator/catalog` | Aggregated catalog inspection and import triggers |
+| `/operator/invoices` | Operator invoice overview |
+| `/operator/invoices/new` | Operator invoice issuance |
+| `/operator/invoices/:invoiceId` | Operator invoice detail view |
+| `/operator/pricing` | Pricing rule creation and activation controls |
+| `/operator/sync` | Catalog, analytics, billing, and reservation outbox action controls |
+| `/operator/system` | Service health and freshness overview |
 
-Authenticated EV routes require an `EV_USER` role. Non-EV authenticated users
-are kept on the profile page until provider/operator dashboards are added.
+Authenticated EV routes require `EV_USER`. Provider routes require
+`PROVIDER_ADMIN` except invoice detail, which is also readable by `OPERATOR`.
+Operator routes require `OPERATOR`.
 
 ## Demo users
 
@@ -78,6 +101,8 @@ Prompt 12 exposes quick-fill buttons for:
 | `red-admin@saasplug.local` | `PROVIDER_ADMIN` |
 
 Only the EV user can access the EV map, point details, and reservations pages.
+Provider administrators are scoped to their own provider. Operators can access
+global management and control pages.
 
 ## Frontend architecture
 
@@ -87,10 +112,11 @@ Important files:
 |---|---|
 | `src/App.tsx` | Browser routes and route guards |
 | `src/features/auth/` | Session handling, login, registration, logout, and profile UI |
+| `src/features/admin/` | Provider-admin and operator dashboards, controls, tables, and charts |
 | `src/features/catalog/` | Bounds-based point search, map/list UI, details, status lookup, and reservation form |
 | `src/features/reservations/` | Current user's reservation history |
-| `src/components/` | Shared shell, feedback, and status components |
-| `src/lib/api.ts` | Gateway-only JSON API client |
+| `src/components/` | Shared shell, access-denied, feedback, and status components |
+| `src/lib/api.ts` | Gateway-only JSON/text API client |
 | `src/lib/routing.ts` | Catalog query and point-route helpers |
 | `src/lib/storage.ts` | Local session persistence |
 | `src/styles/app.css` | Responsive application styling |
@@ -135,12 +161,10 @@ Important files:
 
 ## Current limitations
 
-- Provider administrator dashboards are not implemented yet.
-- Operator dashboards are not implemented yet.
-- Billing, pricing, invoice, analytics dashboard, provider settings, and
-  operator sync controls are not implemented in the frontend yet.
 - Status and reservation actions depend on the backend services and seeded
   provider/catalog data being available through Docker Compose.
+- Dashboard content depends on the corresponding backend aggregates, invoices,
+  import runs, and health endpoints being available through the gateway.
 
 ## References
 

@@ -17,12 +17,42 @@ export interface ApiOptions extends RequestInit {
 }
 
 export async function requestJson<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const { response, payload } = await requestPayload(path, options);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, payload, messageFromPayload(payload, response.status));
+  }
+
+  return payload as T;
+}
+
+export async function requestText(path: string, options: ApiOptions = {}): Promise<string> {
+  const { response, text, payload } = await requestPayload(path, options);
+
+  if (!response.ok) {
+    throw new ApiError(response.status, payload, messageFromPayload(payload, response.status));
+  }
+
+  return text;
+}
+
+async function requestPayload(path: string, options: ApiOptions = {}): Promise<{
+  response: Response;
+  text: string;
+  payload: unknown;
+}> {
   if (!path.startsWith("/api/")) {
     throw new Error(`Frontend API calls must use gateway-relative /api paths: ${path}`);
   }
 
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json");
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
   if (options.bodyJson !== undefined) {
     headers.set("Content-Type", "application/json");
   }
@@ -37,17 +67,13 @@ export async function requestJson<T>(path: string, options: ApiOptions = {}): Pr
   });
 
   if (response.status === 204) {
-    return undefined as T;
+    return { response, text: "", payload: null };
   }
 
   const text = await response.text();
   const payload = parseResponsePayload(text);
 
-  if (!response.ok) {
-    throw new ApiError(response.status, payload, messageFromPayload(payload, response.status));
-  }
-
-  return payload as T;
+  return { response, text, payload };
 }
 
 export function messageFromUnknownError(error: unknown): string {

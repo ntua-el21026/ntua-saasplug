@@ -48,6 +48,11 @@ administration.
 > registration, logout, session handling, map/search/list, point details,
 > status lookup, reservation creation, own reservation history, profile, and
 > deterministic frontend tests/build validation.
+> Prompt 13 provider/operator frontend status: the same role-based frontend now
+> implements provider-admin dashboards, points, analytics, invoices/payment,
+> export/settings, operator dashboards, provider management, analytics,
+> catalog/sync controls, invoice issuance, pricing controls, system overview,
+> and deterministic frontend routing/build validation.
 
 ## Project Overview
 
