@@ -1,0 +1,228 @@
+@startuml
+title saasPlug final persistence ownership model
+hide circle
+skinparam linetype ortho
+
+package "auth-service / auth-postgres" {
+  entity users {
+    * id : uuid
+    --
+    email
+    password_hash
+    roles
+    provider_code
+    is_active
+  }
+  entity refresh_tokens {
+    * id : uuid
+    --
+    user_id
+    token_hash
+    expires_at
+    revoked_at
+  }
+}
+
+package "provider-registry-service / provider-registry-postgres" {
+  entity providers {
+    * id : uuid
+    --
+    provider_code
+    display_name
+    api_base_url
+    is_active
+  }
+  entity provider_config_audit_logs {
+    * id : uuid
+    --
+    provider_code
+    actor_email
+    action
+    created_at
+  }
+}
+
+package "provider services / provider-local PostgreSQL" {
+  entity provider_point_snapshots {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    normalized_payload
+    is_active
+  }
+  entity raw_provider_payloads {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    raw_payload
+  }
+  entity provider_sync_runs {
+    * id : uuid
+    --
+    provider_code
+    status
+    started_at
+    finished_at
+  }
+  entity provider_point_changes {
+    * id : uuid
+    --
+    sync_run_id
+    change_type
+    external_point_id
+  }
+}
+
+package "catalog-service / catalog-postgres" {
+  entity catalog_points {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    name
+    latitude
+    longitude
+    is_active
+    source_updated_at
+  }
+  entity catalog_import_runs {
+    * id : uuid
+    --
+    provider_code
+    status
+    imported_count
+  }
+  entity catalog_point_changes {
+    * id : uuid
+    --
+    import_run_id
+    change_type
+    provider_code
+    external_point_id
+  }
+}
+
+package "status-service / status-postgres" {
+  entity status_cache {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    normalized_status
+    expires_at
+  }
+  entity status_check_logs {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    actor_email
+    result
+  }
+}
+
+package "reservation-service / reservation-postgres" {
+  entity reservations {
+    * id : uuid
+    --
+    user_id
+    provider_code
+    external_point_id
+    status
+    provider_reservation_id
+  }
+  entity reservation_attempts {
+    * id : uuid
+    --
+    reservation_id
+    result
+    provider_status_code
+  }
+  entity reservation_event_outbox {
+    * id : uuid
+    --
+    reservation_id
+    event_type
+    published_at
+  }
+}
+
+package "analytics-service / analytics-postgres" {
+  entity usage_events {
+    * event_id : uuid
+    --
+    event_type
+    provider_code
+    occurred_at
+    payload
+  }
+  entity provider_hourly_metrics
+  entity provider_daily_metrics
+  entity point_daily_metrics
+  entity provider_status_daily_metrics
+  entity operator_daily_metrics
+  entity catalog_health_snapshots
+  entity billing_summary_snapshots
+  entity export_jobs
+}
+
+package "billing-service / billing-postgres" {
+  entity pricing_rules {
+    * id : uuid
+    --
+    provider_code
+    active
+    fees
+  }
+  entity billing_events {
+    * event_id : uuid
+    --
+    event_type
+    result
+  }
+  entity charge_records {
+    * id : uuid
+    --
+    source_event_id
+    provider_code
+    amount
+    status
+  }
+  entity invoices {
+    * id : uuid
+    --
+    provider_code
+    status
+    total_amount
+  }
+  entity invoice_lines
+  entity payments
+  entity billing_event_outbox
+}
+
+users ||--o{ refresh_tokens
+providers ||--o{ provider_config_audit_logs
+provider_sync_runs ||--o{ provider_point_changes
+catalog_import_runs ||--o{ catalog_point_changes
+reservations ||--o{ reservation_attempts
+reservations ||--o{ reservation_event_outbox
+invoices ||--o{ invoice_lines
+invoices ||--o{ payments
+pricing_rules ..> charge_records : pricing scope
+usage_events ..> provider_daily_metrics : rebuilds
+billing_events ..> charge_records : source_event_id
+provider_point_snapshots ..> catalog_points : provider_code + external_point_id
+catalog_points ..> status_cache : provider_code + external_point_id
+catalog_points ..> reservations : provider_code + external_point_id
+reservation_event_outbox ..> usage_events : RabbitMQ event_id
+reservation_event_outbox ..> billing_events : RabbitMQ event_id
+
+note bottom
+Relationships crossing package boundaries are logical IDs, event IDs, snapshots,
+or projections. They are not cross-service foreign keys and do not imply shared
+database ownership.
+end note
+
+@enduml

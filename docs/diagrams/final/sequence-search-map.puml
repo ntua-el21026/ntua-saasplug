@@ -1,0 +1,26 @@
+@startuml
+title Bounds-based catalog map search
+
+actor "EV_USER" as EvUser
+participant "frontend" as Frontend
+participant "nginx-gateway" as Gateway
+participant "catalog-service" as Catalog
+database "catalog-postgres" as CatalogDb
+
+EvUser -> Frontend : Move map or change filters
+Frontend -> Frontend : Build viewport bounds query
+Frontend -> Gateway : GET /api/catalog/points?minLat=...&maxLat=...&minLng=...&maxLng=...&zoom=...
+Gateway -> Catalog : GET /points with bounds
+Catalog -> CatalogDb : Query active catalog_points in bounds
+Catalog --> Gateway : Normalized point list and freshness metadata
+Gateway --> Frontend : Point list
+Frontend --> EvUser : Render map/list without provider API calls
+
+EvUser -> Frontend : Select point
+Frontend -> Gateway : GET /api/catalog/points/{provider_code}/{external_point_id}
+Gateway -> Catalog : GET cached point detail
+Catalog -> CatalogDb : Load catalog point projection
+Catalog --> Gateway : Cached point detail
+Gateway --> Frontend : Cached point detail
+
+@enduml

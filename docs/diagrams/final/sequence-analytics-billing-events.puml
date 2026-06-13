@@ -1,0 +1,31 @@
+@startuml
+title Reservation event propagation to analytics and billing
+
+participant "reservation-service" as Reservation
+database "reservation-postgres" as ReservationDb
+queue "RabbitMQ\nsaasplug.events" as RabbitMQ
+participant "analytics-service" as Analytics
+database "analytics-postgres" as AnalyticsDb
+participant "billing-service" as Billing
+database "billing-postgres" as BillingDb
+
+Reservation -> ReservationDb : Read pending reservation_event_outbox rows
+Reservation -> RabbitMQ : Publish reservation.succeeded or reservation.failed
+Reservation -> ReservationDb : Mark outbox row published
+
+RabbitMQ -> Analytics : Deliver to analytics.events
+Analytics -> AnalyticsDb : Idempotently insert usage_events by event_id
+Analytics -> AnalyticsDb : Refresh aggregate/cache tables on command
+Analytics --> RabbitMQ : Ack or reject to DLQ
+
+RabbitMQ -> Billing : Deliver to billing.reservations
+Billing -> BillingDb : Idempotently insert billing_events by event_id
+Billing -> BillingDb : Apply pricing and create charge when chargeable
+Billing -> BillingDb : Stage billing.charge_created outbox event
+Billing --> RabbitMQ : Ack or reject to DLQ
+
+Billing -> RabbitMQ : Publish billing.invoice_issued / billing.invoice_paid from outbox
+RabbitMQ -> Analytics : Deliver billing projection events
+Analytics -> AnalyticsDb : Update billing summary projections
+
+@enduml

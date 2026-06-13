@@ -140,6 +140,9 @@ Through Docker Compose, browser access should go through the gateway:
 http://localhost:8080/
 ```
 
+Prompt 14 final verification recorded the frontend test and build results in
+`docs/final-verification.md`.
+
 ## Docker baseline
 
 The frontend container listens on internal port `5173`. It is not exposed
@@ -170,3 +173,5 @@ Important files:
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
+- `docs/architecture-summary.md`
+- `docs/final-verification.md`

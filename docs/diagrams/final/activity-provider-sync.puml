@@ -1,0 +1,21 @@
+@startuml
+title Provider sync and catalog import activity
+
+start
+:OPERATOR triggers provider sync or catalog import control;
+:Responsible provider service calls its external provider API;
+:Store raw provider payloads;
+:Normalize provider-specific schema into internal DTOs;
+:Upsert provider-local point snapshots;
+:Record sync run and point changes;
+:Optionally publish provider.points.snapshot_ready event;
+:catalog-service imports provider snapshots through internal provider endpoint;
+:Detect inserts, updates, unchanged points, stale points, and inactive points;
+:Store aggregated normalized catalog points;
+:Record catalog import run and changes;
+:Publish catalog.points.imported event when configured;
+:analytics-service consumes or ingests catalog event;
+:Dashboards show freshness from owned tables/projections;
+stop
+
+@enduml

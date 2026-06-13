@@ -1,0 +1,100 @@
+@startuml
+title saasPlug final component diagram
+left to right direction
+skinparam componentStyle rectangle
+
+actor "Browser user" as Browser
+
+package "apps" {
+  component "frontend\napps/frontend" as Frontend
+}
+
+package "deploy" {
+  component "nginx-gateway\ndeploy/nginx/default.conf" as Gateway
+}
+
+package "services" {
+  component "auth-service\nservices/auth-service" as Auth
+  component "provider-registry-service\nservices/provider-registry-service" as Registry
+  component "red-provider-service\nservices/red-provider-service" as RedProvider
+  component "green-provider-service\nservices/green-provider-service" as GreenProvider
+  component "blue-provider-service\nservices/blue-provider-service" as BlueProvider
+  component "catalog-service\nservices/catalog-service" as Catalog
+  component "status-service\nservices/status-service" as Status
+  component "reservation-service\nservices/reservation-service" as Reservation
+  component "analytics-service\nservices/analytics-service" as Analytics
+  component "billing-service\nservices/billing-service" as Billing
+}
+
+package "packages" {
+  component "event contracts\npackages/events" as EventContracts
+}
+
+queue "RabbitMQ\nexchange: saasplug.events" as RabbitMQ
+
+database "auth-postgres" as AuthDb
+database "provider-registry-postgres" as RegistryDb
+database "red-provider-postgres" as RedDb
+database "green-provider-postgres" as GreenDb
+database "blue-provider-postgres" as BlueDb
+database "catalog-postgres" as CatalogDb
+database "status-postgres" as StatusDb
+database "reservation-postgres" as ReservationDb
+database "analytics-postgres" as AnalyticsDb
+database "billing-postgres" as BillingDb
+
+cloud "redPlug API" as RedApi
+cloud "greenPlug API" as GreenApi
+cloud "bluePlug API" as BlueApi
+
+Browser --> Gateway : HTTP / and /api/*
+Gateway --> Frontend : static app
+Gateway --> Auth : /api/auth/*
+Gateway --> Registry : /api/providers/*
+Gateway --> Catalog : /api/catalog/*
+Gateway --> Status : /api/status/*
+Gateway --> Reservation : /api/reservations/*
+Gateway --> Analytics : /api/analytics/*
+Gateway --> Billing : /api/billing/*
+
+Catalog --> RedProvider : provider snapshots
+Catalog --> GreenProvider : provider snapshots
+Catalog --> BlueProvider : provider snapshots
+Status --> RedProvider : internal status lookup
+Status --> GreenProvider : internal status lookup
+Status --> BlueProvider : internal status lookup
+Reservation --> Catalog : point resolution
+Reservation --> RedProvider : synchronous reservation
+Reservation --> GreenProvider : synchronous reservation
+Reservation --> BlueProvider : synchronous reservation
+
+RedProvider --> RedApi : provider REST API
+GreenProvider --> GreenApi : provider REST API
+BlueProvider --> BlueApi : provider REST API
+
+Auth --> AuthDb
+Registry --> RegistryDb
+RedProvider --> RedDb
+GreenProvider --> GreenDb
+BlueProvider --> BlueDb
+Catalog --> CatalogDb
+Status --> StatusDb
+Reservation --> ReservationDb
+Analytics --> AnalyticsDb
+Billing --> BillingDb
+
+Reservation --> RabbitMQ : reservation events
+RedProvider --> RabbitMQ : snapshot readiness
+GreenProvider --> RabbitMQ : snapshot readiness
+BlueProvider --> RabbitMQ : snapshot readiness
+Catalog --> RabbitMQ : catalog import events
+Billing --> RabbitMQ : billing outbox events
+Analytics --> RabbitMQ : consume analytics.events
+Billing --> RabbitMQ : consume billing.reservations
+
+Reservation ..> EventContracts
+Catalog ..> EventContracts
+Analytics ..> EventContracts
+Billing ..> EventContracts
+
+@enduml

@@ -1,0 +1,102 @@
+# saasPlug Submission Checklist
+
+Use this checklist before packaging or presenting the final course submission.
+
+## Canonical Sources
+
+| Item | Status | Evidence |
+|---|---|---|
+| Repository instructions present | Done | `AGENTS.md` |
+| Accepted specifications present | Done | `docs/specs/SPECIFICATIONS.md` |
+| Assignment materials preserved | Done | `docs/assignment/` |
+| Lecture materials preserved | Done | `docs/lectures/` |
+| Provider OpenAPI YAML preserved | Done | `docs/assignment/providers/yaml/` |
+
+## Architecture and Runtime
+
+| Item | Status | Evidence |
+|---|---|---|
+| One role-based frontend app | Done | `apps/frontend/` |
+| Nginx gateway | Done | `deploy/nginx/default.conf` |
+| FastAPI backend services | Done | `services/` |
+| RabbitMQ event infrastructure | Done | `packages/events/` |
+| Separate PostgreSQL container per stateful service | Done | `docker-compose.yml` |
+| No MongoDB in MVP | Done | No MongoDB runtime files present |
+| No dedicated orchestrator service | Done | No orchestrator container/service present |
+| Provider services are internal | Done | Gateway does not expose provider-service routes |
+
+## Service Coverage
+
+| Service | Status | Evidence |
+|---|---|---|
+| `auth-service` | Done | `services/auth-service/README.md` |
+| `provider-registry-service` | Done | `services/provider-registry-service/README.md` |
+| `red-provider-service` | Done | `services/red-provider-service/README.md` |
+| `green-provider-service` | Done | `services/green-provider-service/README.md` |
+| `blue-provider-service` | Done | `services/blue-provider-service/README.md` |
+| `catalog-service` | Done | `services/catalog-service/README.md` |
+| `status-service` | Done | `services/status-service/README.md` |
+| `reservation-service` | Done | `services/reservation-service/README.md` |
+| `analytics-service` | Done | `services/analytics-service/README.md` |
+| `billing-service` | Done | `services/billing-service/README.md` |
+
+## Frontend Coverage
+
+| Area | Status | Evidence |
+|---|---|---|
+| Login/register/logout/session | Done | `apps/frontend/README.md` |
+| EV map/search/list/details/status/reservations/profile | Done | `apps/frontend/README.md` |
+| Provider dashboard/points/analytics/invoices/export/settings | Done | `apps/frontend/README.md` |
+| Operator dashboard/providers/analytics/catalog/invoices/pricing/sync/system | Done | `apps/frontend/README.md` |
+| Gateway-only frontend API calls | Done | `apps/frontend/src/lib/api.ts` and final static checks |
+
+## Final Documentation
+
+| Item | Status | Evidence |
+|---|---|---|
+| Root README finalized | Done | `README.md` |
+| Architecture summary | Done | `docs/architecture-summary.md` |
+| Final verification report | Done | `docs/final-verification.md` |
+| Submission checklist | Done | `docs/submission-checklist.md` |
+| Final diagram README | Done | `docs/diagrams/final/README.md` |
+| AI prompt log updated | Done | `docs/ai/prompt-log.md` |
+| Prompt 14 run report | Done | `docs/ai/codex-runs/014-final-docs-uml.md` |
+
+## Final UML Diagrams
+
+| Diagram | Status | File |
+|---|---|---|
+| Use case | Done | `docs/diagrams/final/use-case.puml` |
+| Component | Done | `docs/diagrams/final/component.puml` |
+| Deployment | Done | `docs/diagrams/final/deployment.puml` |
+| Data model | Done | `docs/diagrams/final/data-model.puml` |
+| Search/reservation activity | Done | `docs/diagrams/final/activity-search-reservation.puml` |
+| Provider sync activity | Done | `docs/diagrams/final/activity-provider-sync.puml` |
+| Invoice/payment activity | Done | `docs/diagrams/final/activity-invoice-payment.puml` |
+| Login sequence | Done | `docs/diagrams/final/sequence-login.puml` |
+| Map search sequence | Done | `docs/diagrams/final/sequence-search-map.puml` |
+| Status lookup sequence | Done | `docs/diagrams/final/sequence-status-lookup.puml` |
+| Reservation sequence | Done | `docs/diagrams/final/sequence-reservation.puml` |
+| Provider sync/catalog import sequence | Done | `docs/diagrams/final/sequence-provider-sync-catalog-import.puml` |
+| Analytics/billing events sequence | Done | `docs/diagrams/final/sequence-analytics-billing-events.puml` |
+
+## Verification
+
+| Item | Status | Evidence |
+|---|---|---|
+| Frontend tests | Done | `docs/final-verification.md` |
+| Frontend build | Done | `docs/final-verification.md` |
+| Shared event package tests | Done | `docs/final-verification.md` |
+| Docker Compose config | Done | `docs/final-verification.md` |
+| Docker Compose startup and health | Done | `docs/final-verification.md` |
+| Gateway health smoke | Done | `docs/final-verification.md` |
+| Authenticated EV/provider/operator smoke | Done | `docs/final-verification.md` |
+| Final static forbidden-pattern checks | Done | `docs/ai/codex-runs/014-final-docs-uml.md` |
+
+## Manual Review Notes
+
+- Use `.env.example` only as a template. Do not submit a real `.env`.
+- Live external provider behavior depends on real provider credentials outside
+  the committed repository.
+- Browser automation and Figma validation were not performed in Prompt 14
+  because no callable browser tool or usable Figma source was available.

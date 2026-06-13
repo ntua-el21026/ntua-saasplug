@@ -1,0 +1,46 @@
+@startuml
+title EV search, status, and reservation activity
+
+start
+:EV_USER opens frontend through nginx-gateway;
+:Login or validate existing session;
+:Move map or adjust filters;
+:Frontend requests /api/catalog/points with bounds;
+:catalog-service returns normalized cached points;
+:EV_USER selects a point;
+:Frontend requests cached point details;
+:Frontend optionally requests live status;
+
+if (status cache valid?) then (yes)
+  :status-service returns cached normalized status;
+else (no)
+  :status-service calls provider service internally;
+  if (provider lookup succeeds?) then (yes)
+    :Store refreshed status cache and log;
+  else (no)
+    if (last known cached status exists?) then (yes)
+      :Return last known cached status with warning;
+    else (no)
+      :Return normalized error and failed log;
+      stop
+    endif
+  endif
+endif
+
+if (EV_USER submits reservation?) then (yes)
+  :reservation-service resolves point through catalog-service;
+  :reservation-service calls provider service synchronously;
+  if (provider reservation succeeds?) then (yes)
+    :Store reservation truth and successful attempt;
+    :Stage reservation.succeeded outbox event;
+  else (no)
+    :Store failed or unknown reservation attempt;
+    :Stage reservation.failed outbox event;
+  endif
+  :Frontend shows reservation result;
+else (no)
+  :EV_USER continues browsing;
+endif
+
+stop
+@enduml

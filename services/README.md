@@ -5,24 +5,10 @@ This folder contains the Python FastAPI microservices for saasPlug.
 ## Purpose
 
 Each service owns a bounded responsibility and, when stateful, exactly one
-PostgreSQL container.
+PostgreSQL container. Services communicate through REST/JSON internal APIs for
+live flows and RabbitMQ events for asynchronous propagation.
 
-## Belongs here
-
-- Canonical FastAPI services listed in `AGENTS.md`.
-- Service-local tests, migrations, README files, and implementation files added
-  by later prompts.
-- Service-specific configuration templates without secrets.
-
-## Must not be placed here
-
-- Frontend code.
-- Shared package code that should live under `packages/`.
-- Docker Compose runtime files.
-- Cross-service database joins or shared mutable tables.
-- Real secrets or `.env` files.
-
-## Canonical services
+## Canonical Services
 
 ```text
 auth-service
@@ -37,50 +23,76 @@ analytics-service
 billing-service
 ```
 
-## Docker baseline
+## Responsibilities
 
-Prompt 02 adds a minimal FastAPI runtime scaffold for each canonical backend
-service.
+| Service | Responsibility | Owned database |
+|---|---|---|
+| `auth-service` | Users, password login, JWT access tokens, refresh tokens, role/provider claims | `auth-postgres` |
+| `provider-registry-service` | Provider metadata, integration config metadata, provider config audit logs | `provider-registry-postgres` |
+| `red-provider-service` | `redPlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `red-provider-postgres` |
+| `green-provider-service` | `greenPlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `green-provider-postgres` |
+| `blue-provider-service` | `bluePlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `blue-provider-postgres` |
+| `catalog-service` | Aggregated normalized catalog, point imports, bounds queries, cached point details | `catalog-postgres` |
+| `status-service` | 5-minute status cache, status lookup logs, fallback to last known cached status | `status-postgres` |
+| `reservation-service` | Reservation truth, reservation attempts, reservation event outbox | `reservation-postgres` |
+| `analytics-service` | Raw usage events, aggregate/cache tables, provider/operator analytics, CSV exports | `analytics-postgres` |
+| `billing-service` | Pricing, charges, invoices, invoice lines, mock payments, billing outbox | `billing-postgres` |
 
-Each service exposes only:
+## Gateway Exposure
+
+Backend services are not exposed directly to the host. Public access goes
+through `nginx-gateway`:
 
 ```text
-GET /
-GET /health
-GET /ready
+/api/auth/...         -> auth-service
+/api/providers/...    -> provider-registry-service
+/api/catalog/...      -> catalog-service
+/api/status/...       -> status-service
+/api/reservations/... -> reservation-service
+/api/analytics/...    -> analytics-service
+/api/billing/...      -> billing-service
 ```
 
-These endpoints return static infrastructure metadata. They do not connect to
-PostgreSQL, call provider APIs, publish RabbitMQ events, or implement business
-logic.
+Provider services remain internal and are used by catalog, status, and
+reservation flows through Docker-internal URLs only.
 
-Each service folder contains:
+## Shared Rules
 
-```text
-Dockerfile
-.dockerignore
-requirements.txt
-app/__init__.py
-app/main.py
-```
+- No service writes to another service's database.
+- No cross-service SQL joins.
+- No shared mutable database tables.
+- Use logical IDs and event/projection data where duplication is needed.
+- Use canonical roles: `EV_USER`, `PROVIDER_ADMIN`, `OPERATOR`.
+- Use canonical provider codes: `redPlug`, `greenPlug`, `bluePlug`.
+- Do not commit real secrets or `.env`.
 
-Run the full baseline from the repository root:
+## Commands
+
+Run the full stack from the repository root:
 
 ```bash
 docker compose up -d --build
+docker compose ps
 ```
 
-Do not expose backend service ports to the host. Access public service health
-through the gateway, for example:
+Service tests are service-local. Examples:
 
 ```bash
-curl http://localhost:8080/api/auth/health
-curl http://localhost:8080/api/catalog/health
+docker compose run --build --rm --no-deps auth-service pytest -q
+docker compose run --build --rm --no-deps catalog-service pytest -q
+docker compose run --build --rm --no-deps billing-service pytest -q
 ```
 
-Application business logic is not implemented in this scaffold.
+Stop and remove local volumes:
+
+```bash
+docker compose down -v
+```
 
 ## References
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
+- `docs/architecture-summary.md`
+- `docs/diagrams/final/component.puml`
+- `docs/diagrams/final/data-model.puml`

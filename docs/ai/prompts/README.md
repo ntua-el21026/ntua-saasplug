@@ -68,12 +68,12 @@ If any mandatory file is missing, Codex must report it before proceeding, unless
 | 06 | `prompt_06_catalog_service.md` | `catalog-service`, aggregated catalog, viewport/bounds queries, catalog imports |
 | 07 | `prompt_07_status_service.md` | `status-service`, 5-minute cache, status checks, fallback policy |
 | 08 | `prompt_08_reservation_service.md` | `reservation-service`, synchronous provider reservation flow, reservation events |
-| 09 | `prompt_09_events_rabbitmq.md` | RabbitMQ exchange, event envelope, publishers/consumers, idempotency, DLQs |
+| 09 | `prompt_09_rabbitmq_event_infrastructure.md` | RabbitMQ exchange, event envelope, publishers/consumers, idempotency, DLQs |
 | 10 | `prompt_10_analytics_service.md` | `analytics-service`, raw events, aggregate tables, provider/operator analytics, CSV export |
 | 11 | `prompt_11_billing_service.md` | `billing-service`, pricing rules, charge records, invoices, mock payment |
 | 12 | `prompt_12_frontend_ev_flows.md` | EV user frontend: login, map, point details, status, reservations |
-| 13 | `prompt_13_frontend_admin_dashboards.md` | Provider and operator dashboards, analytics, billing, pricing, sync controls |
-| 14 | `prompt_14_docs_uml_finalization.md` | Final documentation, PlantUML diagrams, README completion, final verification |
+| 13 | `prompt_13_provider_operator_dashboards.md` | Provider and operator dashboards, analytics, billing, pricing, sync controls |
+| 14 | `prompt_14_final_docs_uml.md` | Final documentation, PlantUML diagrams, README completion, final verification |
 
 Only Prompt 01 is expected to exist before foundation work. Later prompts should be written after reviewing the previous Codex output so they can reference the real repository state.
 

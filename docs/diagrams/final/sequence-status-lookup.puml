@@ -1,0 +1,38 @@
+@startuml
+title Status lookup with 5-minute cache and fallback
+
+actor "EV_USER" as EvUser
+participant "frontend" as Frontend
+participant "nginx-gateway" as Gateway
+participant "status-service" as Status
+database "status-postgres" as StatusDb
+participant "provider service\nred/green/blue" as ProviderService
+
+EvUser -> Frontend : Request point status
+Frontend -> Gateway : GET /api/status/points/{provider_code}/{external_point_id}/status
+Gateway -> Status : GET /points/{provider_code}/{external_point_id}/status
+Status -> StatusDb : Read status_cache
+
+alt cache hit and not expired
+  Status -> StatusDb : Write status_check_logs hit
+  Status --> Gateway : Cached normalized status
+else cache miss or expired
+  Status -> ProviderService : GET /internal/points/{external_point_id}/status
+  alt provider success
+    ProviderService --> Status : Provider-specific status
+    Status -> Status : Normalize to accepted status value
+    Status -> StatusDb : Upsert status_cache and log success
+    Status --> Gateway : Refreshed normalized status
+  else timeout or provider error with last known cache
+    Status -> StatusDb : Log fallback
+    Status --> Gateway : Last known cached status with warning
+  else timeout or provider error without cache
+    Status -> StatusDb : Log failure
+    Status --> Gateway : Non-sensitive normalized error
+  end
+end
+
+Gateway --> Frontend : Status response
+Frontend --> EvUser : Display status/freshness
+
+@enduml

@@ -29,6 +29,13 @@ The specifications define:
 - technology stack
 - documentation and delivery rules
 
+Final delivery documents that trace back to these specifications are:
+
+- `docs/architecture-summary.md`
+- `docs/diagrams/final/`
+- `docs/final-verification.md`
+- `docs/submission-checklist.md`
+
 ## Usage by Codex
 
 Codex must read `docs/specs/SPECIFICATIONS.md` before implementing any service, API, frontend flow, Docker setup, documentation, or diagram.
