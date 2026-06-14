@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" role="img" aria-labelledby="title">
+  <title id="title">Busy charger marker</title>
+  <path d="M12 27s9-8.3 9-16A9 9 0 1 0 3 11c0 7.7 9 16 9 16Z" fill="#F59E0B"/>
+  <circle cx="12" cy="11" r="4" fill="#FFFFFF"/>
+</svg>

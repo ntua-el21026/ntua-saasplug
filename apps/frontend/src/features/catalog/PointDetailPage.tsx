@@ -2,8 +2,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../../components/AppShell";
+import { ProviderBadge } from "../../components/domain/provider";
+import { ReservationModal } from "../../components/domain/ev";
 import { Alert, LoadingBlock } from "../../components/Feedback";
 import { StatusBadge } from "../../components/StatusBadge";
+import { Button, PageHeader } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import { requestJson, messageFromUnknownError } from "../../lib/api";
 import { formatCapacity, formatDateTime, formatPrice, providerLabel } from "../../lib/formatting";
@@ -19,6 +22,7 @@ export function PointDetailPage() {
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
   const [reservationLoading, setReservationLoading] = useState(false);
+  const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [reservationError, setReservationError] = useState<string | null>(null);
@@ -88,6 +92,7 @@ export function PointDetailPage() {
     event.preventDefault();
     setReservation(null);
     setReservationError(null);
+    setReservationDialogOpen(true);
     setReservationLoading(true);
     try {
       const payload = await requestJson<Reservation>(
@@ -118,17 +123,18 @@ export function PointDetailPage() {
 
         {point ? (
           <>
-            <section className="point-hero">
-              <div>
-                <p className="eyebrow">{providerLabel(point.provider_code)}</p>
-                <h1>{point.display_name}</h1>
-                <p>{point.address ?? point.location_name ?? point.normalized_point_id}</p>
-              </div>
-              <div className="point-hero-status">
-                <StatusBadge status={status?.status ?? point.status} />
-                <span>{formatPrice(point.price_per_kwh_eur)}</span>
-              </div>
-            </section>
+            <PageHeader
+              eyebrow="Charging point detail"
+              title={point.display_name}
+              description={point.address ?? point.location_name ?? point.normalized_point_id}
+              actions={
+                <div className="point-hero-status">
+                  <ProviderBadge providerCode={point.provider_code} />
+                  <StatusBadge status={status?.status ?? point.status} />
+                  <span>{formatPrice(point.price_per_kwh_eur)}</span>
+                </div>
+              }
+            />
 
             <section className="detail-layout">
               <div className="surface">
@@ -246,18 +252,33 @@ export function PointDetailPage() {
                   />
                 </label>
                 <button className="button-primary" type="submit" disabled={reservationLoading}>
-                  Create reservation
+                  {reservationLoading ? "Checking availability..." : "Create reservation"}
                 </button>
-                {reservation ? (
-                  <Alert tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">
-                    Reservation {reservation.status}. <Link to="/reservations">Open reservation history</Link>.
-                  </Alert>
-                ) : null}
-                {reservationError ? (
-                  <Alert tone="danger" title="Reservation failed">
-                    {reservationError}
-                  </Alert>
-                ) : null}
+                <ReservationModal open={reservationDialogOpen} title="Reservation status">
+                  {reservationLoading ? <LoadingBlock label="Checking provider availability" /> : null}
+                  {reservation ? (
+                    <Alert tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">
+                      Reservation {reservation.status}. <Link to="/reservations">Open reservation history</Link>.
+                    </Alert>
+                  ) : null}
+                  {reservationError ? (
+                    <Alert tone="danger" title={reservationError.toLowerCase().includes("timeout") ? "Provider timeout" : "Reservation failed"}>
+                      {reservationError}
+                    </Alert>
+                  ) : null}
+                  {!reservationLoading ? (
+                    <div className="button-row">
+                      <Button variant="secondary" type="button" onClick={() => setReservationDialogOpen(false)}>
+                        Close
+                      </Button>
+                      {reservationError ? (
+                        <Button type="submit">
+                          Retry
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </ReservationModal>
               </form>
             </section>
           </>

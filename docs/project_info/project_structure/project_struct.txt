@@ -2,11 +2,47 @@ NTUA-saasPlug/
 ├── apps/
 │   ├── frontend/
 │   │   ├── src/
+│   │   │   ├── assets/
+│   │   │   │   ├── brand/
+│   │   │   │   │   └── saasplug-mark.svg
+│   │   │   │   ├── icons/
+│   │   │   │   │   ├── charger.svg
+│   │   │   │   │   ├── invoice.svg
+│   │   │   │   │   ├── operator.svg
+│   │   │   │   │   ├── plug.svg
+│   │   │   │   │   └── provider.svg
+│   │   │   │   └── map/
+│   │   │   │       ├── marker-available.svg
+│   │   │   │       ├── marker-busy.svg
+│   │   │   │       ├── marker-selected.svg
+│   │   │   │       └── marker-unavailable.svg
 │   │   │   ├── components/
+│   │   │   │   ├── domain/
+│   │   │   │   │   ├── billing/
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   ├── ev/
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   ├── operator/
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   ├── provider/
+│   │   │   │   │   │   └── index.tsx
+│   │   │   │   │   └── status/
+│   │   │   │   │       └── index.tsx
+│   │   │   │   ├── layout/
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── ui/
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   └── primitives.tsx
 │   │   │   │   ├── AccessDenied.tsx
 │   │   │   │   ├── AppShell.tsx
 │   │   │   │   ├── Feedback.tsx
 │   │   │   │   └── StatusBadge.tsx
+│   │   │   ├── design/
+│   │   │   │   ├── motion.css
+│   │   │   │   ├── shadows.css
+│   │   │   │   ├── theme.css
+│   │   │   │   ├── tokens.ts
+│   │   │   │   └── typography.css
 │   │   │   ├── features/
 │   │   │   │   ├── admin/
 │   │   │   │   │   ├── AdminPages.tsx
@@ -17,14 +53,19 @@ NTUA-saasPlug/
 │   │   │   │   │   ├── LoginPage.tsx
 │   │   │   │   │   ├── LogoutPage.tsx
 │   │   │   │   │   ├── ProfilePage.tsx
+│   │   │   │   │   ├── ProviderRegistrationPage.tsx
 │   │   │   │   │   └── RegisterPage.tsx
 │   │   │   │   ├── catalog/
 │   │   │   │   │   ├── CatalogMap.tsx
 │   │   │   │   │   ├── CatalogPage.tsx
 │   │   │   │   │   └── PointDetailPage.tsx
+│   │   │   │   ├── landing/
+│   │   │   │   │   └── LandingPage.tsx
 │   │   │   │   └── reservations/
 │   │   │   │       └── ReservationsPage.tsx
 │   │   │   ├── lib/
+│   │   │   │   ├── utils/
+│   │   │   │   │   └── classNames.ts
 │   │   │   │   ├── api.ts
 │   │   │   │   ├── formatting.ts
 │   │   │   │   ├── routing.ts
@@ -38,7 +79,8 @@ NTUA-saasPlug/
 │   │   │   │   ├── routing.test.ts
 │   │   │   │   └── setup.ts
 │   │   │   ├── App.tsx
-│   │   │   └── main.tsx
+│   │   │   ├── main.tsx
+│   │   │   └── vite-env.d.ts
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── index.html
@@ -73,6 +115,7 @@ NTUA-saasPlug/
 │   │   │   ├── 013-provider-operator-dashboards.md
 │   │   │   ├── 014-final-docs-uml.md
 │   │   │   ├── 015-finalization-project-audit.md
+│   │   │   ├── 015-frontend-design-system-redesign.md
 │   │   │   ├── 016-live-env-verification.md
 │   │   │   ├── 017-scheduler-design.md
 │   │   │   ├── 018-scheduler-control-plane-implementation.md
@@ -100,6 +143,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_13_provider_operator_dashboards.md
 │   │   │   ├── prompt_14_final_docs_uml.md
 │   │   │   ├── prompt_15_finalization_project_audit.md
+│   │   │   ├── prompt_15_frontend_design_system_redesign.md
 │   │   │   ├── prompt_16_live_env_verification.md
 │   │   │   ├── prompt_17_scheduler_design.md
 │   │   │   ├── prompt_18_scheduler_control_plane_implementation.md
@@ -107,6 +151,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_21_final_verification_only.md
 │   │   │   ├── prompt_22_live_env_full_verification.md
 │   │   │   ├── prompt_23_readme_documentation_polish.md
+│   │   │   ├── prompt_24_frontend_design_system_redesign.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -484,4 +529,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 78, Total files: 407
+Total directories: 93, Total files: 437

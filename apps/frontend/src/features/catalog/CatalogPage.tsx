@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { AppShell } from "../../components/AppShell";
+import {
+  ChargingPointCard,
+  ChargingPointDrawer,
+  MapFilterPanel,
+  MapFloatingControls,
+  SelectedFiltersBar,
+} from "../../components/domain/ev";
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
-import { StatusBadge } from "../../components/StatusBadge";
+import { MetricCard, PageHeader } from "../../components/ui";
 import { requestJson, messageFromUnknownError } from "../../lib/api";
-import { formatCapacity, formatDateTime, formatPrice, providerLabel, PROVIDERS, STATUSES } from "../../lib/formatting";
-import { ATHENS_DEFAULT_BOUNDS, buildCatalogPointsPath, moveBounds, pointPath, zoomBounds } from "../../lib/routing";
+import { PROVIDERS, STATUSES } from "../../lib/formatting";
+import { ATHENS_DEFAULT_BOUNDS, buildCatalogPointsPath, moveBounds, zoomBounds } from "../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPointListResponse, ProviderFreshness } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
@@ -23,6 +29,7 @@ export function CatalogPage() {
   const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
   const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(null);
   const [freshness, setFreshness] = useState<ProviderFreshness[]>([]);
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,114 +66,41 @@ export function CatalogPage() {
 
   const activeTotal = freshness.reduce((sum, row) => sum + row.active_count, 0);
   const staleTotal = freshness.reduce((sum, row) => sum + row.stale_count, 0);
+  const selectedPoint = catalog?.items.find((point) => point.id === selectedPointId) ?? catalog?.items[0] ?? null;
+
+  useEffect(() => {
+    if (!catalog?.items.length) {
+      setSelectedPointId(null);
+      return;
+    }
+    if (!selectedPointId || !catalog.items.some((point) => point.id === selectedPointId)) {
+      setSelectedPointId(catalog.items[0].id);
+    }
+  }, [catalog, selectedPointId]);
 
   return (
     <AppShell>
-      <main className="page">
-        <section className="page-heading">
-          <p className="eyebrow">EV dashboard</p>
-          <h1>Charging point discovery</h1>
-          <p>Search the local aggregated catalog, inspect cached point details, check status, and reserve chargers.</p>
-        </section>
+      <main className="page map-page">
+        <PageHeader
+          eyebrow="EV charging map"
+          title="Charging point discovery"
+          description="Search the aggregated catalog by viewport, inspect provider freshness, and open a reservation flow without calling provider APIs from the browser."
+        />
 
         <section className="metric-strip" aria-label="Catalog freshness">
-          <div>
-            <strong>{catalog?.total ?? 0}</strong>
-            <span>points in bounds</span>
-          </div>
-          <div>
-            <strong>{activeTotal}</strong>
-            <span>active catalog points</span>
-          </div>
-          <div>
-            <strong>{staleTotal}</strong>
-            <span>stale catalog points</span>
-          </div>
-          <div>
-            <strong>{catalog?.missing_coordinates_count ?? 0}</strong>
-            <span>without coordinates</span>
-          </div>
+          <MetricCard label="Points in bounds" value={catalog?.total ?? 0} />
+          <MetricCard label="Active catalog points" value={activeTotal} tone="success" />
+          <MetricCard label="Stale catalog points" value={staleTotal} tone="warning" />
+          <MetricCard label="Without coordinates" value={catalog?.missing_coordinates_count ?? 0} tone="info" />
         </section>
 
-        <section className="catalog-toolbar" aria-label="Catalog filters">
-          <label>
-            Search
-            <input
-              type="search"
-              value={filters.q}
-              onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
-              placeholder="Point name, address, ID"
-            />
-          </label>
-          <label>
-            Provider
-            <select
-              value={filters.providerCode}
-              onChange={(event) => setFilters((current) => ({ ...current, providerCode: event.target.value as CatalogFilters["providerCode"] }))}
-            >
-              <option value="">All providers</option>
-              {PROVIDERS.map((provider) => (
-                <option key={provider} value={provider}>{providerLabel(provider)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Status
-            <select
-              value={filters.status}
-              onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as CatalogFilters["status"] }))}
-            >
-              <option value="">Any status</option>
-              {STATUSES.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Connector
-            <input
-              value={filters.connector}
-              onChange={(event) => setFilters((current) => ({ ...current, connector: event.target.value }))}
-              placeholder="CCS, Type 2"
-            />
-          </label>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={filters.includeStale}
-              onChange={(event) => setFilters((current) => ({ ...current, includeStale: event.target.checked }))}
-            />
-            Include stale
-          </label>
-        </section>
-
-        <section className="map-layout">
-          <div className="surface map-surface">
-            <div className="surface-header">
-              <div>
-                <h2>Viewport map</h2>
-                <p>
-                  Lat {bounds.minLat.toFixed(3)}-{bounds.maxLat.toFixed(3)} · Lng {bounds.minLng.toFixed(3)}-{bounds.maxLng.toFixed(3)}
-                </p>
-              </div>
-              <div className="map-controls" aria-label="Map viewport controls">
-                <button type="button" onClick={() => setBounds((current) => moveBounds(current, "north"))}>N</button>
-                <button type="button" onClick={() => setBounds((current) => moveBounds(current, "south"))}>S</button>
-                <button type="button" onClick={() => setBounds((current) => moveBounds(current, "west"))}>W</button>
-                <button type="button" onClick={() => setBounds((current) => moveBounds(current, "east"))}>E</button>
-                <button type="button" onClick={() => setBounds((current) => zoomBounds(current, "in"))}>+</button>
-                <button type="button" onClick={() => setBounds((current) => zoomBounds(current, "out"))}>-</button>
-              </div>
-            </div>
-            {catalog ? <CatalogMap points={catalog.items} bounds={bounds} /> : <LoadingBlock label="Loading map" />}
-          </div>
-
-          <div className="surface list-surface">
-            <div className="surface-header">
-              <div>
-                <h2>Points</h2>
-                <p>{catalog?.bounds_applied ? "Loaded with viewport bounds" : "Loaded without viewport bounds"}</p>
-              </div>
+        <section className="map-workspace">
+          <aside className="map-results-panel" aria-label="Charging point filters and results">
+            <MapFilterPanel filters={filters} providers={PROVIDERS} statuses={STATUSES} onChange={setFilters} />
+            <SelectedFiltersBar filters={filters} onChange={setFilters} />
+            <div className="results-summary">
+              <strong>{catalog?.items.length ?? 0} results</strong>
+              <span>{catalog?.bounds_applied ? "Viewport bounded" : "No bounds applied"}</span>
             </div>
             {loading ? <LoadingBlock label="Loading catalog" /> : null}
             {error ? (
@@ -181,27 +115,41 @@ export function CatalogPage() {
             ) : null}
             <div className="point-list">
               {catalog?.items.map((point) => (
-                <Link key={point.id} to={pointPath(point.provider_code, point.external_point_id)} className="point-card">
-                  <span className={`provider-rail provider-${point.provider_code}`} />
-                  <span className="point-card-main">
-                    <strong>{point.display_name}</strong>
-                    <small>{point.address ?? point.location_name ?? point.normalized_point_id}</small>
-                    <span className="point-card-meta">
-                      {providerLabel(point.provider_code)} · {point.connector ?? "Connector unknown"} · {formatCapacity(point.capacity)}
-                    </span>
-                    {point.coordinate_source === "demo_synthetic" ? (
-                      <span className="demo-coordinate-note">Demo map coordinates</span>
-                    ) : null}
-                  </span>
-                  <span className="point-card-side">
-                    <StatusBadge status={point.status} />
-                    <small>{formatPrice(point.price_per_kwh_eur)}</small>
-                    <small>Synced {formatDateTime(point.last_catalog_sync_at)}</small>
-                  </span>
-                </Link>
+                <ChargingPointCard
+                  key={point.id}
+                  point={point}
+                  selected={selectedPoint?.id === point.id}
+                  onSelect={() => setSelectedPointId(point.id)}
+                />
               ))}
             </div>
-          </div>
+          </aside>
+
+          <section className="map-canvas-panel" aria-label="Map viewport">
+            <div className="map-canvas-header">
+              <div>
+                <h2>Live viewport</h2>
+                <p>
+                  Lat {bounds.minLat.toFixed(3)}-{bounds.maxLat.toFixed(3)} · Lng {bounds.minLng.toFixed(3)}-{bounds.maxLng.toFixed(3)} · Zoom {bounds.zoom}
+                </p>
+              </div>
+            </div>
+            <MapFloatingControls
+              onNorth={() => setBounds((current) => moveBounds(current, "north"))}
+              onSouth={() => setBounds((current) => moveBounds(current, "south"))}
+              onWest={() => setBounds((current) => moveBounds(current, "west"))}
+              onEast={() => setBounds((current) => moveBounds(current, "east"))}
+              onZoomIn={() => setBounds((current) => zoomBounds(current, "in"))}
+              onZoomOut={() => setBounds((current) => zoomBounds(current, "out"))}
+            />
+            {catalog ? (
+              <CatalogMap points={catalog.items} bounds={bounds} selectedPointId={selectedPoint?.id} />
+            ) : (
+              <LoadingBlock label="Loading map" />
+            )}
+          </section>
+
+          <ChargingPointDrawer point={selectedPoint} bounds={bounds} />
         </section>
       </main>
     </AppShell>

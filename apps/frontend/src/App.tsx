@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "./features/auth/AuthContext";
 import { LoginPage } from "./features/auth/LoginPage";
 import { LogoutPage } from "./features/auth/LogoutPage";
 import { ProfilePage } from "./features/auth/ProfilePage";
+import { ProviderRegistrationPage } from "./features/auth/ProviderRegistrationPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import {
   OperatorAnalyticsPage,
@@ -27,6 +28,7 @@ import {
 } from "./features/admin/AdminPages";
 import { CatalogPage } from "./features/catalog/CatalogPage";
 import { PointDetailPage } from "./features/catalog/PointDetailPage";
+import { LandingPage } from "./features/landing/LandingPage";
 import { ReservationsPage } from "./features/reservations/ReservationsPage";
 import type { Role } from "./lib/types";
 
@@ -38,7 +40,7 @@ function HomeRedirect() {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    return <LandingPage />;
   }
 
   if (session.user.roles.includes("EV_USER")) {
@@ -97,8 +99,10 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
+          <Route path="/auth" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/provider-register" element={<ProviderRegistrationPage />} />
           <Route path="/logout" element={<LogoutPage />} />
           <Route
             path="/map"

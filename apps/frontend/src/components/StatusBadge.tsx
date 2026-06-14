@@ -1,5 +1,5 @@
-import { statusLabel, statusTone } from "../lib/formatting";
+import { GenericStatusBadge } from "./domain/status";
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
-  return <span className={`status-badge status-${statusTone(status)}`}>{statusLabel(status)}</span>;
+  return <GenericStatusBadge status={status} />;
 }
