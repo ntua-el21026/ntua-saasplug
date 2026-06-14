@@ -27,6 +27,7 @@ Implement the accepted hybrid scheduler/control-plane architecture:
 - Added `services/scheduler-service` with FastAPI, SQLAlchemy models, scheduler metadata persistence, seeded jobs, scheduler loop, internal HTTP client, operator-only scheduler APIs, redacted response summaries, and tests.
 - Added `scheduler-postgres`, scheduler environment variables, Compose wiring, and Nginx `/api/scheduler/*` routing.
 - Added internal service-owned job endpoints to catalog, analytics, billing, and reservation services. These endpoints validate `X-Scheduler-Token` and require `X-Job-Run-Id`.
+- Added Phase C hardening on 2026-06-14 so Nginx returns `404` for `/api/catalog/internal/`, `/api/analytics/internal/`, `/api/billing/internal/`, and `/api/reservations/internal/` before the broad service proxy routes. `404` is used consistently so internal route existence is not disclosed at the gateway.
 - Extended the operator Sync page with scheduler jobs, manual run, pause/resume, and run history. Extended the operator System page with scheduler health and run history.
 - Updated specs, architecture summary, README files, final verification, submission checklist, and changed final PlantUML diagrams.
 - Moved GitHub Phase C issue #18 to In Progress at the start, then closed it and moved its Project #2 item to Done after validation passed. Phase D issue #17 remained Todo.
@@ -125,6 +126,10 @@ Implement the accepted hybrid scheduler/control-plane architecture:
 | Scheduler manual run smoke for `billing.prepare-invoices` | Pass, succeeded with target HTTP 200 |
 | Frontend application-source forbidden-pattern check | Pass |
 | Nginx internal job exposure check | Pass |
+| Phase C hardening gateway block smoke | Pass, `/api/catalog/internal/...`, `/api/analytics/internal/...`, `/api/billing/internal/...`, and `/api/reservations/internal/...` returned 404 |
+| Phase C hardening scheduler health smoke | Pass, `/api/scheduler/health` returned 200 |
+| Phase C hardening scheduler manual-run smoke | Pass, `billing.prepare-invoices` succeeded with target HTTP 200 through Docker-internal service URLs |
+| `docker compose exec -T nginx-gateway nginx -t` | Pass |
 | `docker compose down -v` and `docker compose ps -a` | Pass |
 | `git diff --check` | Pass |
 

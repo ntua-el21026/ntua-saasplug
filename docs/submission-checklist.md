@@ -25,7 +25,7 @@ Use this checklist before packaging or presenting the final course submission.
 | No MongoDB in MVP | Done | No MongoDB runtime files present |
 | No dedicated orchestrator service | Done | No orchestrator container/service present |
 | Provider services are internal | Done | Gateway does not expose provider-service routes |
-| Scheduler internal job endpoints are internal | Done | Gateway exposes `/api/scheduler/*` only |
+| Scheduler internal job endpoints are internal | Done | Gateway exposes `/api/scheduler/*` only and returns 404 for `/api/catalog/internal/`, `/api/analytics/internal/`, `/api/billing/internal/`, and `/api/reservations/internal/` |
 
 ## Service Coverage
 
@@ -102,6 +102,7 @@ Use this checklist before packaging or presenting the final course submission.
 | Dockerized backend service tests | Done | `docs/final-verification.md` |
 | Phase B live environment verification | Done with warnings | `docs/ai/codex-runs/016-live-env-verification.md` |
 | Phase C scheduler control-plane implementation | Done | `docs/ai/codex-runs/018-scheduler-control-plane-implementation.md` |
+| Phase C gateway internal-job hardening | Done | `docs/final-verification.md` |
 
 ## Manual Review Notes
 
@@ -118,5 +119,8 @@ Use this checklist before packaging or presenting the final course submission.
 - Prompt 18 added scheduler-service as a control plane only. Business logic and
   data ownership remain inside catalog, analytics, billing, and reservation
   services.
+- Phase C hardening returns 404 for gateway attempts to reach service-owned
+  internal job prefixes while preserving `/api/scheduler/*` and scheduler
+  Docker-internal job execution.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.
