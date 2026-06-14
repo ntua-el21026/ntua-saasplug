@@ -46,7 +46,7 @@ GET  /freshness
 - Provider-specific raw API calls in the normal user search path.
 - Reservation truth.
 - Status cache ownership.
-- RabbitMQ business publishers or consumers for Prompt 06.
+- RabbitMQ business publishers or consumers.
 - Cross-service SQL joins.
 
 ## Provider-service import flow
@@ -151,14 +151,27 @@ BLUE_PROVIDER_SERVICE_URL=http://blue-provider-service:8000
 CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS=10
 CATALOG_IMPORT_ON_STARTUP=false
 JWT_SECRET=change-me-in-local-env
+SCHEDULER_INTERNAL_TOKEN=change-me-scheduler-token
 ```
 
 `CATALOG_IMPORT_ON_STARTUP` intentionally defaults to `false` so normal stack
 startup does not surprise-call provider sync endpoints.
 
-## Runtime baseline
+## Internal scheduler endpoints
 
-Prompt 06 keeps:
+`scheduler-service` calls these service-owned endpoints over Docker-internal
+URLs with `X-Scheduler-Token` and `X-Job-Run-Id`:
+
+```text
+POST /internal/jobs/catalog/imports/providers/{provider_code}
+POST /internal/jobs/catalog/imports/all
+GET  /internal/jobs/catalog/freshness
+```
+
+The Nginx gateway returns HTTP 404 for `/api/catalog/internal/...`; these
+routes are not browser-facing APIs.
+
+## Runtime baseline
 
 ```text
 GET /
@@ -178,17 +191,13 @@ Containerized catalog tests:
 docker compose run --rm --no-deps catalog-service pytest -q
 ```
 
-## Explicit non-goals
+## Boundary Notes
 
-Prompt 06 does not implement:
-
-- `status-service` 5-minute status cache;
-- reservation truth or provider reservation calls;
-- analytics or billing;
-- frontend screens;
-- RabbitMQ catalog events;
-- provider services exposed through Nginx;
-- direct external provider API calls from `catalog-service`.
+- `status-service` owns the five-minute status cache.
+- `reservation-service` owns reservation truth and provider reservation calls.
+- Analytics and billing own their own projections and financial data.
+- Provider services are not exposed through Nginx.
+- `catalog-service` does not call external provider APIs directly.
 
 ## References
 

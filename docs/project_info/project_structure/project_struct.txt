@@ -80,6 +80,7 @@ NTUA-saasPlug/
 │   │   │   ├── 020-comprehensive-test-expansion-and-project-closure.md
 │   │   │   ├── 021-final-verification-only.md
 │   │   │   ├── 022-live-env-full-verification.md
+│   │   │   ├── 023-readme-documentation-polish.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -105,6 +106,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_19_phase_d_test_expansion.md
 │   │   │   ├── prompt_21_final_verification_only.md
 │   │   │   ├── prompt_22_live_env_full_verification.md
+│   │   │   ├── prompt_23_readme_documentation_polish.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -482,4 +484,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 78, Total files: 405
+Total directories: 78, Total files: 407

@@ -64,7 +64,7 @@ Use this checklist before packaging or presenting the final course submission.
 | Submission checklist | Done | `docs/submission-checklist.md` |
 | Final diagram README | Done | `docs/diagrams/final/README.md` |
 | AI prompt log updated | Done | `docs/ai/prompt-log.md` |
-| Prompt 14 run report | Done | `docs/ai/codex-runs/014-final-docs-uml.md` |
+| README documentation polish | Done | `docs/ai/codex-runs/023-readme-documentation-polish.md` |
 
 ## Final UML Diagrams
 
@@ -109,7 +109,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Final verification-only audit | Done with warnings | 184 verified tests and full Docker/gateway/authenticated/scheduler smokes documented in `docs/ai/codex-runs/021-final-verification-only.md` |
 | Final audit/documentation Project #3 setup | Done | GitHub Project `saasPlug Final Audit and Documentation` contains issue #19 for this audit and issue #20 for full README documentation |
 | Live `.env` full verification | Done with warnings | Live provider reads, live `.env` Docker/gateway/auth/scheduler/catalog/status checks, and 184 tests documented in `docs/ai/codex-runs/022-live-env-full-verification.md` |
-| Final audit issue #19 | Done | Issue #19 closed and moved to `Done` in GitHub Project #3; issue #20 remains open/Todo |
+| Final audit issue #19 | Done | Issue #19 closed and moved to `Done` in GitHub Project #3 |
+| README documentation issue #20 | Done | Issue #20 closed and moved to `Done` in GitHub Project #3 after README polish validation |
 
 ## Manual Review Notes
 
@@ -144,5 +145,9 @@ Use this checklist before packaging or presenting the final course submission.
   providers, verified live catalog/status reads through service-owned flows,
   closed issue #19, and left issue #20 open. Full browser Google OAuth callback
   and live reservation mutation remained skipped by safety/tooling policy.
+- Prompt 23 completed the repository-wide README documentation polish, removed
+  stale prompt/process wording from user-facing README files, confirmed 35
+  generated/cache-free README files, closed issue #20, and moved its GitHub
+  Project #3 item to `Done`.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

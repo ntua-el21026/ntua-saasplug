@@ -146,12 +146,12 @@ fresh local baseline is intended.
 
 ## Limitations and deferred work
 
-- Provider adapters and external provider API calls belong to provider-service
-  implementation work.
+- Provider adapters and external provider API calls belong to the provider
+  services.
 - Catalog synchronization, status cache behavior, reservations, analytics,
   billing, and frontend screens are outside this service boundary.
-- Alembic migrations are deferred; startup table creation is the accepted MVP
-  development baseline for this prompt.
+- Alembic migrations are deferred; startup table creation is the accepted local
+  MVP development baseline.
 
 ## References
 

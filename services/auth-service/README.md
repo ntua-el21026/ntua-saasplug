@@ -25,9 +25,9 @@ reached through `/api/auth/auth/...`.
 
 ## Persistence
 
-Prompt 03 uses deterministic startup table creation for MVP/local development.
-This is intentionally simple and should be replaced by service-local Alembic
-migrations if schema evolution becomes non-trivial.
+The service uses deterministic startup table creation for MVP/local
+development. This is intentionally simple and should be replaced by
+service-local Alembic migrations if schema evolution becomes non-trivial.
 
 Owned tables:
 
@@ -125,10 +125,9 @@ provider_code
 exp
 ```
 
-Refresh tokens are persisted hashed. Prompt 03 does not rotate refresh tokens;
-`POST /auth/refresh` returns the same still-valid refresh token with a new
-access token. `POST /auth/logout` revokes the refresh token and subsequent
-refresh attempts fail.
+Refresh tokens are persisted hashed. The refresh endpoint returns the same
+still-valid refresh token with a new access token. `POST /auth/logout` revokes
+the refresh token and subsequent refresh attempts fail.
 
 ## Google OAuth Local Behavior
 
@@ -195,23 +194,16 @@ Relevant variables:
 
 Do not commit real secrets or `.env`.
 
-## Out of Scope
+## Boundary Notes
 
-Prompt 03 intentionally does not implement:
-
-- frontend login/register screens,
-- real Google token exchange,
-- provider-registry business logic,
-- provider adapters,
-- catalog sync or search,
-- status cache behavior,
-- reservation flow,
-- RabbitMQ business consumers,
-- analytics,
-- billing.
+- Public registration always creates `EV_USER`; it does not allow role or
+  provider-scope escalation.
+- Real Google token exchange is not part of the local MVP. The OAuth endpoints
+  provide safe configuration and callback hooks.
+- Provider metadata, catalog data, status cache, reservations, analytics, and
+  billing are owned by their respective services.
 
 ## References
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
-- `docs/ai/prompts/prompt_03_auth_service.md`

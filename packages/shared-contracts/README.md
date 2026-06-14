@@ -2,14 +2,15 @@
 
 ## Purpose
 
-This package will hold shared DTO, API, and validation contracts that are safe
-to reuse across services and the frontend.
+This package is reserved for shared DTO, API, and validation contracts that are
+safe to reuse across services and the frontend. It is currently a placeholder
+and does not contain runtime code.
 
 ## Belongs here
 
 - Stable request/response contract definitions.
 - Shared enum definitions such as canonical roles and normalized statuses.
-- Contract tests added by later implementation prompts.
+- Contract tests if shared contracts are added later.
 
 ## Must not be placed here
 

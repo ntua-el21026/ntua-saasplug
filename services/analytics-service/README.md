@@ -29,17 +29,16 @@ provider-admin and operator dashboard routes.
 - Billing invoice truth.
 - Reservation truth.
 
-## Prompt 10 baseline
+## Runtime baseline
 
-Prompt 10 implements the MVP analytics baseline. The service stores canonical
-events from the shared `packages/events` envelope, consumes the
-`analytics.events` RabbitMQ queue through an operator-triggered drain endpoint,
+The service stores canonical events from the shared `packages/events` envelope,
+consumes the `analytics.events` RabbitMQ queue through bounded drain endpoints,
 computes aggregate/cache rows from analytics-owned data, and serves
 provider/operator dashboard JSON and provider usage CSV exports.
 
 No provider API calls, cross-service SQL joins, billing source-of-truth logic,
-frontend screens, scheduler container, worker container, or orchestrator service
-are implemented here.
+frontend screens, worker container, or orchestrator service are implemented
+here.
 
 ## Owned tables
 
@@ -103,6 +102,18 @@ Optional startup topology declaration is controlled by:
 ```text
 ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP=false
 ```
+
+Internal scheduler endpoints:
+
+```text
+POST /internal/jobs/events/consume
+POST /internal/jobs/aggregates/refresh
+GET  /internal/jobs/freshness
+```
+
+`scheduler-service` calls these endpoints over Docker-internal URLs with
+`X-Scheduler-Token` and `X-Job-Run-Id`. The Nginx gateway returns HTTP 404 for
+`/api/analytics/internal/...`.
 
 ## Aggregates
 
@@ -194,6 +205,7 @@ RABBITMQ_EVENT_EXCHANGE
 ANALYTICS_RABBITMQ_CONSUME_BATCH_SIZE
 ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS
 ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP
+SCHEDULER_INTERNAL_TOKEN
 ```
 
 ## Tests

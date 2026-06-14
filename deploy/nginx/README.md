@@ -20,9 +20,7 @@ requests to responsible backend service containers.
 - Docker Compose service definitions outside the accepted deployment layout.
 - Real secrets.
 
-## Baseline configuration
-
-Prompt 02 adds:
+## Configuration
 
 ```text
 deploy/nginx/default.conf
@@ -51,6 +49,19 @@ Provider adapter services remain internal and are not exposed as browser-facing
 business APIs.
 Service-owned `/internal/jobs/...` routes remain internal and are not routed
 through the gateway.
+
+The gateway explicitly returns HTTP 404 for these internal prefixes before the
+broader service proxy routes:
+
+```text
+/api/catalog/internal/
+/api/analytics/internal/
+/api/billing/internal/
+/api/reservations/internal/
+```
+
+`/api/scheduler/*` remains public to authenticated operators through
+`scheduler-service`.
 
 ## References
 

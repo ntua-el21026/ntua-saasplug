@@ -54,7 +54,7 @@ If any mandatory file is missing, Codex must report it before proceeding, unless
 12. Update `docs/ai/prompt-log.md` after every run.
 13. If GitHub CLI/API project-management actions are requested and fail, report the failure clearly. Do not create fallback Markdown project-management substitutes unless explicitly requested.
 
-## Planned Prompt Sequence
+## Prompt and Run Sequence
 
 | Run | File | Purpose |
 |---:|---|---|
@@ -74,8 +74,19 @@ If any mandatory file is missing, Codex must report it before proceeding, unless
 | 12 | `prompt_12_frontend_ev_flows.md` | EV user frontend: login, map, point details, status, reservations |
 | 13 | `prompt_13_provider_operator_dashboards.md` | Provider and operator dashboards, analytics, billing, pricing, sync controls |
 | 14 | `prompt_14_final_docs_uml.md` | Final documentation, PlantUML diagrams, README completion, final verification |
+| 15 | `prompt_15_finalization_project_audit.md` | Finalization project setup and repository audit |
+| 16 | `prompt_16_live_env_verification.md` | Live environment and provider contract verification |
+| 17 | `prompt_17_scheduler_design.md` | Scheduler control-plane design |
+| 18 | `prompt_18_scheduler_control_plane_implementation.md` | Scheduler control-plane implementation |
+| 19 | `prompt_19_phase_d_test_expansion.md` | Application test expansion |
+| 20 | direct continuation prompt | Comprehensive test expansion and final project closure |
+| 21 | `prompt_21_final_verification_only.md` | Final verification-only audit and final audit/documentation project setup |
+| 22 | `prompt_22_live_env_full_verification.md` | Live `.env` full verification and final audit issue closure |
+| 23 | `prompt_23_readme_documentation_polish.md` | Repository-wide README documentation polish |
 
-Only Prompt 01 is expected to exist before foundation work. Later prompts should be written after reviewing the previous Codex output so they can reference the real repository state.
+Prompt files are retained as traceability artifacts. New prompts should still
+be written after reviewing the previous run report so they reference the real
+repository state.
 
 ## Run Log Requirement
 

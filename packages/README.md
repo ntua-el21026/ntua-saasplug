@@ -23,9 +23,8 @@ creating shared mutable service state.
 | `packages/event-contracts/` | Historical placeholder for event contracts |
 | `packages/events/` | Active Python package for RabbitMQ event envelope, routing, topology, publisher, consumer, and idempotency helpers |
 
-`packages/events` is the active Prompt 09 implementation because the Prompt 09
-canonical task file requested that package path. The older
-`packages/event-contracts` folder remains as a first-foundation placeholder and
+`packages/events` is the active shared event package used by services. The
+older `packages/event-contracts` folder remains as a historical placeholder and
 does not contain runtime code.
 
 ## Must not be placed here
@@ -43,8 +42,12 @@ PYTHONPATH=packages/events python -m pytest packages/events/tests -q -s
 ```
 
 The `-s` flag avoids a local Python 3.14 pytest capture issue seen in this
-workspace. Docker-based validation can also run the same package tests from the
-reservation-service image.
+workspace. Docker-based validation can also run the same package tests from a
+backend image, for example:
+
+```bash
+docker compose run --build --rm --no-deps analytics-service pytest -q /tmp/packages/events/tests
+```
 
 ## References
 
