@@ -43,7 +43,7 @@ GET /freshness
 - Catalog search ownership.
 - Reservation truth.
 - Analytics aggregate ownership.
-- RabbitMQ business publishers or consumers for Prompt 07.
+- RabbitMQ business publishers or consumers.
 - Direct frontend-provider communication.
 - Direct calls to external provider APIs.
 
@@ -119,7 +119,7 @@ does not call external provider APIs directly.
 
 ## Runtime baseline
 
-Prompt 07 keeps:
+The standard runtime endpoints are:
 
 ```text
 GET /
@@ -139,17 +139,13 @@ Containerized status tests:
 docker compose run --rm --no-deps status-service pytest -q
 ```
 
-## Explicit non-goals
+## Boundary Notes
 
-Prompt 07 does not implement:
-
-- catalog aggregation/import/search changes;
-- reservation truth or reservation-service provider calls;
-- analytics or billing;
-- frontend screens;
-- RabbitMQ business consumers or publishers;
-- provider services exposed through Nginx;
-- direct external provider API calls from `status-service`.
+- `catalog-service` owns catalog aggregation, imports, and search.
+- `reservation-service` owns reservation truth and reservation provider calls.
+- Analytics and billing own their own projections and financial data.
+- Provider services are not exposed through Nginx.
+- `status-service` does not call external provider APIs directly.
 
 ## References
 

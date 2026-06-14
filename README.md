@@ -130,14 +130,14 @@ Public entrypoints:
 | `http://localhost:8080/api/billing/health` | `billing-service` health |
 | `http://localhost:8080/api/scheduler/health` | `scheduler-service` health |
 
-Stop and remove local development volumes with:
+Stop the local stack with:
 
 ```bash
-docker compose down -v
+docker compose down
 ```
 
-The `-v` flag deletes local PostgreSQL and RabbitMQ volumes. Use it only when a
-fresh local baseline is intended.
+Use `docker compose down -v` only when you intentionally want to delete local
+PostgreSQL and RabbitMQ volumes and return to a fresh baseline.
 
 ## Demo Users
 
@@ -182,20 +182,44 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
   stores only job metadata/run history and calls service-owned internal job
   endpoints.
 
+## Provider API Integration
+
+The three external provider APIs are represented by provider-specific internal
+services:
+
+| Provider | Service | Source contract |
+|---|---|---|
+| `redPlug` | `red-provider-service` | `docs/assignment/providers/yaml/redPlug.yaml` |
+| `greenPlug` | `green-provider-service` | `docs/assignment/providers/yaml/greenPlug.yaml` |
+| `bluePlug` | `blue-provider-service` | `docs/assignment/providers/yaml/bluePlug.yaml` |
+
+Provider services use provider credentials from the private local `.env`.
+Credentials must not be committed. The live provider APIs use:
+
+```text
+Authorization: Bearer <api-key>
+```
+
+The default placeholder configuration is `PROVIDER_AUTH_SCHEME=Bearer` in
+`.env.example`.
+
 ## Validation
 
-Prompt 14 recorded the final verification in:
+The current final verification evidence is recorded in:
 
 ```text
 docs/final-verification.md
 ```
 
-The final verification includes frontend tests/build, shared event package
-tests, Docker Compose config/startup/health checks, authenticated gateway smoke
-checks, static forbidden-pattern checks, and Docker shutdown validation.
+The latest live-environment verification covered frontend tests/build, backend
+service tests, scheduler tests, shared event package tests, root gateway
+contract tests, Docker Compose config/startup/health checks, authenticated
+gateway smoke checks, live provider read-only checks, scheduler manual-run
+smoke checks, internal-route gateway blocking, PlantUML validation, and Docker
+shutdown validation.
 
-The latest comprehensive Phase D continuation verified 184 tests across
-backend services, frontend, shared event contracts, and root gateway contracts.
+The verified test total is 184 tests across backend services, frontend, shared
+event contracts, and root gateway contracts.
 
 ### Test commands
 
@@ -255,3 +279,17 @@ Primary final artifacts:
 - Services documentation: `services/README.md`
 - Deployment documentation: `deploy/README.md`
 - Final diagrams: `docs/diagrams/final/README.md`
+
+## Accepted MVP Limitations
+
+- Full interactive Google OAuth callback verification requires a browser and
+  user-driven Google login; the committed backend exposes safe OAuth hooks and
+  the live configuration check verifies the generated authorization URL.
+- Live reservation mutation is skipped unless
+  `RUN_LIVE_RESERVATION_SMOKE=true` is explicitly configured.
+- Provider catalog coordinates are deterministic Athens-area demo coordinates
+  where external provider payloads do not include map coordinates.
+- Startup table creation is used for the local MVP instead of full Alembic
+  migration management.
+- Billing uses mock full-invoice payments only; no real payment gateway,
+  refunds, partial payments, tax accounting, or subscriptions are implemented.

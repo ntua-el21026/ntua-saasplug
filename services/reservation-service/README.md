@@ -33,7 +33,7 @@ Reservations must follow:
 Only after the provider call returns should reservation records and events be
 created or staged.
 
-Prompt 08 implements:
+The service implements:
 
 - reservation truth persistence in `reservations`;
 - successful, failed, and unknown reservation attempt persistence in
@@ -44,9 +44,9 @@ Prompt 08 implements:
 - JWT-compatible role and provider scoping;
 - safe normalized error responses that do not expose raw provider errors.
 
-Prompt 09 adds explicit RabbitMQ publishing for staged outbox rows. Publishing
-is triggered separately from the reservation provider-call path so user-facing
-reservation creation does not depend on RabbitMQ delivery.
+RabbitMQ publishing for staged outbox rows is triggered separately from the
+reservation provider-call path so user-facing reservation creation does not
+depend on RabbitMQ delivery.
 
 ## Endpoints
 
@@ -106,8 +106,19 @@ The publisher declares the shared RabbitMQ topology before publishing. Optional
 startup topology declaration is available through
 `RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP=true`; startup declaration is non-fatal.
 
-Prompt 09 does not add a scheduler or background loop. The explicit endpoint is
-the MVP trigger.
+`scheduler-service` can call the internal outbox publishing endpoint over the
+Docker network; live reservation creation remains synchronous and is not
+queued through RabbitMQ.
+
+Internal scheduler endpoints:
+
+```text
+POST /internal/jobs/outbox/publish-pending
+GET  /internal/jobs/freshness
+```
+
+The Nginx gateway returns HTTP 404 for `/api/reservations/internal/...`; these
+routes are not browser-facing APIs.
 
 Gateway health smoke test:
 
@@ -140,6 +151,7 @@ RABBITMQ_EVENT_EXCHANGE
 RABBITMQ_PUBLISH_TIMEOUT_SECONDS
 RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP
 RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE
+SCHEDULER_INTERNAL_TOKEN
 ```
 
 `RABBITMQ_EVENT_EXCHANGE` defaults to `saasplug.events`.

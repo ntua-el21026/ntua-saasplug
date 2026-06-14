@@ -12,9 +12,6 @@ workspaces, and operator workspaces:
 login/register -> role-aware workspace -> EV flows / provider dashboard / operator dashboard
 ```
 
-Prompt 13 added the provider administrator and operator frontend dashboards on
-top of the Prompt 12 EV flows.
-
 ## Belongs here
 
 - React components, routes, state management, and API client code.
@@ -93,7 +90,7 @@ Use the local demo password from `.env.example`:
 change-me-demo-password
 ```
 
-Prompt 12 exposes quick-fill buttons for:
+The login page exposes quick-fill buttons for:
 
 | Email | Role |
 |---|---|
@@ -129,19 +126,28 @@ API calls.
 
 ## Commands
 
+Run frontend checks locally inside `apps/frontend/`:
+
 ```bash
 npm install
 npm run test
 npm run build
 ```
 
-Through Docker Compose, browser access should go through the gateway:
+Run the same checks through Docker Compose from the repository root:
+
+```bash
+docker compose run --build --rm --no-deps frontend npm test -- --run
+docker compose run --build --rm --no-deps frontend npm run build
+```
+
+Browser access should go through the gateway:
 
 ```text
 http://localhost:8080/
 ```
 
-Prompt 14 final verification recorded the frontend test and build results in
+The latest final verification evidence is recorded in
 `docs/final-verification.md`.
 
 ## Docker baseline

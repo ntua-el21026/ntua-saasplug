@@ -3,9 +3,9 @@
 ## Purpose
 
 This folder is a historical foundation placeholder for RabbitMQ event
-contracts.
+contracts. It does not contain runtime code.
 
-The active Prompt 09 implementation is:
+The active shared event package is:
 
 ```text
 packages/events/

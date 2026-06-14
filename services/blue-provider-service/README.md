@@ -5,7 +5,7 @@
 `blue-provider-service` owns the `bluePlug` provider adapter. It calls the
 `bluePlug` external API, normalizes payloads into internal DTOs, stores
 provider-local point snapshots, stores raw payloads for traceability, records
-sync runs, and exposes internal-only endpoints for future catalog, status, and
+sync runs, and exposes internal-only endpoints used by catalog, status, and
 reservation services.
 
 ## Owned database
@@ -27,6 +27,7 @@ Source of truth:
 
 ```text
 docs/assignment/providers/yaml/bluePlug.yaml
+docs/assignment/providers/postman_collections/bluePlug.postman_collection.json
 ```
 
 External endpoint mapping:
@@ -115,13 +116,14 @@ Runtime configuration uses:
 PROVIDER_BASE_URL
 BLUE_PROVIDER_BASE_URL
 PROVIDER_API_TIMEOUT_SECONDS
+PROVIDER_AUTH_SCHEME=Bearer
 PROVIDER_API_KEY_ENV_VAR
 BLUE_PROVIDER_API_KEY
 ```
 
-The service may send the optional provider key in the provider `authorization`
-header when configured. It returns only the key environment-variable name in
-metadata responses and never returns raw API key values.
+When configured, the service sends the provider key as
+`Authorization: Bearer <api-key>`. It returns only the key environment-variable
+name in metadata responses and never returns raw API key values.
 
 ## Tests
 
@@ -134,8 +136,8 @@ availability.
 
 ## Limitations
 
-- `catalog-service` aggregation is Prompt 06 scope.
-- `status-service` owns the future 5-minute status cache.
+- `catalog-service` owns the aggregated catalog.
+- `status-service` owns the five-minute status cache.
 - `reservation-service` owns reservation truth and events.
-- Analytics, billing, frontend screens, and RabbitMQ business consumers are out
-  of scope here.
+- Analytics, billing, frontend screens, and RabbitMQ business consumers are
+  outside this service boundary.

@@ -39,6 +39,7 @@ status-service
 reservation-service
 analytics-service
 billing-service
+scheduler-service
 ```
 
 Provider codes are `redPlug`, `greenPlug`, and `bluePlug`. Roles are

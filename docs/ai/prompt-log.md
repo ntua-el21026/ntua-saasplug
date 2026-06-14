@@ -48,6 +48,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 020 | 2026-06-14 | Direct continuation prompt | N/A | Comprehensive Phase D test expansion and final project closure | `completed_with_warnings` | `docs/ai/codex-runs/020-comprehensive-test-expansion-and-project-closure.md` |
 | 021 | 2026-06-14 | Canonical prompt invocation plus user-directed GitHub project setup | `docs/ai/prompts/prompt_21_final_verification_only.md` | Final verification-only audit and final audit/documentation project setup | `completed_with_warnings` | `docs/ai/codex-runs/021-final-verification-only.md` |
 | 022 | 2026-06-14 | Canonical prompt invocation | `docs/ai/prompts/prompt_22_live_env_full_verification.md` | Live `.env` full verification, live provider reads, gateway smokes, and Project #3 audit closure | `completed_with_warnings` | `docs/ai/codex-runs/022-live-env-full-verification.md` |
+| 023 | 2026-06-14 | Canonical prompt invocation | `docs/ai/prompts/prompt_23_readme_documentation_polish.md` | Repository-wide README documentation polish and Project #3 documentation task closure | `completed_with_warnings` | `docs/ai/codex-runs/023-readme-documentation-polish.md` |
 
 ---
 

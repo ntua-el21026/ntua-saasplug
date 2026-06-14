@@ -104,9 +104,9 @@ RabbitMQ acknowledgement behavior:
 - `requeue`: transient failure, retry later;
 - `reject`: non-retryable failure, route to DLQ when queue policy allows.
 
-Prompt 11 uses the `billing.reservations` queue for manual bounded billing
-drains. The queue name remains stable from Prompt 09 and now also receives
-`usage.point_viewed` because billing can optionally charge point-view events.
+`billing.reservations` is the bounded billing drain queue. It receives
+reservation events and `usage.point_viewed` because billing can optionally
+charge point-view events.
 
 ## Idempotency
 

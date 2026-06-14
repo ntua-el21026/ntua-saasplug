@@ -2,13 +2,16 @@
 
 ## Purpose
 
-This package will hold reusable helpers for normalizing provider-specific API
-payloads into internal saasPlug DTOs.
+This package is reserved for reusable helpers that could normalize
+provider-specific API payloads into internal saasPlug DTOs. It is currently a
+placeholder; the implemented normalization logic lives inside the provider
+services.
 
 ## Belongs here
 
 - Shared normalization types and helper functions.
-- Test fixtures derived from provider YAML contracts when implementation starts.
+- Test fixtures derived from provider YAML contracts if shared helpers are
+  added later.
 - Provider-neutral normalization utilities.
 
 ## Must not be placed here

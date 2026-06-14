@@ -131,18 +131,31 @@ POST /events/outbox/publish-pending
 
 ## RabbitMQ
 
-The service uses the shared `packages/events` topology. Prompt 11 adds
-`usage.point_viewed` to the existing `billing.reservations` queue binding so
-the billing service can consume point-view events without a new runtime queue or
-container.
+The service uses the shared `packages/events` topology. The
+`billing.reservations` queue receives reservation events and
+`usage.point_viewed` so the billing service can consume point-view events
+without a new runtime queue or container.
 
 `POST /events/drain` is an operator-only bounded manual queue drain for local
-demo and testing. There is no worker, scheduler, orchestrator, or distributed
-transaction mechanism.
+demo and testing. There is no separate worker container, orchestrator, or
+distributed transaction mechanism.
 
 `POST /events/outbox/publish-pending` publishes pending billing outbox rows to
 the configured `saasplug.events` exchange and preserves failed rows as pending
 with attempt/error metadata.
+
+Internal scheduler endpoints:
+
+```text
+POST /internal/jobs/events/drain
+POST /internal/jobs/outbox/publish-pending
+POST /internal/jobs/invoices/prepare
+GET  /internal/jobs/freshness
+```
+
+`scheduler-service` calls these endpoints over Docker-internal URLs with
+`X-Scheduler-Token` and `X-Job-Run-Id`. The Nginx gateway returns HTTP 404 for
+`/api/billing/internal/...`.
 
 ## Configuration
 
@@ -160,6 +173,7 @@ BILLING_DEFAULT_RESERVATION_SUCCESS_FEE
 BILLING_DEFAULT_POINT_VIEW_FEE
 BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED
 BILLING_DEFAULT_RESERVATION_FAILURE_FEE
+SCHEDULER_INTERNAL_TOKEN
 ```
 
 ## Tests
