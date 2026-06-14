@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
+import { Card, DataTable as UiDataTable, MetricCard as UiMetricCard, PageHeader, SectionHeader } from "../../components/ui";
 import { formatNumber } from "../../lib/formatting";
 
 export function DashboardPage({
@@ -16,11 +17,7 @@ export function DashboardPage({
 }) {
   return (
     <main className="page admin-page">
-      <section className="page-heading">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </section>
+      <PageHeader eyebrow={eyebrow} title={title} description={description} />
       {children}
     </main>
   );
@@ -68,13 +65,7 @@ export function MetricCard({
   value: ReactNode;
   hint?: string;
 }) {
-  return (
-    <div className="admin-metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {hint ? <small>{hint}</small> : null}
-    </div>
-  );
+  return <UiMetricCard label={label} value={value} hint={hint} />;
 }
 
 export function DashboardGrid({ children }: { children: ReactNode }) {
@@ -93,16 +84,10 @@ export function DashboardPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="surface admin-panel">
-      <div className="surface-header">
-        <div>
-          <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
-        </div>
-        {actions ? <div className="admin-panel-actions">{actions}</div> : null}
-      </div>
+    <Card className="admin-panel">
+      <SectionHeader title={title} description={description} actions={actions ? <div className="admin-panel-actions">{actions}</div> : null} />
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -121,28 +106,7 @@ export function DataTable<T>({
     return <EmptyState title={emptyLabel}>Try again after sync, aggregation, or invoice issuance has run.</EmptyState>;
   }
 
-  return (
-    <div className="admin-table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={getRowKey(row, index)}>
-              {columns.map((column) => (
-                <td key={column.key}>{column.render(row)}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <UiDataTable columns={columns} rows={rows} getRowKey={getRowKey} emptyLabel={emptyLabel} />;
 }
 
 export function BarList<T>({

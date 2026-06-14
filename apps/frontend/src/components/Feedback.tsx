@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { EmptyState as UiEmptyState, ErrorState, Toast } from "./ui";
+
 export function Alert({
   tone = "info",
   title,
@@ -9,12 +11,7 @@ export function Alert({
   title?: string;
   children: ReactNode;
 }) {
-  return (
-    <div className={`alert alert-${tone}`} role={tone === "danger" ? "alert" : "status"}>
-      {title ? <strong>{title}</strong> : null}
-      <div>{children}</div>
-    </div>
-  );
+  return <Toast tone={tone === "success" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "info"}>{title ? <strong>{title}</strong> : null}<div>{children}</div></Toast>;
 }
 
 export function LoadingBlock({ label = "Loading" }: { label?: string }) {
@@ -33,10 +30,15 @@ export function EmptyState({
   title: string;
   children: ReactNode;
 }) {
-  return (
-    <div className="empty-state">
-      <strong>{title}</strong>
-      <p>{children}</p>
-    </div>
-  );
+  return <UiEmptyState title={title}>{children}</UiEmptyState>;
+}
+
+export function ErrorBlock({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return <ErrorState title={title}>{children}</ErrorState>;
 }

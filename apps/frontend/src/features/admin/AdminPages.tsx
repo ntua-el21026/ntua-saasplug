@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../../components/AppShell";
+import { InvoiceStatusBadge } from "../../components/domain/billing";
+import { ProviderHealthBadge } from "../../components/domain/provider";
+import { SyncRunStatusBadge } from "../../components/domain/status";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAuth } from "../auth/AuthContext";
 import { messageFromUnknownError, requestJson, requestText } from "../../lib/api";
@@ -122,12 +125,11 @@ function effectiveCurrency(overview: BillingOverview | null, fallback = "EUR"): 
 }
 
 function HealthPill({ ok, label }: { ok: boolean; label: string }) {
-  return <span className={`health-pill ${ok ? "health-ok" : "health-bad"}`}>{label}</span>;
+  return <ProviderHealthBadge ok={ok} label={label} />;
 }
 
 function InvoiceStatus({ status }: { status: string }) {
-  const tone = status === "paid" ? "good" : status === "issued" ? "warn" : "neutral";
-  return <span className={`status-badge status-${tone}`}>{statusLabel(status)}</span>;
+  return <InvoiceStatusBadge status={status} />;
 }
 
 function requireProvider(providerCode: ProviderCode | null) {
@@ -1499,7 +1501,7 @@ function ImportRunTable({ rows }: { rows: CatalogImportRun[] }) {
       getRowKey={(row) => row.id}
       columns={[
         { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-        { key: "status", label: "Status", render: (row) => row.status },
+        { key: "status", label: "Status", render: (row) => <SyncRunStatusBadge status={row.status} /> },
         { key: "fetched", label: "Fetched", render: (row) => formatNumber(row.provider_fetched_count) },
         { key: "changed", label: "Changed", render: (row) => formatNumber(row.catalog_changed_count) },
         { key: "started", label: "Started", render: (row) => formatDateTime(row.started_at) },
