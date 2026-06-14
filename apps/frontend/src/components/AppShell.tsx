@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
 
 import { useAuth } from "../features/auth/AuthContext";
 import { AppShellFrame, RoleSwitcher, Sidebar, SidebarNav, TopBar } from "./layout";
@@ -9,7 +8,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isEvUser = session?.user.roles.includes("EV_USER");
   const isProviderAdmin = session?.user.roles.includes("PROVIDER_ADMIN");
   const isOperator = session?.user.roles.includes("OPERATOR");
-  const navItems = [
+  const workspaceItems = [
     ...(isEvUser
       ? [
           { href: "/map", label: "Map" },
@@ -39,32 +38,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         ]
       : []),
   ];
+  const navItems = session
+    ? [...workspaceItems, { href: "/profile", label: "Profile" }, { href: "/logout", label: "Logout" }]
+    : workspaceItems;
 
   return (
     <AppShellFrame
-      topbar={
-        <TopBar
-          actions={
-            session ? (
-              <>
-                <RoleSwitcher roles={session.user.roles} />
-                <NavLink className="topbar-link" to="/profile">Profile</NavLink>
-                <NavLink className="topbar-link" to="/logout">Logout</NavLink>
-              </>
-            ) : null
-          }
-        >
-          {session ? (
-            <nav className="nav-links" aria-label="Primary">
-              {navItems.slice(0, 4).map((item) => (
-                <NavLink to={item.href} key={item.href}>{item.label}</NavLink>
-              ))}
-            </nav>
-          ) : null}
-        </TopBar>
-      }
+      topbar={<TopBar />}
       sidebar={session ? (
         <Sidebar label="Workspace">
+          <div className="sidebar-workspace">
+            <RoleSwitcher roles={session.user.roles} />
+          </div>
           <SidebarNav items={navItems} />
         </Sidebar>
       ) : null}

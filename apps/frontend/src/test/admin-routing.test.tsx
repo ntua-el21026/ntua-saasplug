@@ -272,6 +272,45 @@ describe("admin role routing", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
   });
 
+  it("redirects anonymous provider registration access to sign-in", async () => {
+    window.history.pushState({}, "", "/provider-register");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /sign in to saasplug/i })).toBeInTheDocument();
+  });
+
+  it("blocks EV users from provider registration", async () => {
+    storeSession("EV_USER");
+    mockFetch("EV_USER");
+    window.history.pushState({}, "", "/provider-register");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
+  });
+
+  it("blocks provider admins from provider registration", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/provider-register");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
+  });
+
+  it("allows operators to open provider registration", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/provider-register");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /register a provider workspace/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /manage providers/i })).toHaveAttribute("href", "/operator/providers");
+  });
+
   it("blocks provider admins from operator scheduler controls", async () => {
     storeSession("PROVIDER_ADMIN");
     mockFetch("PROVIDER_ADMIN");

@@ -3,6 +3,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  envDir: "../..",
+  envPrefix: ["VITE_", "DEMO_USER_PASSWORD"],
   server: {
     host: "0.0.0.0",
     port: 5173,

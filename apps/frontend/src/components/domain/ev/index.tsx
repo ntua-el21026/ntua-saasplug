@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { Button, Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
 import { formatCapacity, formatDateTime, formatPrice, providerLabel } from "../../../lib/formatting";
-import { pointPath } from "../../../lib/routing";
+import { pointPath, type CatalogResultLimit } from "../../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPoint, ProviderCode, Reservation, StatusValue } from "../../../lib/types";
 import { ProviderBadge } from "../provider";
 import { ChargingPointStatusBadge } from "../status";
@@ -19,7 +19,12 @@ export function ChargingPointCard({
 }) {
   return (
     <article className={`charging-point-card ${selected ? "is-selected" : ""}`}>
-      <button className="charging-point-card-button" onClick={onSelect} type="button">
+      <button
+        aria-label={`Show ${point.display_name} on map`}
+        className="charging-point-card-button"
+        onClick={onSelect}
+        type="button"
+      >
         <span className={`provider-rail provider-${point.provider_code}`} />
         <span className="point-card-main">
           <strong>{point.display_name}</strong>
@@ -90,9 +95,6 @@ export function ChargingPointDrawer({
             </div>
           ) : null}
         </dl>
-        <Link className="button-primary button-link" to={pointPath(point.provider_code, point.external_point_id)}>
-          Reserve charger
-        </Link>
       </div>
     </Drawer>
   );
@@ -109,7 +111,12 @@ export function ChargingPointMarker({
   y: number;
   selected?: boolean;
 }) {
-  return <circle className={`map-pin status-marker-${markerTone(point.status)} ${selected ? "is-selected" : ""}`} cx={x} cy={y} r={selected ? 4.5 : 3.4} />;
+  return (
+    <>
+      <circle className="map-pin-hit" cx={x} cy={y} r="4.2" />
+      <circle className={`map-pin provider-${point.provider_code} ${selected ? "is-selected" : ""}`} cx={x} cy={y} r={selected ? 2.25 : 1.55} />
+    </>
+  );
 }
 
 export function ReservationCard({ reservation }: { reservation: Reservation }) {
@@ -162,12 +169,18 @@ export function MapFilterPanel({
   filters,
   providers,
   statuses,
+  resultLimit,
+  resultLimitOptions,
   onChange,
+  onResultLimitChange,
 }: {
   filters: CatalogFilters;
   providers: ProviderCode[];
   statuses: StatusValue[];
+  resultLimit: CatalogResultLimit;
+  resultLimitOptions: readonly CatalogResultLimit[];
   onChange: (filters: CatalogFilters) => void;
+  onResultLimitChange: (limit: CatalogResultLimit) => void;
 }) {
   return (
     <Card className="map-filter-panel">
@@ -220,6 +233,22 @@ export function MapFilterPanel({
             placeholder="CCS, Type 2"
           />
         </label>
+        <label>
+          Results to show
+          <Select
+            value={String(resultLimit)}
+            onChange={(event) => {
+              const value = event.target.value;
+              onResultLimitChange(value === "all" ? "all" : Number(value) as CatalogResultLimit);
+            }}
+          >
+            {resultLimitOptions.map((limit) => (
+              <option key={String(limit)} value={String(limit)}>
+                {limit === "all" ? "All results" : `${limit} results`}
+              </option>
+            ))}
+          </Select>
+        </label>
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -240,6 +269,9 @@ export function MapFloatingControls({
   onEast,
   onZoomIn,
   onZoomOut,
+  zoom,
+  minZoom,
+  maxZoom,
 }: {
   onNorth: () => void;
   onSouth: () => void;
@@ -247,15 +279,19 @@ export function MapFloatingControls({
   onEast: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
 }) {
   return (
     <div className="map-floating-controls" aria-label="Map viewport controls">
+      <div className="map-zoom-scale">Zoom {zoom} out of {maxZoom}</div>
       <Button variant="secondary" size="sm" type="button" onClick={onNorth}>N</Button>
       <Button variant="secondary" size="sm" type="button" onClick={onSouth}>S</Button>
       <Button variant="secondary" size="sm" type="button" onClick={onWest}>W</Button>
       <Button variant="secondary" size="sm" type="button" onClick={onEast}>E</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onZoomIn}>+</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onZoomOut}>-</Button>
+      <Button variant="secondary" size="sm" type="button" onClick={onZoomIn} disabled={zoom >= maxZoom}>+</Button>
+      <Button variant="secondary" size="sm" type="button" onClick={onZoomOut} disabled={zoom <= minZoom}>-</Button>
     </div>
   );
 }
@@ -285,20 +321,10 @@ export function SelectedFiltersBar({
 
 export function AvailabilityLegend() {
   return (
-    <div className="availability-legend" aria-label="Availability legend">
-      <span><i className="legend-dot legend-available" /> Available</span>
-      <span><i className="legend-dot legend-busy" /> Busy or stale</span>
-      <span><i className="legend-dot legend-unavailable" /> Unavailable</span>
+    <div className="availability-legend" aria-label="Provider marker legend">
+      <span><i className="legend-dot legend-redPlug" /> redPlug</span>
+      <span><i className="legend-dot legend-greenPlug" /> greenPlug</span>
+      <span><i className="legend-dot legend-bluePlug" /> bluePlug</span>
     </div>
   );
-}
-
-function markerTone(status: string): "available" | "busy" | "unavailable" {
-  if (status === "available") {
-    return "available";
-  }
-  if (status === "offline" || status === "malfunction") {
-    return "unavailable";
-  }
-  return "busy";
 }

@@ -55,7 +55,7 @@ Implemented frontend routes:
 | `/login` | Email/password login with seeded demo account shortcuts and Google OAuth hook status |
 | `/register` | Local EV account registration |
 | `/logout` | Session revocation and local session cleanup |
-| `/map` | EV map/list search using bounds-based catalog queries |
+| `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, and bounds-based catalog queries |
 | `/dashboard` | Alias to the EV map/list experience |
 | `/points/:providerCode/:externalPointId` | Cached catalog point details, live status lookup, and reservation creation |
 | `/reservations` | Current user's reservation history |
@@ -120,9 +120,11 @@ Important files:
 | `src/styles/app.css` | Responsive application styling |
 | `src/test/` | Vitest and Testing Library tests |
 
-The map surface is a local SVG/CSS visualization over the catalog result set.
-It intentionally avoids external map providers, API keys, and direct provider
-API calls.
+The map surface uses `maplibre-gl` with the public OpenFreeMap style at
+`https://tiles.openfreemap.org/styles/liberty`. OpenFreeMap does not require an
+API key, registration, or frontend secret. The browser still reads charging
+points only from gateway-relative catalog routes and never calls provider APIs
+directly.
 
 ## Commands
 

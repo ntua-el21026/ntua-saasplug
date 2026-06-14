@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 import { AuthLayoutFrame, BrandLockup } from "../../components/layout";
 
@@ -36,13 +35,6 @@ export function AuthLayout({
       </section>
       <section className="auth-panel">
         {children}
-        <p className="auth-switch">
-          <Link to="/login">Sign in</Link>
-          <span aria-hidden="true">/</span>
-          <Link to="/register">Create EV account</Link>
-          <span aria-hidden="true">/</span>
-          <Link to="/provider-register">Provider entry</Link>
-        </p>
       </section>
     </AuthLayoutFrame>
   );

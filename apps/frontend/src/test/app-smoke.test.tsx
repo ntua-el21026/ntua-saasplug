@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
@@ -20,6 +21,14 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: /sign in to saasplug/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
+    expect(screen.queryByText(/secure session/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /create ev account/i })).toHaveAttribute("href", "/register");
+    expect(screen.queryByRole("link", { name: /provider entry/i })).not.toBeInTheDocument();
+
+    const passwordInput = screen.getByLabelText("Password", { selector: "input" });
+    expect(passwordInput).toHaveAttribute("type", "password");
+    await userEvent.click(screen.getByRole("button", { name: /show password/i }));
+    expect(passwordInput).toHaveAttribute("type", "text");
   });
 
   it("renders the profile route as a professional account overview", async () => {

@@ -24,7 +24,7 @@ export function LandingPage() {
           <p>Find, compare, reserve, and manage charging points across connected providers.</p>
           <div className="button-row">
             <Link className="button-primary button-link" to="/login">Open workspace</Link>
-            <Link className="button-secondary button-link" to="/provider-register">Register provider</Link>
+            <Link className="button-secondary button-link" to="/register">Create EV account</Link>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ export function LandingPage() {
       <RoleEntry
         items={[
           { title: "EV user", description: "Search, compare, and reserve chargers.", href: "/login", icon: plugIcon },
-          { title: "Provider admin", description: "Monitor points, invoices, exports, and usage.", href: "/provider-register", icon: providerIcon },
+          { title: "Provider admin", description: "Sign in after operator-managed onboarding.", href: "/login", icon: providerIcon },
           { title: "Operator", description: "Control catalog health, pricing, sync, and billing.", href: "/login", icon: operatorIcon },
         ]}
       />

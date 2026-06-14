@@ -45,24 +45,23 @@ export function ReservationsPage() {
     <AppShell>
       <main className="page page-narrow">
         <PageHeader
-          eyebrow="My reservations"
-          title="Reservation history"
-          description="Reservation records are read from reservation-service using your EV user token."
+          title="Reservations"
+          description="Track charger reservation attempts and provider responses from your account."
         />
 
         {loading ? <LoadingBlock label="Loading reservations" /> : null}
         {error ? (
-          <Alert tone="danger" title="Reservation history unavailable">
+          <Alert tone="danger" title="Reservations unavailable">
             {error}
           </Alert>
         ) : null}
         {!loading && !error && reservations.length === 0 ? (
           <EmptyState title="No reservations yet">
-            Open the map, select a charging point, and create a reservation when provider credentials are available.
+            Select a charging point from the map to start a reservation when provider credentials are available.
           </EmptyState>
         ) : null}
 
-        <section className="reservation-list" aria-label="Reservation history">
+        <section className="reservation-list" aria-label="Reservations">
           {reservations.map((reservation) => (
             <ReservationCard key={reservation.id} reservation={reservation} />
           ))}

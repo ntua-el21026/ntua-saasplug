@@ -231,6 +231,118 @@ Final inspected screenshot files included:
 
 Observed result: public landing/auth surfaces render as a polished SaaS product surface with no visible mobile right-edge clipping in the final phone captures. Protected route visual QA was covered by Vitest route tests and frontend build validation, but full live protected-route browser QA was limited by missing backend/Docker availability.
 
+## Continuation Update - 2026-06-15
+
+Follow-up user feedback was implemented after screenshots of the EV map, reservations page, and login screen.
+
+Implemented fixes:
+
+- Login demo passwords now come from frontend-exposed environment configuration. The frontend supports `DEMO_USER_PASSWORD` and Vite-prefixed per-role overrides, while Docker Compose passes `DEMO_USER_PASSWORD` from the root `.env` into the frontend container. No raw `.env` values were printed or committed.
+- The login password field now has a show/hide eye toggle with accessible labels.
+- Page scrolling was restored by removing the fixed-height hidden-overflow app-shell constraint that clipped map content.
+- Lists remain internally scrollable where appropriate, including the map result list, reservations list, sidebar menu, and dashboard list surfaces.
+- The EV map starts at zoom `15 out of 17` with a tighter Athens viewport to reduce initial map/catalog load.
+- The right-side charging point detail drawer was removed from the map page; selecting a point now shows details only in the map popup/panel.
+- The map layout was expanded from a three-column workspace to a larger two-column filter/results + map workspace.
+- Map point markers remain provider-colored and were made thinner/smaller.
+- The EV map, point detail, and reservations page copy was tightened to reduce repeated phrasing.
+- Shared page titles, section titles, map popup titles, metric values, point-card titles, drawer titles, and sidebar labels were made visually bolder.
+- The point result cards gained explicit accessible names for selecting a point on the map.
+
+Major files additionally changed:
+
+- `docker-compose.yml`
+- `apps/frontend/vite.config.ts`
+- `apps/frontend/src/vite-env.d.ts`
+- `apps/frontend/src/features/auth/LoginPage.tsx`
+- `apps/frontend/src/features/catalog/CatalogMap.tsx`
+- `apps/frontend/src/features/catalog/CatalogPage.tsx`
+- `apps/frontend/src/features/catalog/PointDetailPage.tsx`
+- `apps/frontend/src/features/reservations/ReservationsPage.tsx`
+- `apps/frontend/src/components/domain/ev/index.tsx`
+- `apps/frontend/src/lib/routing.ts`
+- `apps/frontend/src/styles/app.css`
+- `apps/frontend/src/test/app-smoke.test.tsx`
+- `apps/frontend/src/test/catalog-map-ui.test.tsx`
+
+Validation commands run:
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/typescript/bin/tsc --noEmit
+```
+
+Result: passed.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/vitest/vitest.mjs run
+```
+
+Result: passed. 4 test files, 13 tests.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/vite/bin/vite.js build
+```
+
+Result: passed. Vite emitted the existing large-chunk warning for the MapLibre chunk.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug -- git diff --check
+```
+
+Result: passed.
+
+Local live QA:
+
+- Started the Vite development server at `http://127.0.0.1:5173/` using the local Vite Node entrypoint because `npm` is unavailable in WSL.
+- Confirmed HTTP 200 from the local Vite server.
+- Captured and inspected `http://127.0.0.1:5173/login` with headless Chrome at `1440x1000`.
+- Verified the login screen renders, the password remains masked, the eye toggle is visible, and the auth card/layout is not clipped.
+
+Live QA limitations:
+
+- The Browser Use in-app browser path could not be used because tool discovery did not expose the required Node REPL JavaScript execution tool.
+- Full authenticated `/map`, provider, and operator browser QA through the gateway still requires the backend/Docker stack or an already authenticated gateway session with the rebuilt frontend.
+- `npm` remains unavailable in WSL, so direct Node invocations were used for TypeScript, Vitest, and Vite build validation.
+
+## Continuation Update - 2026-06-15 Radius And Sidebar Refinement
+
+Additional map/sidebar feedback was implemented:
+
+- Removed the `EV workspace` page kicker from the map and reservations page headers.
+- Changed the map catalog query model to use a zoom-specific center radius rather than the full visible viewport rectangle.
+- Added client-side distance filtering so the result list and map markers render only points inside the center radius.
+- Updated map labels from viewport bounds to center-radius language.
+- Added a subtle center radius indicator on the map.
+- Made result tiles fixed-height and clamped long text so large result sets cannot stretch cards and hide details.
+- Made the point result list a stable internally scrollable panel on desktop and mobile.
+- Increased MapLibre marker thickness and size so station dots are easier to see.
+
+Validation commands run:
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/typescript/bin/tsc --noEmit
+```
+
+Result: passed.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/vitest/vitest.mjs run
+```
+
+Result: passed. 4 test files, 13 tests.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/vite/bin/vite.js build
+```
+
+Result: passed. Vite emitted the existing large MapLibre chunk warning.
+
+```text
+wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug -- git diff --check
+```
+
+Result: passed.
+
 ## Known Limitations
 
 - Docker Desktop Linux engine was not running, so full gateway-backed QA through Docker Compose/Nginx could not be performed.
