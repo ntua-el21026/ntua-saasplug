@@ -75,6 +75,14 @@ def test_operator_can_list_jobs_and_ev_user_cannot(test_context) -> None:
     assert ev_response.status_code == 403
 
 
+def test_missing_job_and_run_return_404_for_operator(test_context) -> None:
+    missing_job_response = test_context.get("/jobs/not-a-real-job", headers=operator_headers())
+    missing_run_response = test_context.get("/runs/not-a-real-run", headers=operator_headers())
+
+    assert missing_job_response.status_code == 404
+    assert missing_run_response.status_code == 404
+
+
 def test_operator_can_pause_and_resume_interval_job(test_context) -> None:
     pause_response = test_context.post("/jobs/catalog.import.all/pause", headers=operator_headers())
     resume_response = test_context.post("/jobs/catalog.import.all/resume", headers=operator_headers())
@@ -85,6 +93,37 @@ def test_operator_can_pause_and_resume_interval_job(test_context) -> None:
     assert resume_response.status_code == 200
     assert resume_response.json()["enabled"] is True
     assert resume_response.json()["next_run_at"] is not None
+
+
+def test_patch_rejects_wrong_schedule_field_for_job_type(test_context) -> None:
+    cron_interval_response = test_context.patch(
+        "/jobs/billing.prepare-invoices",
+        headers=operator_headers(),
+        json={"interval_seconds": 120},
+    )
+    interval_cron_response = test_context.patch(
+        "/jobs/catalog.import.all",
+        headers=operator_headers(),
+        json={"cron_expression": "0 3 * * *"},
+    )
+
+    assert cron_interval_response.status_code == 400
+    assert "Only interval jobs" in cron_interval_response.json()["detail"]
+    assert interval_cron_response.status_code == 400
+    assert "Only cron jobs" in interval_cron_response.json()["detail"]
+
+
+def test_patch_rejects_invalid_interval_before_mutating_job(test_context) -> None:
+    response = test_context.patch(
+        "/jobs/catalog.import.all",
+        headers=operator_headers(),
+        json={"interval_seconds": 10},
+    )
+
+    assert response.status_code == 422
+    unchanged = test_context.get("/jobs/catalog.import.all", headers=operator_headers())
+    assert unchanged.status_code == 200
+    assert unchanged.json()["interval_seconds"] == 900
 
 
 def test_interval_next_run_and_due_job_selection(test_context) -> None:
@@ -142,13 +181,15 @@ def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context,
     assert captured["correlation_id"] == payload["correlation_id"]
     assert payload["response_summary"]["body"]["secret_token"] == "[redacted]"
 
-    session = get_session_factory()()
-    try:
-        runs_response = test_context.get("/runs?jobKey=catalog.import.red", headers=operator_headers())
-        assert runs_response.status_code == 200
-        assert len(runs_response.json()) == 1
-    finally:
-        session.close()
+    runs_response = test_context.get("/runs?jobKey=catalog.import.red", headers=operator_headers())
+    run_detail_response = test_context.get(f"/runs/{payload['id']}", headers=operator_headers())
+    ev_runs_response = test_context.get("/runs", headers=ev_headers())
+
+    assert runs_response.status_code == 200
+    assert len(runs_response.json()) == 1
+    assert run_detail_response.status_code == 200
+    assert run_detail_response.json()["id"] == payload["id"]
+    assert ev_runs_response.status_code == 403
 
 
 def test_target_http_error_is_persisted(test_context, monkeypatch) -> None:

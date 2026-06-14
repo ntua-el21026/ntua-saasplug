@@ -76,6 +76,8 @@ NTUA-saasPlug/
 │   │   │   ├── 016-live-env-verification.md
 │   │   │   ├── 017-scheduler-design.md
 │   │   │   ├── 018-scheduler-control-plane-implementation.md
+│   │   │   ├── 019-phase-d-test-expansion.md
+│   │   │   ├── 020-comprehensive-test-expansion-and-project-closure.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -98,6 +100,7 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_16_live_env_verification.md
 │   │   │   ├── prompt_17_scheduler_design.md
 │   │   │   ├── prompt_18_scheduler_control_plane_implementation.md
+│   │   │   ├── prompt_19_phase_d_test_expansion.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -463,6 +466,9 @@ NTUA-saasPlug/
 │   │   ├── README.md
 │   │   └── requirements.txt
 │   └── README.md
+├── tests/
+│   ├── README.md
+│   └── test_gateway_contract.py
 ├── .env.example
 ├── .gitattributes
 ├── .gitignore
@@ -472,4 +478,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 77, Total files: 396
+Total directories: 78, Total files: 401

@@ -135,6 +135,28 @@ def test_public_register_creates_ev_user_only(client: TestClient) -> None:
     assert user["provider_code"] is None
 
 
+def test_register_rejects_duplicate_email_case_insensitively(client: TestClient) -> None:
+    first_response = client.post(
+        "/auth/register",
+        json={"email": "CaseUser@example.com", "password": "safe-example-password"},
+    )
+    duplicate_response = client.post(
+        "/auth/register",
+        json={"email": "caseuser@example.com", "password": "safe-example-password"},
+    )
+
+    assert first_response.status_code == 201
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json()["detail"] == "User already exists"
+
+
+def test_refresh_rejects_unknown_refresh_token(client: TestClient) -> None:
+    response = client.post("/auth/refresh", json={"refresh_token": "not-issued-by-auth-service-token-0000"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid refresh token"
+
+
 def test_role_and_provider_scope_endpoints_require_valid_roles(client: TestClient) -> None:
     operator = login(client, "operator@saasplug.local")
     ev_user = login(client, "evuser@saasplug.local")
@@ -157,6 +179,25 @@ def test_role_and_provider_scope_endpoints_require_valid_roles(client: TestClien
     assert ev_operator_response.status_code == 403
     assert provider_response.status_code == 200
     assert provider_response.json()["provider_code"] == "greenPlug"
+
+
+def test_role_check_endpoints_reject_missing_or_wrong_role_tokens(client: TestClient) -> None:
+    provider_admin = login(client, "red-admin@saasplug.local")
+    ev_user = login(client, "evuser@saasplug.local")
+
+    missing_operator_response = client.get("/auth/require-operator")
+    provider_as_operator_response = client.get(
+        "/auth/require-operator",
+        headers={"Authorization": f"Bearer {provider_admin['access_token']}"},
+    )
+    ev_as_provider_response = client.get(
+        "/auth/require-provider-admin",
+        headers={"Authorization": f"Bearer {ev_user['access_token']}"},
+    )
+
+    assert missing_operator_response.status_code == 401
+    assert provider_as_operator_response.status_code == 403
+    assert ev_as_provider_response.status_code == 403
 
 
 def test_google_oauth_hooks_fail_safely_in_local_placeholder_mode(client: TestClient) -> None:

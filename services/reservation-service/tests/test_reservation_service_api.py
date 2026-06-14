@@ -370,6 +370,17 @@ def test_provider_admin_cannot_create_reservation(test_context) -> None:
     assert fake_provider.calls == []
 
 
+def test_unsupported_provider_rejects_before_catalog_or_provider_call(test_context) -> None:
+    client, fake_catalog, fake_provider, call_order = test_context
+
+    response = client.post("/points/yellowPlug/101/reservations", headers=ev_headers())
+
+    assert response.status_code == 400
+    assert fake_catalog.calls == []
+    assert fake_provider.calls == []
+    assert call_order == []
+
+
 def test_my_reservations_only_returns_current_ev_user_records(test_context) -> None:
     client, _, _, _ = test_context
     create_db_reservation("redPlug", "101", "evuser@saasplug.local")
@@ -401,6 +412,16 @@ def test_provider_admin_cannot_read_other_provider_reservation(test_context) -> 
     response = client.get(f"/reservations/{reservation_id}", headers=red_admin_headers())
 
     assert response.status_code == 403
+
+
+def test_operator_provider_filter_rejects_unknown_provider(test_context) -> None:
+    client, _, _, _ = test_context
+    create_db_reservation("redPlug", "101")
+
+    response = client.get("/reservations?providerCode=yellowPlug", headers=operator_headers())
+
+    assert response.status_code == 400
+    assert "Unsupported provider code" in response.json()["detail"]
 
 
 def test_operator_can_list_all_reservations_attempts_and_outbox(test_context) -> None:

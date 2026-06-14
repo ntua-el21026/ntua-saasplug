@@ -11,7 +11,15 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.main import app
-from app.models import ExportJob, UsageEvent
+from app.models import (
+    BillingSummarySnapshot,
+    CatalogHealthSnapshot,
+    ExportJob,
+    OperatorDailyMetric,
+    PointDailyMetric,
+    ProviderDailyMetric,
+    UsageEvent,
+)
 from app.rabbitmq_consumer import drain_analytics_queue
 from saasplug_events.envelope import EventEnvelope
 
@@ -227,6 +235,70 @@ def test_unsupported_event_type_is_deterministic(test_context) -> None:
         db.close()
 
 
+def test_billing_events_create_summary_snapshots_with_amounts(test_context) -> None:
+    issued_event = envelope(
+        "billing.invoice_issued",
+        payload={
+            "invoice_id": "invoice-1",
+            "amount": "12.50",
+            "currency": "EUR",
+            "status": "issued",
+        },
+    )
+    paid_event = envelope(
+        "billing.invoice_paid",
+        payload={
+            "invoice_id": "invoice-1",
+            "amount": "12.50",
+            "currency": "EUR",
+            "status": "paid",
+        },
+    )
+
+    response = ingest(test_context, [issued_event, paid_event])
+
+    assert response.status_code == 200
+    assert response.json()["created_count"] == 2
+    db = get_session_factory()()
+    try:
+        snapshots = db.query(BillingSummarySnapshot).order_by(BillingSummarySnapshot.event_type).all()
+        assert len(snapshots) == 2
+        issued = next(snapshot for snapshot in snapshots if snapshot.event_type == "billing.invoice_issued")
+        paid = next(snapshot for snapshot in snapshots if snapshot.event_type == "billing.invoice_paid")
+        assert issued.invoice_id == "invoice-1"
+        assert issued.invoiced_amount == 12.50
+        assert issued.unpaid_amount == 12.50
+        assert paid.paid_amount == 12.50
+    finally:
+        db.close()
+
+
+def test_catalog_import_event_creates_catalog_health_snapshot(test_context) -> None:
+    catalog_event = envelope(
+        "catalog.points.imported",
+        payload={
+            "active_count": 10,
+            "stale_count": 2,
+            "imported_count": 12,
+            "status": "completed",
+        },
+    )
+
+    response = ingest(test_context, catalog_event)
+
+    assert response.status_code == 200
+    db = get_session_factory()()
+    try:
+        snapshot = db.query(CatalogHealthSnapshot).one()
+        assert snapshot.provider_code == "redPlug"
+        assert snapshot.active_count == 10
+        assert snapshot.stale_count == 2
+        assert snapshot.imported_count == 12
+        assert snapshot.latest_import_status == "completed"
+    finally:
+        db.close()
+
+
 def test_aggregate_refresh_computes_provider_totals_and_reservation_metrics(test_context) -> None:
     seed_analytics_events(test_context)
 
@@ -241,6 +313,25 @@ def test_aggregate_refresh_computes_provider_totals_and_reservation_metrics(test
     assert payload["successful_reservations"] == 1
     assert payload["failed_reservations"] == 0
     assert payload["reservation_conversion_rate"] == 1.0
+
+
+def test_repeated_aggregate_refresh_updates_existing_metric_rows(test_context) -> None:
+    event = envelope("usage.point_viewed")
+    assert ingest(test_context, event).status_code == 200
+
+    first_refresh = refresh(test_context)
+    second_refresh = refresh(test_context)
+
+    assert first_refresh.status_code == 200
+    assert second_refresh.status_code == 200
+    db = get_session_factory()()
+    try:
+        assert db.query(ProviderDailyMetric).count() == 1
+        assert db.query(PointDailyMetric).count() == 1
+        assert db.query(OperatorDailyMetric).count() == 1
+        assert db.query(ProviderDailyMetric).one().point_views == 1
+    finally:
+        db.close()
 
 
 def test_status_checked_events_update_status_distribution(test_context) -> None:

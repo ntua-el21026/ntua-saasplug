@@ -44,6 +44,8 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 017 | 2026-06-13 | Direct design prompt saved as canonical prompt | `docs/ai/prompts/prompt_17_scheduler_design.md` | Phase C scheduler control-plane design | `completed` | `docs/ai/codex-runs/017-scheduler-design.md` |
 | 018 | 2026-06-13 | Canonical prompt invocation | `docs/ai/prompts/prompt_18_scheduler_control_plane_implementation.md` | Phase C scheduler control-plane implementation | `completed_with_warnings` | `docs/ai/codex-runs/018-scheduler-control-plane-implementation.md` |
 | 018H | 2026-06-14 | Direct hardening continuation | N/A | Phase C gateway internal-job exposure hardening | `completed` | `docs/ai/codex-runs/018-scheduler-control-plane-implementation.md` |
+| 019 | 2026-06-14 | Direct prompt saved as canonical prompt | `docs/ai/prompts/prompt_19_phase_d_test_expansion.md` | Phase D application test expansion | `completed` | `docs/ai/codex-runs/019-phase-d-test-expansion.md` |
+| 020 | 2026-06-14 | Direct continuation prompt | N/A | Comprehensive Phase D test expansion and final project closure | `completed_with_warnings` | `docs/ai/codex-runs/020-comprehensive-test-expansion-and-project-closure.md` |
 
 ---
 

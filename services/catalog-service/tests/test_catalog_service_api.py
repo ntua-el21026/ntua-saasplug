@@ -150,6 +150,18 @@ def test_scheduler_internal_import_requires_scheduler_token(test_context) -> Non
     assert response.status_code == 401
 
 
+def test_scheduler_internal_import_requires_job_run_id(test_context) -> None:
+    client, _ = test_context
+
+    response = client.post(
+        "/internal/jobs/catalog/imports/providers/redPlug",
+        headers={"X-Scheduler-Token": "scheduler-test-token"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Missing scheduler job run id"
+
+
 def test_scheduler_internal_import_uses_service_owned_importer(test_context) -> None:
     client, _ = test_context
 
@@ -260,6 +272,26 @@ def test_points_endpoint_supports_bounds_and_excludes_coordinate_less_points(tes
     assert payload["missing_coordinates_count"] == 1
 
 
+def test_points_endpoint_rejects_partial_or_invalid_bounds(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+
+    partial_response = client.get("/points?minLat=37.0&maxLat=39.0")
+    inverted_response = client.get("/points?minLat=39.0&maxLat=37.0&minLng=23.0&maxLng=24.0")
+
+    assert partial_response.status_code == 400
+    assert inverted_response.status_code == 400
+
+
+def test_points_endpoint_rejects_unsupported_provider_filter(test_context) -> None:
+    client, _ = test_context
+
+    response = client.get("/points?providerCode=yellowPlug")
+
+    assert response.status_code == 400
+    assert "Unsupported provider code" in response.json()["detail"]
+
+
 def test_cached_point_details_are_returned_without_live_provider_call(test_context) -> None:
     client, _ = test_context
     import_red(client)
@@ -270,6 +302,26 @@ def test_cached_point_details_are_returned_without_live_provider_call(test_conte
     payload = response.json()
     assert payload["normalized_point_id"] == "redPlug:101"
     assert payload["raw_provider_payload"]["external_id"] == "101"
+
+
+def test_stale_point_details_are_hidden_from_normal_detail_path(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+    db = get_session_factory()()
+    try:
+        point = db.query(CatalogPoint).filter(CatalogPoint.provider_code == "redPlug", CatalogPoint.external_point_id == "101").one()
+        point.is_active = False
+        point.is_stale = True
+        db.commit()
+    finally:
+        db.close()
+
+    detail_response = client.get("/points/redPlug/101")
+    list_response = client.get("/points?providerCode=redPlug&includeStale=true")
+
+    assert detail_response.status_code == 404
+    assert list_response.status_code == 200
+    assert any(item["external_point_id"] == "101" and item["is_stale"] for item in list_response.json()["items"])
 
 
 def test_provider_admin_cannot_trigger_imports(test_context) -> None:

@@ -173,3 +173,43 @@ def test_red_http_client_uses_provider_specific_reservation_path(monkeypatch) ->
     assert captured["path"] == "/reserve/101/45"
     assert captured["authorization"] == "Bearer secret-value"
     assert result.payload["pointid"] == 101
+
+
+def test_red_http_client_sends_bearer_auth_on_list_points(monkeypatch) -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["authorization"] = request.headers.get("authorization")
+        return httpx.Response(200, json=[sample_point()])
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("RED_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        result = client.list_points()
+    finally:
+        client.close()
+
+    assert captured["path"] == "/points"
+    assert captured["authorization"] == "Bearer secret-value"
+    assert result.payload[0]["pointid"] == 101
+
+
+def test_red_http_client_maps_provider_404_to_not_found(monkeypatch) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "missing"})
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("RED_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(ProviderClientError) as exc:
+            client.get_point("404")
+    finally:
+        client.close()
+
+    assert exc.value.error_type == "provider_not_found"
+    assert exc.value.external_status_code == 404

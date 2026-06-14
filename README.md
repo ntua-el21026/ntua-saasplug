@@ -194,6 +194,48 @@ The final verification includes frontend tests/build, shared event package
 tests, Docker Compose config/startup/health checks, authenticated gateway smoke
 checks, static forbidden-pattern checks, and Docker shutdown validation.
 
+The latest comprehensive Phase D continuation verified 184 tests across
+backend services, frontend, shared event contracts, and root gateway contracts.
+
+### Test commands
+
+Run service-local tests through Docker Compose so each service uses its own
+declared runtime dependencies:
+
+```bash
+docker compose run --build --rm --no-deps auth-service pytest -q
+docker compose run --build --rm --no-deps provider-registry-service pytest -q
+docker compose run --build --rm --no-deps red-provider-service pytest -q
+docker compose run --build --rm --no-deps green-provider-service pytest -q
+docker compose run --build --rm --no-deps blue-provider-service pytest -q
+docker compose run --build --rm --no-deps catalog-service pytest -q
+docker compose run --build --rm --no-deps status-service pytest -q
+docker compose run --build --rm --no-deps reservation-service pytest -q
+docker compose run --build --rm --no-deps analytics-service pytest -q
+docker compose run --build --rm --no-deps billing-service pytest -q
+docker compose run --build --rm --no-deps scheduler-service pytest -q
+```
+
+Run shared event package tests through a backend image that installs the package:
+
+```bash
+docker compose run --build --rm --no-deps analytics-service sh -lc 'cd /tmp/packages/events && pytest -q'
+```
+
+Run frontend tests and the production build:
+
+```bash
+docker compose run --build --rm --no-deps frontend npm test
+docker compose run --build --rm --no-deps frontend npm run build
+```
+
+Run root gateway contract tests only after the stack is running:
+
+```bash
+docker compose up -d --build
+python3 -m unittest discover tests -v
+```
+
 ## Submission Artifacts
 
 Primary final artifacts:

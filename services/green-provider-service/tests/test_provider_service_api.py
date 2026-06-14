@@ -186,3 +186,43 @@ def test_green_http_client_uses_provider_specific_reservation_body(monkeypatch) 
     assert captured["authorization"] == "Bearer secret-value"
     assert json.loads(captured["body"]) == {"duration": 45}
     assert result.payload["id"] == 201
+
+
+def test_green_http_client_sends_bearer_auth_on_list_points(monkeypatch) -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["authorization"] = request.headers.get("authorization")
+        return httpx.Response(200, json=[sample_point()])
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("GREEN_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        result = client.list_points()
+    finally:
+        client.close()
+
+    assert captured["path"] == "/chargingPoints"
+    assert captured["authorization"] == "Bearer secret-value"
+    assert result.payload[0]["id"] == 201
+
+
+def test_green_http_client_rejects_non_json_provider_response(monkeypatch) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not-json", headers={"Content-Type": "text/plain"})
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("GREEN_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(ProviderClientError) as exc:
+            client.list_points()
+    finally:
+        client.close()
+
+    assert exc.value.error_type == "provider_unexpected_response"
+    assert exc.value.external_status_code == 200
