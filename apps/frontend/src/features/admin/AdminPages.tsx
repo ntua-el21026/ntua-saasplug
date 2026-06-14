@@ -34,6 +34,9 @@ import type {
   ProviderRecord,
   ProviderSummary,
   QueueDrainResponse,
+  SchedulerHealth,
+  SchedulerJob,
+  SchedulerRun,
   StatusProviderFreshness,
 } from "../../lib/types";
 import {
@@ -1202,15 +1205,28 @@ export function OperatorSyncPage() {
   const accessToken = useAccessToken();
   const [providerCode, setProviderCode] = useState<ProviderCode>("redPlug");
   const [message, setMessage] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const schedulerState = useDashboardLoad(async () => {
+    const [jobs, runs] = await Promise.all([
+      requestJson<SchedulerJob[]>("/api/scheduler/jobs", { accessToken }),
+      requestJson<SchedulerRun[]>("/api/scheduler/runs?limit=10", { accessToken }),
+    ]);
+    return { jobs, runs };
+  }, [accessToken, refreshKey]);
 
-  async function runAction(label: string, action: () => Promise<unknown>) {
+  async function runAction(label: string, action: () => Promise<unknown>, after?: () => void) {
     setMessage(null);
     try {
       const response = await action();
       setMessage(`${label} completed: ${JSON.stringify(response)}`);
+      after?.();
     } catch (caught) {
       setMessage(messageFromUnknownError(caught));
     }
+  }
+
+  function schedulerJobLabel(jobKey: string): string {
+    return jobKey.replace(/\./g, " ");
   }
 
   return (
@@ -1231,6 +1247,63 @@ export function OperatorSyncPage() {
           </label>
         </section>
         <DashboardGrid>
+          <DashboardPanel title="Scheduler control plane" description="Central job metadata, manual runs, and pause controls.">
+            <LoadState loading={schedulerState.loading} error={schedulerState.error} />
+            {schedulerState.data ? (
+              <DataTable
+                rows={schedulerState.data.jobs}
+                getRowKey={(row) => row.job_key}
+                columns={[
+                  { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
+                  { key: "target", label: "Target", render: (row) => row.target_service },
+                  { key: "schedule", label: "Schedule", render: (row) => row.schedule_type === "interval" ? `${row.interval_seconds}s` : row.cron_expression ?? "manual" },
+                  { key: "enabled", label: "Enabled", render: (row) => (row.enabled ? "Yes" : "No") },
+                  { key: "last", label: "Last run", render: (row) => row.last_run_status ?? "None" },
+                  { key: "next", label: "Next run", render: (row) => formatDateTime(row.next_run_at) },
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    render: (row) => (
+                      <div className="button-row">
+                        <button
+                          className="button-primary"
+                          type="button"
+                          onClick={() => runAction(`Scheduler run ${row.job_key}`, () => requestJson<SchedulerRun>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/run`, { method: "POST", accessToken }), () => setRefreshKey((value) => value + 1))}
+                        >
+                          Run
+                        </button>
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          onClick={() => runAction(row.enabled ? `Pause ${row.job_key}` : `Resume ${row.job_key}`, () => requestJson<SchedulerJob>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/${row.enabled ? "pause" : "resume"}`, { method: "POST", accessToken }), () => setRefreshKey((value) => value + 1))}
+                        >
+                          {row.enabled ? "Pause" : "Resume"}
+                        </button>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            ) : null}
+          </DashboardPanel>
+          <DashboardPanel title="Scheduler run history" description="Recent scheduler-service run records.">
+            <LoadState loading={schedulerState.loading} error={schedulerState.error} />
+            {schedulerState.data ? (
+              <DataTable
+                rows={schedulerState.data.runs}
+                getRowKey={(row) => row.id}
+                emptyLabel="No scheduler runs recorded"
+                columns={[
+                  { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
+                  { key: "status", label: "Status", render: (row) => row.status },
+                  { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
+                  { key: "http", label: "HTTP", render: (row) => row.target_http_status ?? "None" },
+                  { key: "duration", label: "Duration", render: (row) => row.duration_ms === null ? "None" : `${row.duration_ms}ms` },
+                  { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
+                ]}
+              />
+            ) : null}
+          </DashboardPanel>
           <DashboardPanel title="Catalog sync" description="Trigger catalog-service provider imports.">
             <div className="button-row">
               <button className="button-secondary" type="button" onClick={() => runAction("All-provider import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}>Import all providers</button>
@@ -1270,6 +1343,7 @@ export function OperatorSystemPage() {
       ["/api/reservations/health", "reservation-service"],
       ["/api/analytics/health", "analytics-service"],
       ["/api/billing/health", "billing-service"],
+      ["/api/scheduler/health", "scheduler-service"],
     ] as const;
     const health = await Promise.all(
       healthPaths.map(async ([path, label]) => {
@@ -1281,12 +1355,14 @@ export function OperatorSystemPage() {
         }
       }),
     );
-    const [catalogFreshness, statusFreshness, imports] = await Promise.all([
+    const [catalogFreshness, statusFreshness, imports, schedulerHealth, schedulerRuns] = await Promise.all([
       requestJson<ProviderFreshness[]>("/api/catalog/freshness", { accessToken }),
       requestJson<StatusProviderFreshness[]>("/api/status/freshness", { accessToken }),
       requestJson<CatalogImportRun[]>("/api/catalog/imports/runs?limit=10", { accessToken }),
+      requestJson<SchedulerHealth>("/api/scheduler/health", { accessToken }),
+      requestJson<SchedulerRun[]>("/api/scheduler/runs?limit=10", { accessToken }),
     ]);
-    return { health, catalogFreshness, statusFreshness, imports };
+    return { health, catalogFreshness, statusFreshness, imports, schedulerHealth, schedulerRuns };
   }, [accessToken]);
 
   return (
@@ -1309,6 +1385,14 @@ export function OperatorSystemPage() {
                   </div>
                 ))}
               </div>
+            </DashboardPanel>
+            <DashboardPanel title="Scheduler health" description="scheduler-service metadata and run posture.">
+              <MetricGrid>
+                <MetricCard label="Jobs" value={formatNumber(state.data.schedulerHealth.total_job_count)} />
+                <MetricCard label="Enabled" value={formatNumber(state.data.schedulerHealth.enabled_job_count)} />
+                <MetricCard label="Running" value={formatNumber(state.data.schedulerHealth.running_job_count)} />
+                <MetricCard label="Last status" value={state.data.schedulerHealth.last_run_status ?? "None"} />
+              </MetricGrid>
             </DashboardPanel>
             <DashboardPanel title="Catalog freshness" description="Aggregated catalog freshness by provider.">
               <DataTable
@@ -1336,6 +1420,20 @@ export function OperatorSystemPage() {
             </DashboardPanel>
             <DashboardPanel title="Import runs" description="Latest catalog import records.">
               <ImportRunTable rows={state.data.imports} />
+            </DashboardPanel>
+            <DashboardPanel title="Scheduler runs" description="Latest scheduler-service job run records.">
+              <DataTable
+                rows={state.data.schedulerRuns}
+                getRowKey={(row) => row.id}
+                emptyLabel="No scheduler runs recorded"
+                columns={[
+                  { key: "job", label: "Job", render: (row) => row.job_key },
+                  { key: "status", label: "Status", render: (row) => row.status },
+                  { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
+                  { key: "target", label: "Target", render: (row) => row.target_service },
+                  { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
+                ]}
+              />
             </DashboardPanel>
           </DashboardGrid>
         ) : null}

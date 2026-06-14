@@ -134,6 +134,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("BILLING_RABBITMQ_CONSUME_BATCH_SIZE", "50")
     monkeypatch.setenv("BILLING_RABBITMQ_CONSUME_TIMEOUT_SECONDS", "2")
     monkeypatch.setenv("BILLING_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP", "false")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "scheduler-test-token")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     with TestClient(app) as test_client:
@@ -172,11 +173,38 @@ def issue_invoice_for_red(client: TestClient):
     )
 
 
+def scheduler_headers() -> dict[str, str]:
+    return {"X-Scheduler-Token": "scheduler-test-token", "X-Job-Run-Id": "scheduler-run-1"}
+
+
 def test_health_endpoint_still_works(test_context) -> None:
     response = test_context.get("/health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+
+
+def test_scheduler_internal_invoice_prepare_requires_scheduler_token(test_context) -> None:
+    response = test_context.post("/internal/jobs/invoices/prepare")
+
+    assert response.status_code == 401
+
+
+def test_scheduler_internal_invoice_prepare_is_read_only(test_context) -> None:
+    assert ingest(test_context, envelope()).status_code == 200
+
+    response = test_context.post("/internal/jobs/invoices/prepare", headers=scheduler_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "prepared"
+    assert payload["total_unbilled_charge_count"] == 1
+    db = get_session_factory()()
+    try:
+        assert db.query(Invoice).count() == 0
+        assert db.query(ChargeRecord).one().status == "unbilled"
+    finally:
+        db.close()
 
 
 def test_default_pricing_seed_is_idempotent(test_context) -> None:

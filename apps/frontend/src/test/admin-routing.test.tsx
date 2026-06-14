@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
@@ -65,6 +65,9 @@ function responseFor(pathname: string, role: Role): unknown {
   if (pathname === "/api/catalog/freshness") {
     return [];
   }
+  if (pathname === "/api/status/freshness") {
+    return [];
+  }
   if (pathname === "/api/analytics/operator/summary") {
     return operatorSummary();
   }
@@ -73,6 +76,18 @@ function responseFor(pathname: string, role: Role): unknown {
   }
   if (pathname === "/api/catalog/imports/runs") {
     return [];
+  }
+  if (pathname === "/api/scheduler/health") {
+    return schedulerHealth();
+  }
+  if (pathname === "/api/scheduler/jobs") {
+    return [schedulerJob()];
+  }
+  if (pathname === "/api/scheduler/runs") {
+    return [schedulerRun()];
+  }
+  if (pathname.endsWith("/health")) {
+    return { status: "healthy" };
   }
   return {};
 }
@@ -134,8 +149,73 @@ function operatorSummary() {
   };
 }
 
+function schedulerHealth() {
+  return {
+    service: "scheduler-service",
+    status: "healthy",
+    enabled_job_count: 8,
+    total_job_count: 12,
+    running_job_count: 0,
+    last_run_status: "succeeded",
+  };
+}
+
+function schedulerJob() {
+  return {
+    id: "job-1",
+    job_key: "catalog.import.all",
+    description: "Import all provider catalogs through catalog-service.",
+    target_service: "catalog-service",
+    target_url_path: "/internal/jobs/catalog/imports/all",
+    http_method: "POST",
+    schedule_type: "interval",
+    interval_seconds: 900,
+    cron_expression: null,
+    timezone: "UTC",
+    enabled: true,
+    next_run_at: null,
+    timeout_seconds: 180,
+    max_retries: 1,
+    retry_backoff_seconds: 5,
+    request_body: {},
+    last_run_id: null,
+    last_run_status: null,
+    last_started_at: null,
+    last_finished_at: null,
+    created_at: "2026-06-13T00:00:00Z",
+    updated_at: "2026-06-13T00:00:00Z",
+  };
+}
+
+function schedulerRun() {
+  return {
+    id: "run-1",
+    job_id: "job-1",
+    job_key: "catalog.import.all",
+    status: "succeeded",
+    trigger_type: "manual",
+    triggered_by_email: "operator@saasplug.local",
+    scheduler_instance_id: "scheduler-service-1",
+    queued_at: "2026-06-13T00:00:00Z",
+    started_at: "2026-06-13T00:00:01Z",
+    finished_at: "2026-06-13T00:00:02Z",
+    duration_ms: 1000,
+    target_service: "catalog-service",
+    target_url_path: "/internal/jobs/catalog/imports/all",
+    http_method: "POST",
+    target_http_status: 200,
+    attempt_number: 1,
+    max_attempts: 2,
+    response_summary: null,
+    error_type: null,
+    error_message: null,
+    correlation_id: "correlation-1",
+  };
+}
+
 describe("admin role routing", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.history.pushState({}, "", "/");
@@ -165,6 +245,27 @@ describe("admin role routing", () => {
     storeSession("EV_USER");
     mockFetch("EV_USER");
     window.history.pushState({}, "", "/provider/dashboard");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
+  });
+
+  it("renders scheduler controls for operators", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /scheduler control plane/i })).toBeInTheDocument();
+    expect((await screen.findAllByText(/catalog import all/i)).length).toBeGreaterThan(0);
+  });
+
+  it("blocks EV users from operator scheduler controls", async () => {
+    storeSession("EV_USER");
+    mockFetch("EV_USER");
+    window.history.pushState({}, "", "/operator/sync");
 
     render(<App />);
 

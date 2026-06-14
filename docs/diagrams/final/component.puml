@@ -24,6 +24,7 @@ package "services" {
   component "reservation-service\nservices/reservation-service" as Reservation
   component "analytics-service\nservices/analytics-service" as Analytics
   component "billing-service\nservices/billing-service" as Billing
+  component "scheduler-service\nservices/scheduler-service" as Scheduler
 }
 
 package "packages" {
@@ -42,6 +43,7 @@ database "status-postgres" as StatusDb
 database "reservation-postgres" as ReservationDb
 database "analytics-postgres" as AnalyticsDb
 database "billing-postgres" as BillingDb
+database "scheduler-postgres" as SchedulerDb
 
 cloud "redPlug API" as RedApi
 cloud "greenPlug API" as GreenApi
@@ -56,6 +58,7 @@ Gateway --> Status : /api/status/*
 Gateway --> Reservation : /api/reservations/*
 Gateway --> Analytics : /api/analytics/*
 Gateway --> Billing : /api/billing/*
+Gateway --> Scheduler : /api/scheduler/*
 
 Catalog --> RedProvider : provider snapshots
 Catalog --> GreenProvider : provider snapshots
@@ -67,6 +70,11 @@ Reservation --> Catalog : point resolution
 Reservation --> RedProvider : synchronous reservation
 Reservation --> GreenProvider : synchronous reservation
 Reservation --> BlueProvider : synchronous reservation
+
+Scheduler --> Catalog : internal jobs
+Scheduler --> Analytics : internal jobs
+Scheduler --> Billing : internal jobs
+Scheduler --> Reservation : internal jobs
 
 RedProvider --> RedApi : provider REST API
 GreenProvider --> GreenApi : provider REST API
@@ -82,6 +90,7 @@ Status --> StatusDb
 Reservation --> ReservationDb
 Analytics --> AnalyticsDb
 Billing --> BillingDb
+Scheduler --> SchedulerDb
 
 Reservation --> RabbitMQ : reservation events
 RedProvider --> RabbitMQ : snapshot readiness

@@ -10,6 +10,7 @@ canonical source of truth remains `docs/specs/SPECIFICATIONS.md`.
 | EV User | `EV_USER` | Register/login, search charging points, view point details, check status, reserve a point, view own reservations |
 | Provider Admin | `PROVIDER_ADMIN` | View own provider points, analytics, invoices, mock-pay issued invoices, export usage logs, view safe provider settings |
 | Operator | `OPERATOR` | Manage providers, trigger catalog/import and event operations, view global analytics, edit pricing, issue invoices, inspect system status |
+| Scheduler | internal control plane | Dispatch background jobs to service-owned internal endpoints and record run history |
 | External Provider APIs | external systems | Provide provider-specific point, status, and reservation APIs for `redPlug`, `greenPlug`, and `bluePlug` |
 
 Provider admins are always scoped to the `provider_code` embedded in their JWT
@@ -43,11 +44,13 @@ event propagation after source-of-truth state changes have been stored.
 | `reservation-service` | `services/reservation-service` | Reservation truth, synchronous provider reservation calls, attempts, reservation outbox |
 | `analytics-service` | `services/analytics-service` | Raw usage events, idempotency, aggregate/cache tables, provider/operator analytics, CSV export |
 | `billing-service` | `services/billing-service` | Pricing rules, charges, invoices, invoice lines, mock payments, billing outbox |
+| `scheduler-service` | `services/scheduler-service` | Background-job control plane, scheduler metadata, run history, internal HTTP job dispatch |
 | `packages/events` | `packages/events` | Shared event envelope, routing keys, RabbitMQ topology, publisher/consumer primitives |
 
 There is no dedicated orchestrator service. Synchronous flows are locally
 orchestrated by the responsible service. Background propagation uses event
-choreography through RabbitMQ.
+choreography through RabbitMQ, while `scheduler-service` coordinates timed and
+manual background job dispatch without owning business logic.
 
 ## Database Ownership
 
@@ -63,6 +66,7 @@ choreography through RabbitMQ.
 | `reservation-service` | `reservation-postgres` | `reservations`, `reservation_attempts`, `reservation_event_outbox` |
 | `analytics-service` | `analytics-postgres` | `usage_events`, aggregate/cache tables, snapshots, `export_jobs` |
 | `billing-service` | `billing-postgres` | `pricing_rules`, `billing_events`, `charge_records`, `invoices`, `invoice_lines`, `payments`, `billing_event_outbox` |
+| `scheduler-service` | `scheduler-postgres` | `scheduled_jobs`, `job_runs` |
 
 Cross-service references use logical IDs such as `provider_code`,
 `external_point_id`, `normalized_point_id`, `user_id`, and event IDs. There are
@@ -89,8 +93,11 @@ Gateway route groups:
 | `/api/reservations/*` | `reservation-service` |
 | `/api/analytics/*` | `analytics-service` |
 | `/api/billing/*` | `billing-service` |
+| `/api/scheduler/*` | `scheduler-service` |
 
 Provider services are internal-only and are not exposed through the gateway.
+Service-owned `/internal/jobs/...` routes are also internal-only and are not
+exposed through `nginx-gateway`.
 
 ## RabbitMQ Event Model
 
@@ -178,6 +185,19 @@ reservation provider calls, or live frontend actions.
 3. `billing-service` drains `billing.reservations`, creates idempotent charges,
    issues invoices on operator request, and records mock payments.
 
+### Scheduler Control Plane
+
+1. `scheduler-service` stores job definitions and run history in
+   `scheduler-postgres`.
+2. The scheduler evaluates due interval/cron jobs and supports operator manual
+   runs through `/api/scheduler/*`.
+3. Job execution calls service-owned internal HTTP endpoints on
+   `catalog-service`, `analytics-service`, `billing-service`, and
+   `reservation-service` with `X-Scheduler-Token`.
+4. Target services execute their own logic and keep ownership of their own
+   databases. The scheduler stores only metadata, run status, HTTP status, and
+   redacted response summaries.
+
 ### Invoice and Mock Payment
 
 1. Operators issue invoices through `/api/billing/invoices/issue`.
@@ -211,8 +231,8 @@ API helpers.
   an uncommitted `.env`.
 - Catalog coordinates are deterministic Athens-area demo coordinates because
   the provider DTOs do not expose real latitude/longitude.
-- There is no scheduler or worker container. Manual operator endpoints trigger
-  imports, queue drains, aggregate refresh, and outbox publishing.
+- Background jobs are coordinated by `scheduler-service`; live user actions
+  remain synchronous and are not queued through RabbitMQ.
 - Startup table creation is used for local MVP development instead of full
   Alembic migration management.
 - Billing uses mock payments only. There is no real payment gateway, tax

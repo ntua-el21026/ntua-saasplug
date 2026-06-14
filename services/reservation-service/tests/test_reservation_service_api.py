@@ -137,6 +137,10 @@ def red_admin_headers() -> dict[str, str]:
     return auth_headers(["PROVIDER_ADMIN"], "red-admin@saasplug.local", "redPlug")
 
 
+def scheduler_headers() -> dict[str, str]:
+    return {"X-Scheduler-Token": "scheduler-test-token", "X-Job-Run-Id": "scheduler-run-1"}
+
+
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'reservation-test.db'}"
@@ -149,6 +153,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "2")
     monkeypatch.setenv("RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP", "false")
     monkeypatch.setenv("RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE", "50")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "scheduler-test-token")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     call_order: list[str] = []
@@ -196,6 +201,32 @@ def test_health_endpoint_still_works(test_context) -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+
+
+def test_scheduler_internal_freshness_requires_scheduler_token(test_context) -> None:
+    client, _, _, _ = test_context
+
+    missing = client.get("/internal/jobs/freshness")
+    missing_run_id = client.get("/internal/jobs/freshness", headers={"X-Scheduler-Token": "scheduler-test-token"})
+    allowed = client.get("/internal/jobs/freshness", headers=scheduler_headers())
+
+    assert missing.status_code == 401
+    assert missing_run_id.status_code == 400
+    assert allowed.status_code == 200
+    assert allowed.json()["pending_outbox_count"] == 0
+
+
+def test_scheduler_internal_outbox_publish_uses_service_owned_publisher(test_context, monkeypatch) -> None:
+    client, _, _, _ = test_context
+    assert client.post("/points/redPlug/101/reservations", headers=ev_headers()).status_code == 201
+    fake_publisher = FakeOutboxPublisher()
+    monkeypatch.setattr(routes, "build_rabbitmq_publisher", lambda settings: fake_publisher)
+
+    response = client.post("/internal/jobs/outbox/publish-pending", headers=scheduler_headers())
+
+    assert response.status_code == 200
+    assert response.json()["published_count"] == 1
+    assert fake_publisher.closed is True
 
 
 def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) -> None:

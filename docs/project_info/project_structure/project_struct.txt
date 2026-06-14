@@ -74,6 +74,8 @@ NTUA-saasPlug/
 │   │   │   ├── 014-final-docs-uml.md
 │   │   │   ├── 015-finalization-project-audit.md
 │   │   │   ├── 016-live-env-verification.md
+│   │   │   ├── 017-scheduler-design.md
+│   │   │   ├── 018-scheduler-control-plane-implementation.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -94,6 +96,8 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_14_final_docs_uml.md
 │   │   │   ├── prompt_15_finalization_project_audit.md
 │   │   │   ├── prompt_16_live_env_verification.md
+│   │   │   ├── prompt_17_scheduler_design.md
+│   │   │   ├── prompt_18_scheduler_control_plane_implementation.md
 │   │   │   └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
@@ -421,6 +425,25 @@ NTUA-saasPlug/
 │   │   ├── Dockerfile
 │   │   ├── README.md
 │   │   └── requirements.txt
+│   ├── scheduler-service/
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── client.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── executor.py
+│   │   │   ├── jobs.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── routes.py
+│   │   │   ├── runner.py
+│   │   │   ├── schemas.py
+│   │   │   └── security.py
+│   │   ├── tests/
+│   │   │   └── test_scheduler_service_api.py
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   └── requirements.txt
 │   ├── status-service/
 │   │   ├── app/
 │   │   │   ├── __init__.py
@@ -449,4 +472,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 74, Total files: 376
+Total directories: 77, Total files: 396

@@ -26,6 +26,7 @@ class Settings:
             in {"1", "true", "yes"}
         )
         self.reservation_outbox_publish_batch_size = int(os.getenv("RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE", "50"))
+        self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
         self.red_provider_service_url = os.getenv(
             "RED_PROVIDER_SERVICE_URL",
             "http://red-provider-service:8000",

@@ -96,6 +96,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("SERVICE_NAME", "catalog-service")
     monkeypatch.setenv("JWT_SECRET", "catalog-test-secret")
     monkeypatch.setenv("CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS", "2")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "scheduler-test-token")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     fake_client = FakeProviderServiceClient()
@@ -111,6 +112,10 @@ def import_red(client: TestClient) -> None:
         headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
     )
     assert response.status_code == 200
+
+
+def scheduler_headers() -> dict[str, str]:
+    return {"X-Scheduler-Token": "scheduler-test-token", "X-Job-Run-Id": "scheduler-run-1"}
 
 
 def test_health_endpoint_still_works(test_context) -> None:
@@ -135,6 +140,31 @@ def test_operator_can_import_one_provider_from_fake_provider_service(test_contex
     assert payload["provider_code"] == "redPlug"
     assert payload["status"] == "completed"
     assert payload["catalog_upserted_count"] == 2
+
+
+def test_scheduler_internal_import_requires_scheduler_token(test_context) -> None:
+    client, _ = test_context
+
+    response = client.post("/internal/jobs/catalog/imports/providers/redPlug")
+
+    assert response.status_code == 401
+
+
+def test_scheduler_internal_import_uses_service_owned_importer(test_context) -> None:
+    client, _ = test_context
+
+    response = client.post("/internal/jobs/catalog/imports/providers/redPlug", headers=scheduler_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["catalog_upserted_count"] == 2
+    db = get_session_factory()()
+    try:
+        import_run = db.query(CatalogImportRun).one()
+        assert import_run.triggered_by == "scheduler-service"
+    finally:
+        db.close()
 
 
 def test_repeated_import_upserts_without_duplicates(test_context) -> None:

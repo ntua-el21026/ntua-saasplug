@@ -249,6 +249,12 @@ The system must support background or scheduled operations for:
 - billing aggregation/invoice preparation,
 - manual sync/refresh where useful for demo.
 
+Phase C implements this through `scheduler-service` as a control plane with
+`scheduler-postgres` for job definitions and run history. The scheduler calls
+service-owned internal HTTP job endpoints protected by `X-Scheduler-Token`; it
+does not contain catalog, analytics, billing, or reservation business logic and
+does not access other service databases.
+
 ## SPEC-1.9 Explicitly out of scope
 
 The following are out of scope:
@@ -676,6 +682,7 @@ Each stateful microservice has its own PostgreSQL container.
 | `reservation-service` | `reservation-postgres` |
 | `analytics-service` | `analytics-postgres` |
 | `billing-service` | `billing-postgres` |
+| `scheduler-service` | `scheduler-postgres` |
 
 MongoDB is not used for the MVP unless explicitly revisited.
 
@@ -1079,8 +1086,14 @@ Use:
 
 - local orchestration inside responsible services,
 - event choreography for background propagation,
+- scheduler-service as a background-job control plane only,
 - no distributed transactions,
 - no saga implementation for MVP.
+
+`scheduler-service` is not a business orchestrator. It stores scheduler
+metadata, evaluates due jobs, and calls internal job endpoints on the
+responsible service. Live user actions remain synchronous and are not moved to
+RabbitMQ.
 
 ---
 
@@ -2102,6 +2115,7 @@ status-service
 reservation-service
 analytics-service
 billing-service
+scheduler-service
 rabbitmq
 auth-postgres
 provider-registry-postgres
@@ -2113,6 +2127,7 @@ status-postgres
 reservation-postgres
 analytics-postgres
 billing-postgres
+scheduler-postgres
 ```
 
 ---

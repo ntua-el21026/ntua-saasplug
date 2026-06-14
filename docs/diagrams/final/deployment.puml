@@ -18,6 +18,7 @@ node "Developer machine" as Host {
       node "reservation-service" as Reservation
       node "analytics-service" as Analytics
       node "billing-service" as Billing
+      node "scheduler-service" as Scheduler
     }
 
     queue "rabbitmq\nAMQP internal 5672\nmanagement host 15672" as RabbitMQ
@@ -32,6 +33,7 @@ node "Developer machine" as Host {
     database "reservation-postgres\ninternal 5432" as ReservationDb
     database "analytics-postgres\ninternal 5432" as AnalyticsDb
     database "billing-postgres\ninternal 5432" as BillingDb
+    database "scheduler-postgres\ninternal 5432" as SchedulerDb
   }
 }
 
@@ -46,6 +48,7 @@ Gateway --> Status
 Gateway --> Reservation
 Gateway --> Analytics
 Gateway --> Billing
+Gateway --> Scheduler
 
 Auth --> AuthDb
 Registry --> RegistryDb
@@ -57,6 +60,7 @@ Status --> StatusDb
 Reservation --> ReservationDb
 Analytics --> AnalyticsDb
 Billing --> BillingDb
+Scheduler --> SchedulerDb
 
 RedProvider --> ProviderApis
 GreenProvider --> ProviderApis
@@ -70,6 +74,10 @@ Status --> BlueProvider
 Catalog --> RedProvider
 Catalog --> GreenProvider
 Catalog --> BlueProvider
+Scheduler --> Catalog
+Scheduler --> Analytics
+Scheduler --> Billing
+Scheduler --> Reservation
 
 Reservation --> RabbitMQ
 Catalog --> RabbitMQ

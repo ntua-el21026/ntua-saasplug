@@ -58,6 +58,8 @@ services:
         condition: service_healthy
       billing-service:
         condition: service_healthy
+      scheduler-service:
+        condition: service_healthy
     ports:
       - "8080:80"
     volumes:
@@ -210,6 +212,7 @@ services:
       BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}
       CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS: ${CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS:-10}
       CATALOG_IMPORT_ON_STARTUP: ${CATALOG_IMPORT_ON_STARTUP:-false}
+      SCHEDULER_INTERNAL_TOKEN: ${SCHEDULER_INTERNAL_TOKEN:-change-me-scheduler-token}
     depends_on:
       catalog-postgres:
         condition: service_healthy
@@ -262,6 +265,7 @@ services:
       RESERVATION_CATALOG_SERVICE_URL: ${RESERVATION_CATALOG_SERVICE_URL:-http://catalog-service:8000}
       RESERVATION_PROVIDER_TIMEOUT_SECONDS: ${RESERVATION_PROVIDER_TIMEOUT_SECONDS:-5}
       RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE: ${RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE:-50}
+      SCHEDULER_INTERNAL_TOKEN: ${SCHEDULER_INTERNAL_TOKEN:-change-me-scheduler-token}
       RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
       GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
       BLUE_PROVIDER_SERVICE_URL: ${BLUE_PROVIDER_SERVICE_URL:-http://blue-provider-service:8000}
@@ -290,6 +294,7 @@ services:
       ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS: ${ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS:-5}
       ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP: ${ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP:-false}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      SCHEDULER_INTERNAL_TOKEN: ${SCHEDULER_INTERNAL_TOKEN:-change-me-scheduler-token}
     depends_on:
       analytics-postgres:
         condition: service_healthy
@@ -321,10 +326,47 @@ services:
       BILLING_DEFAULT_POINT_VIEW_FEE: ${BILLING_DEFAULT_POINT_VIEW_FEE:-0.01}
       BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED: ${BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED:-true}
       BILLING_DEFAULT_RESERVATION_FAILURE_FEE: ${BILLING_DEFAULT_RESERVATION_FAILURE_FEE:-0.00}
+      SCHEDULER_INTERNAL_TOKEN: ${SCHEDULER_INTERNAL_TOKEN:-change-me-scheduler-token}
     depends_on:
       billing-postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+    networks:
+      - saasplug-network
+    expose:
+      - "8000"
+    healthcheck: *backend-healthcheck
+
+  scheduler-service:
+    container_name: scheduler-service
+    build:
+      context: .
+      dockerfile: services/scheduler-service/Dockerfile
+    environment:
+      SERVICE_NAME: scheduler-service
+      SCHEDULER_DATABASE_URL: ${SCHEDULER_DATABASE_URL:-postgresql://saasplug:saasplug@scheduler-postgres:5432/scheduler}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
+      SCHEDULER_TICK_SECONDS: ${SCHEDULER_TICK_SECONDS:-15}
+      SCHEDULER_MAX_CONCURRENT_JOBS: ${SCHEDULER_MAX_CONCURRENT_JOBS:-2}
+      SCHEDULER_INSTANCE_ID: ${SCHEDULER_INSTANCE_ID:-scheduler-service-1}
+      SCHEDULER_INTERNAL_TOKEN: ${SCHEDULER_INTERNAL_TOKEN:-change-me-scheduler-token}
+      SCHEDULER_HTTP_TIMEOUT_SECONDS: ${SCHEDULER_HTTP_TIMEOUT_SECONDS:-10}
+      SCHEDULER_RUN_LOOP: ${SCHEDULER_RUN_LOOP:-true}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://catalog-service:8000}
+      ANALYTICS_SERVICE_URL: ${ANALYTICS_SERVICE_URL:-http://analytics-service:8000}
+      BILLING_SERVICE_URL: ${BILLING_SERVICE_URL:-http://billing-service:8000}
+      RESERVATION_SERVICE_URL: ${RESERVATION_SERVICE_URL:-http://reservation-service:8000}
+    depends_on:
+      scheduler-postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      reservation-service:
         condition: service_healthy
     networks:
       - saasplug-network
@@ -492,6 +534,19 @@ services:
       - saasplug-network
     healthcheck: *postgres-healthcheck
 
+  scheduler-postgres:
+    container_name: scheduler-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saasplug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saasplug}
+      POSTGRES_DB: scheduler
+    volumes:
+      - scheduler-postgres-data:/var/lib/postgresql/data
+    networks:
+      - saasplug-network
+    healthcheck: *postgres-healthcheck
+
 networks:
   saasplug-network:
     name: saasplug-network
@@ -507,4 +562,5 @@ volumes:
   reservation-postgres-data:
   analytics-postgres-data:
   billing-postgres-data:
+  scheduler-postgres-data:
   rabbitmq-data:
