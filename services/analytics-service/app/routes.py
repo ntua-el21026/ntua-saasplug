@@ -4,7 +4,7 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,23 @@ from saasplug_events.envelope import EventEnvelope
 router = APIRouter(tags=["analytics"])
 
 
+def require_scheduler_token(
+    x_scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not x_scheduler_token or x_scheduler_token != settings.scheduler_internal_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
+
+
+def require_scheduler_job(
+    x_job_run_id: str | None = Header(default=None, alias="X-Job-Run-Id"),
+    _: None = Depends(require_scheduler_token),
+) -> str:
+    if not x_job_run_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing scheduler job run id")
+    return x_job_run_id
+
+
 @router.post("/events/ingest", response_model=IngestResponse)
 def ingest_events_endpoint(
     body: Annotated[EventEnvelope | list[EventEnvelope], Body()],
@@ -87,6 +104,43 @@ def refresh_aggregates_endpoint(
         operator_daily_rows=result.operator_daily_rows,
         refreshed_at=result.refreshed_at.isoformat(),
     )
+
+
+@router.post("/internal/jobs/events/consume", response_model=ConsumeResponse)
+def consume_events_from_scheduler(
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> ConsumeResponse:
+    effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
+    result = consume_analytics_events(settings, db, effective_limit)
+    return ConsumeResponse(**result.__dict__)
+
+
+@router.post("/internal/jobs/aggregates/refresh", response_model=AggregateRefreshResponse)
+def refresh_aggregates_from_scheduler(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> AggregateRefreshResponse:
+    result = refresh_aggregates(db)
+    return AggregateRefreshResponse(
+        usage_event_count=result.usage_event_count,
+        provider_hourly_rows=result.provider_hourly_rows,
+        provider_daily_rows=result.provider_daily_rows,
+        point_daily_rows=result.point_daily_rows,
+        provider_status_daily_rows=result.provider_status_daily_rows,
+        operator_daily_rows=result.operator_daily_rows,
+        refreshed_at=result.refreshed_at.isoformat(),
+    )
+
+
+@router.get("/internal/jobs/freshness", response_model=FreshnessResponse)
+def read_internal_freshness(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> FreshnessResponse:
+    return freshness_response(db, None)
 
 
 @router.get("/provider/summary", response_model=ProviderSummaryResponse)

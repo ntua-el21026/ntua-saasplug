@@ -334,6 +334,64 @@ export interface QueueDrainResponse {
   invalid_count?: number;
 }
 
+export interface SchedulerJob {
+  id: string;
+  job_key: string;
+  description: string;
+  target_service: string;
+  target_url_path: string;
+  http_method: string;
+  schedule_type: string;
+  interval_seconds: number | null;
+  cron_expression: string | null;
+  timezone: string;
+  enabled: boolean;
+  next_run_at: string | null;
+  timeout_seconds: number;
+  max_retries: number;
+  retry_backoff_seconds: number;
+  request_body: Record<string, unknown> | null;
+  last_run_id: string | null;
+  last_run_status: string | null;
+  last_started_at: string | null;
+  last_finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SchedulerRun {
+  id: string;
+  job_id: string;
+  job_key: string;
+  status: string;
+  trigger_type: string;
+  triggered_by_email: string | null;
+  scheduler_instance_id: string;
+  queued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  target_service: string;
+  target_url_path: string;
+  http_method: string;
+  target_http_status: number | null;
+  attempt_number: number;
+  max_attempts: number;
+  response_summary: Record<string, unknown> | null;
+  error_type: string | null;
+  error_message: string | null;
+  correlation_id: string;
+}
+
+export interface SchedulerHealth {
+  service: string;
+  status: "healthy";
+  enabled_job_count: number;
+  total_job_count: number;
+  running_job_count: number;
+  last_run_status: string | null;
+}
+
 export interface PricingRule {
   id: string;
   provider_code: ProviderCode | null;

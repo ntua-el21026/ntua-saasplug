@@ -51,6 +51,7 @@ class Settings:
             "ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP",
             False,
         )
+        self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
 
 
 @lru_cache

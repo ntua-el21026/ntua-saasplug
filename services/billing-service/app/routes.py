@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -49,6 +49,23 @@ from saasplug_events.envelope import EventEnvelope
 router = APIRouter(tags=["billing"])
 
 
+def require_scheduler_token(
+    x_scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not x_scheduler_token or x_scheduler_token != settings.scheduler_internal_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
+
+
+def require_scheduler_job(
+    x_job_run_id: str | None = Header(default=None, alias="X-Job-Run-Id"),
+    _: None = Depends(require_scheduler_token),
+) -> str:
+    if not x_job_run_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing scheduler job run id")
+    return x_job_run_id
+
+
 @router.post("/events/ingest", response_model=IngestResponse)
 def ingest_events_endpoint(
     body: Annotated[EventEnvelope | list[EventEnvelope], Body()],
@@ -88,6 +105,87 @@ def publish_pending_billing_outbox_endpoint(
     finally:
         publisher.close()
     return OutboxPublishResponse(**result.__dict__)
+
+
+@router.post("/internal/jobs/events/drain", response_model=DrainResponse)
+def drain_events_from_scheduler(
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> DrainResponse:
+    effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
+    result = consume_billing_events(settings, db, effective_limit)
+    return DrainResponse(**result.__dict__)
+
+
+@router.post("/internal/jobs/outbox/publish-pending", response_model=OutboxPublishResponse)
+def publish_pending_billing_outbox_from_scheduler(
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> OutboxPublishResponse:
+    publisher = build_billing_publisher(settings)
+    try:
+        result = publish_pending_outbox(db, publisher, limit)
+    finally:
+        publisher.close()
+    return OutboxPublishResponse(**result.__dict__)
+
+
+@router.post("/internal/jobs/invoices/prepare")
+def prepare_invoice_candidates_from_scheduler(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> dict:
+    rows = db.execute(
+        select(
+            ChargeRecord.provider_code,
+            ChargeRecord.currency,
+            func.count(ChargeRecord.id),
+            func.coalesce(func.sum(ChargeRecord.amount), 0),
+        )
+        .where(ChargeRecord.status == "unbilled")
+        .group_by(ChargeRecord.provider_code, ChargeRecord.currency)
+        .order_by(ChargeRecord.provider_code.asc()),
+    ).all()
+    providers = [
+        {
+            "provider_code": provider_code,
+            "currency": currency,
+            "unbilled_charge_count": int(charge_count),
+            "subtotal_amount": str(subtotal_amount),
+        }
+        for provider_code, currency, charge_count, subtotal_amount in rows
+    ]
+    return {
+        "status": "prepared",
+        "candidate_provider_count": len(providers),
+        "total_unbilled_charge_count": sum(row["unbilled_charge_count"] for row in providers),
+        "providers": providers,
+    }
+
+
+@router.get("/internal/jobs/freshness")
+def read_internal_freshness(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> dict:
+    pending_outbox_count = db.scalar(
+        select(func.count()).select_from(BillingEventOutbox).where(BillingEventOutbox.publish_status == "pending"),
+    ) or 0
+    unbilled_charge_count = db.scalar(
+        select(func.count()).select_from(ChargeRecord).where(ChargeRecord.status == "unbilled"),
+    ) or 0
+    last_charge_at = db.scalar(select(func.max(ChargeRecord.created_at)))
+    last_invoice_at = db.scalar(select(func.max(Invoice.created_at)))
+    return {
+        "pending_outbox_count": pending_outbox_count,
+        "unbilled_charge_count": unbilled_charge_count,
+        "last_charge_at": last_charge_at.isoformat() if last_charge_at else None,
+        "last_invoice_at": last_invoice_at.isoformat() if last_invoice_at else None,
+    }
 
 
 @router.get("/pricing/rules", response_model=list[PricingRuleResponse])

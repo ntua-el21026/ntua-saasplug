@@ -202,6 +202,28 @@ package "billing-service / billing-postgres" {
   entity billing_event_outbox
 }
 
+package "scheduler-service / scheduler-postgres" {
+  entity scheduled_jobs {
+    * id : uuid
+    --
+    job_key
+    target_service
+    target_url_path
+    schedule_type
+    enabled
+    next_run_at
+  }
+  entity job_runs {
+    * id : uuid
+    --
+    job_key
+    status
+    trigger_type
+    target_http_status
+    response_summary
+  }
+}
+
 users ||--o{ refresh_tokens
 providers ||--o{ provider_config_audit_logs
 provider_sync_runs ||--o{ provider_point_changes
@@ -213,6 +235,7 @@ invoices ||--o{ payments
 pricing_rules ..> charge_records : pricing scope
 usage_events ..> provider_daily_metrics : rebuilds
 billing_events ..> charge_records : source_event_id
+scheduled_jobs ||--o{ job_runs
 provider_point_snapshots ..> catalog_points : provider_code + external_point_id
 catalog_points ..> status_cache : provider_code + external_point_id
 catalog_points ..> reservations : provider_code + external_point_id
@@ -221,8 +244,8 @@ reservation_event_outbox ..> billing_events : RabbitMQ event_id
 
 note bottom
 Relationships crossing package boundaries are logical IDs, event IDs, snapshots,
-or projections. They are not cross-service foreign keys and do not imply shared
-database ownership.
+projections, or scheduler metadata. They are not cross-service foreign keys and
+do not imply shared database ownership.
 end note
 
 @enduml

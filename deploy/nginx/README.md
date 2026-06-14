@@ -45,9 +45,12 @@ Baseline routes:
 | `/api/reservations/` | `reservation-service:8000` |
 | `/api/analytics/` | `analytics-service:8000` |
 | `/api/billing/` | `billing-service:8000` |
+| `/api/scheduler/` | `scheduler-service:8000` |
 
 Provider adapter services remain internal and are not exposed as browser-facing
 business APIs.
+Service-owned `/internal/jobs/...` routes remain internal and are not routed
+through the gateway.
 
 ## References
 

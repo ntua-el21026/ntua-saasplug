@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,23 @@ from app.schemas import (
 from app.security import ensure_import_run_reader, ensure_operator, get_current_principal
 
 router = APIRouter(tags=["catalog"])
+
+
+def require_scheduler_token(
+    x_scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not x_scheduler_token or x_scheduler_token != settings.scheduler_internal_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
+
+
+def require_scheduler_job(
+    x_job_run_id: str | None = Header(default=None, alias="X-Job-Run-Id"),
+    _: None = Depends(require_scheduler_token),
+) -> str:
+    if not x_job_run_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing scheduler job run id")
+    return x_job_run_id
 
 
 def point_response(point: CatalogPoint) -> CatalogPointResponse:
@@ -227,6 +244,52 @@ def import_all_providers(
     return ImportAllResponse(status=overall_status, providers=summaries)
 
 
+@router.post("/internal/jobs/catalog/imports/providers/{provider_code}", response_model=ImportSummaryResponse)
+def import_provider_from_scheduler(
+    provider_code: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> ImportSummaryResponse:
+    try:
+        validate_provider_code(provider_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    provider_client = ProviderServiceClient(settings)
+    try:
+        summary = import_provider_catalog(db, provider_code, "scheduler-service", provider_client)
+    finally:
+        provider_client.close()
+    if summary.status == "failed":
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "provider_code": summary.provider_code,
+                "run_id": summary.run_id,
+                "message": "Catalog import failed for provider service",
+            },
+        )
+    return summary
+
+
+@router.post("/internal/jobs/catalog/imports/all", response_model=ImportAllResponse)
+def import_all_providers_from_scheduler(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> ImportAllResponse:
+    provider_client = ProviderServiceClient(settings)
+    summaries: list[ImportSummaryResponse] = []
+    try:
+        for provider_code in PROVIDER_CODES:
+            summaries.append(import_provider_catalog(db, provider_code, "scheduler-service", provider_client))
+    finally:
+        provider_client.close()
+    completed = sum(1 for summary in summaries if summary.status == "completed")
+    overall_status = "completed" if completed == len(summaries) else "partial"
+    return ImportAllResponse(status=overall_status, providers=summaries)
+
+
 @router.get("/imports/runs", response_model=list[ImportRunResponse])
 def list_import_runs(
     limit: int = Query(default=25, ge=1, le=100),
@@ -245,6 +308,18 @@ def list_import_runs(
 
 @router.get("/freshness", response_model=list[ProviderFreshnessResponse])
 def read_freshness(db: Session = Depends(get_db)) -> list[ProviderFreshnessResponse]:
+    return catalog_freshness(db)
+
+
+@router.get("/internal/jobs/catalog/freshness", response_model=list[ProviderFreshnessResponse])
+def read_internal_freshness(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> list[ProviderFreshnessResponse]:
+    return catalog_freshness(db)
+
+
+def catalog_freshness(db: Session) -> list[ProviderFreshnessResponse]:
     freshness: list[ProviderFreshnessResponse] = []
     for provider_code in PROVIDER_CODES:
         active_count = db.scalar(

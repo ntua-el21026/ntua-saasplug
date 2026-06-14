@@ -40,10 +40,13 @@ AMQP port are Docker-internal for the MVP.
 /api/reservations/...   -> reservation-service:8000
 /api/analytics/...      -> analytics-service:8000
 /api/billing/...        -> billing-service:8000
+/api/scheduler/...      -> scheduler-service:8000
 ```
 
 Provider services are intentionally not exposed through Nginx. They remain
 internal to provider sync, status lookup, and reservation flows.
+Service-owned `/internal/jobs/...` endpoints are also not exposed through
+Nginx; they are called only over the Docker network by `scheduler-service`.
 
 ## Commands
 
@@ -67,6 +70,7 @@ curl http://localhost:8080/api/status/health
 curl http://localhost:8080/api/reservations/health
 curl http://localhost:8080/api/analytics/health
 curl http://localhost:8080/api/billing/health
+curl http://localhost:8080/api/scheduler/health
 ```
 
 Stop and remove local volumes:
@@ -81,8 +85,8 @@ docker compose down -v
 - Do not expose backend service ports to the host.
 - Do not add new runtime containers outside the accepted specifications without
   explicit approval.
-- Do not add a dedicated orchestrator, scheduler, or worker service for the
-  MVP.
+- Keep `scheduler-service` as a control plane only; do not move live user
+  actions into RabbitMQ or scheduler-owned business logic.
 
 ## References
 

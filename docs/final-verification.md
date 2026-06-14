@@ -2,7 +2,8 @@
 
 This report records the Prompt 14 verification pass for the saasPlug MVP, the
 Prompt 15 Phase A finalization audit update, and the Prompt 16 Phase B live
-environment verification update. The canonical architecture remains
+environment verification update, and the Prompt 18 Phase C scheduler
+control-plane implementation update. The canonical architecture remains
 `docs/specs/SPECIFICATIONS.md`.
 
 ## Environment
@@ -54,6 +55,7 @@ environment verification update. The canonical architecture remains
 | `http://localhost:8080/api/reservations/health` | Pass |
 | `http://localhost:8080/api/analytics/health` | Pass |
 | `http://localhost:8080/api/billing/health` | Pass |
+| `http://localhost:8080/api/scheduler/health` | Pass in Prompt 18 |
 
 ## Static Architecture Checks
 
@@ -157,6 +159,45 @@ deployments, Phase C, Phase D, and live reservation mutations were not changed.
 | `docker compose down -v` | Pass | Containers, network, and volumes created by this verification run were removed |
 | `docker compose ps -a` | Pass | No Compose containers remained after cleanup |
 | GitHub Phase B issue/project item | Done | Issue #16 was closed and its Project #2 item was moved to `Done`; Phase C and Phase D were not modified |
+
+## Prompt 18 Phase C Scheduler Control-Plane Update
+
+Prompt 18 executed Phase C only. It added `scheduler-service`,
+`scheduler-postgres`, scheduler metadata persistence, operator-only scheduler
+APIs, service-owned internal job endpoints protected by `X-Scheduler-Token`,
+Docker Compose integration, Nginx `/api/scheduler/*` routing, operator Sync and
+System UI support, focused tests, and documentation/diagram updates. Phase D
+root-level broad test-suite work, deployment, Vercel, `.env`, secrets, live
+reservation mutations, cross-service database access, and live user action
+queueing were not performed.
+
+| Check | Result | Notes |
+|---|---|---|
+| `docker compose config --quiet` | Pass | Compose includes `scheduler-service` and `scheduler-postgres` |
+| `docker compose run --build --rm --no-deps scheduler-service pytest -q` | Pass | 7 scheduler-service tests passed |
+| `docker compose run --build --rm --no-deps catalog-service pytest -q` | Pass | 14 catalog-service tests passed |
+| `docker compose run --build --rm --no-deps analytics-service pytest -q` | Pass | 15 analytics-service tests passed |
+| `docker compose run --build --rm --no-deps billing-service pytest -q` | Pass | 20 billing-service tests passed |
+| `docker compose run --build --rm --no-deps reservation-service pytest -q` | Pass | 21 reservation-service tests passed |
+| `docker compose run --build --rm --no-deps frontend npm test` | Pass | 3 frontend test files, 8 tests passed |
+| `docker compose run --build --rm --no-deps frontend npm run build` | Pass | TypeScript no-emit check and Vite production build passed |
+| Shared event package tests | Pass | 10 package tests passed through the analytics-service image |
+| `plantuml -checkonly docs/diagrams/final/*.puml` | Pass | Updated final diagrams validated |
+| PlantUML PNG render | Pass | Rendered updated final diagrams to `/tmp/saasplug-phase-c-plantuml-render` without adding generated images to the repository |
+| Scheduler internal endpoint exposure | Pass | Nginx exposes `/api/scheduler/*` only; `/internal/jobs/*` routes are service-internal |
+| Frontend application-source forbidden-pattern check | Pass | No direct service-port, RabbitMQ, external provider API, provider-service, or `/internal/jobs` usage in application source |
+| Scheduler internal route gateway check | Pass | `deploy/nginx/default.conf` does not route `/internal/jobs/*` |
+| `docker compose up -d --build` | Pass | Full stack built and started |
+| `docker compose ps` | Pass | Frontend, gateway, RabbitMQ, all services, and all PostgreSQL containers were healthy, including scheduler components |
+| Gateway/public health checks | Pass | `/`, `/health`, all existing service health routes, and `/api/scheduler/health` returned HTTP 200 |
+| Authenticated EV smoke | Pass | Login, `/api/auth/auth/me`, and read-only catalog query succeeded through the gateway |
+| Authenticated provider-admin smoke | Pass | Login, `/api/auth/auth/me`, and provider analytics summary succeeded through the gateway |
+| Authenticated operator smoke | Pass | Login, `/api/auth/auth/me`, and scheduler jobs listing succeeded through the gateway |
+| Scheduler manual-run smoke | Pass | Operator-triggered `billing.prepare-invoices` scheduler run succeeded with target HTTP 200; no invoice issuance was performed |
+| `docker compose down -v` | Pass | Containers, network, and validation volumes were removed |
+| `docker compose ps -a` | Pass | No Compose containers remained after cleanup |
+| `git diff --check` | Pass | No whitespace errors in the Phase C diff |
+| GitHub Phase C issue/project item | Done | Issue #18 was closed and its Project #2 item was moved to `Done`; Phase D issue #17 remained `Todo` |
 
 ## Conclusion
 

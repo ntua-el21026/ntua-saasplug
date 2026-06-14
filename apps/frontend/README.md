@@ -43,6 +43,7 @@ Allowed frontend route groups:
 /api/reservations/*
 /api/analytics/*
 /api/billing/*
+/api/scheduler/*
 ```
 
 The browser must not call Docker-internal service hostnames, internal service
@@ -77,8 +78,8 @@ Implemented frontend routes:
 | `/operator/invoices/new` | Operator invoice issuance |
 | `/operator/invoices/:invoiceId` | Operator invoice detail view |
 | `/operator/pricing` | Pricing rule creation and activation controls |
-| `/operator/sync` | Catalog, analytics, billing, and reservation outbox action controls |
-| `/operator/system` | Service health and freshness overview |
+| `/operator/sync` | Scheduler jobs/manual runs plus catalog, analytics, billing, and reservation outbox action controls |
+| `/operator/system` | Service health, scheduler health, freshness, and run-history overview |
 
 Authenticated EV routes require `EV_USER`. Provider routes require
 `PROVIDER_ADMIN` except invoice detail, which is also readable by `OPERATOR`.

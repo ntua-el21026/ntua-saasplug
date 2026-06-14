@@ -29,6 +29,7 @@ class Settings:
             os.getenv("CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS", "10"),
         )
         self.import_on_startup = os.getenv("CATALOG_IMPORT_ON_STARTUP", "false").lower() == "true"
+        self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
 
     def provider_service_url(self, provider_code: str) -> str:
         provider_urls = {

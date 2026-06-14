@@ -21,6 +21,7 @@ status-service
 reservation-service
 analytics-service
 billing-service
+scheduler-service
 ```
 
 ## Responsibilities
@@ -37,6 +38,7 @@ billing-service
 | `reservation-service` | Reservation truth, reservation attempts, reservation event outbox | `reservation-postgres` |
 | `analytics-service` | Raw usage events, aggregate/cache tables, provider/operator analytics, CSV exports | `analytics-postgres` |
 | `billing-service` | Pricing, charges, invoices, invoice lines, mock payments, billing outbox | `billing-postgres` |
+| `scheduler-service` | Background-job control plane, job definitions, run history, internal job dispatch | `scheduler-postgres` |
 
 ## Gateway Exposure
 
@@ -51,10 +53,13 @@ through `nginx-gateway`:
 /api/reservations/... -> reservation-service
 /api/analytics/...    -> analytics-service
 /api/billing/...      -> billing-service
+/api/scheduler/...    -> scheduler-service
 ```
 
 Provider services remain internal and are used by catalog, status, and
 reservation flows through Docker-internal URLs only.
+Service-owned `/internal/jobs/...` endpoints are also internal-only and are not
+routed through `nginx-gateway`.
 
 ## Shared Rules
 
@@ -81,6 +86,7 @@ Service tests are service-local. Examples:
 docker compose run --build --rm --no-deps auth-service pytest -q
 docker compose run --build --rm --no-deps catalog-service pytest -q
 docker compose run --build --rm --no-deps billing-service pytest -q
+docker compose run --build --rm --no-deps scheduler-service pytest -q
 ```
 
 Stop and remove local volumes:

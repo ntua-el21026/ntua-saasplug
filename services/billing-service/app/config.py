@@ -75,6 +75,7 @@ class Settings:
             "BILLING_DEFAULT_RESERVATION_FAILURE_FEE",
             "0.00",
         )
+        self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
 
 
 @lru_cache

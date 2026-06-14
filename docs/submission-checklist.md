@@ -21,9 +21,11 @@ Use this checklist before packaging or presenting the final course submission.
 | FastAPI backend services | Done | `services/` |
 | RabbitMQ event infrastructure | Done | `packages/events/` |
 | Separate PostgreSQL container per stateful service | Done | `docker-compose.yml` |
+| Scheduler control plane | Done | `services/scheduler-service/` and `scheduler-postgres` |
 | No MongoDB in MVP | Done | No MongoDB runtime files present |
 | No dedicated orchestrator service | Done | No orchestrator container/service present |
 | Provider services are internal | Done | Gateway does not expose provider-service routes |
+| Scheduler internal job endpoints are internal | Done | Gateway exposes `/api/scheduler/*` only |
 
 ## Service Coverage
 
@@ -39,6 +41,7 @@ Use this checklist before packaging or presenting the final course submission.
 | `reservation-service` | Done | `services/reservation-service/README.md` |
 | `analytics-service` | Done | `services/analytics-service/README.md` |
 | `billing-service` | Done | `services/billing-service/README.md` |
+| `scheduler-service` | Done | `services/scheduler-service/README.md` |
 
 ## Frontend Coverage
 
@@ -48,6 +51,7 @@ Use this checklist before packaging or presenting the final course submission.
 | EV map/search/list/details/status/reservations/profile | Done | `apps/frontend/README.md` |
 | Provider dashboard/points/analytics/invoices/export/settings | Done | `apps/frontend/README.md` |
 | Operator dashboard/providers/analytics/catalog/invoices/pricing/sync/system | Done | `apps/frontend/README.md` |
+| Operator scheduler health/jobs/manual runs/run history | Done | `apps/frontend/src/features/admin/AdminPages.tsx` |
 | Gateway-only frontend API calls | Done | `apps/frontend/src/lib/api.ts` and final static checks |
 
 ## Final Documentation
@@ -97,6 +101,7 @@ Use this checklist before packaging or presenting the final course submission.
 | PlantUML validation and render | Done | `docs/final-verification.md` |
 | Dockerized backend service tests | Done | `docs/final-verification.md` |
 | Phase B live environment verification | Done with warnings | `docs/ai/codex-runs/016-live-env-verification.md` |
+| Phase C scheduler control-plane implementation | Done | `docs/ai/codex-runs/018-scheduler-control-plane-implementation.md` |
 
 ## Manual Review Notes
 
@@ -110,5 +115,8 @@ Use this checklist before packaging or presenting the final course submission.
   redPlug, greenPlug, and bluePlug with Bearer provider auth. Live reservation
   mutations were intentionally not run.
 - Prompt 16 closed Phase B issue #16 and moved its Project #2 item to `Done`.
+- Prompt 18 added scheduler-service as a control plane only. Business logic and
+  data ownership remain inside catalog, analytics, billing, and reservation
+  services.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

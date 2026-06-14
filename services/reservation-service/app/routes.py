@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.catalog_client import CatalogServiceClient
@@ -35,6 +35,23 @@ from app.security import (
 )
 
 router = APIRouter(tags=["reservations"])
+
+
+def require_scheduler_token(
+    x_scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not x_scheduler_token or x_scheduler_token != settings.scheduler_internal_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
+
+
+def require_scheduler_job(
+    x_job_run_id: str | None = Header(default=None, alias="X-Job-Run-Id"),
+    _: None = Depends(require_scheduler_token),
+) -> str:
+    if not x_job_run_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing scheduler job run id")
+    return x_job_run_id
 
 
 def get_reservation_or_404(db: Session, reservation_id: str) -> Reservation:
@@ -205,3 +222,43 @@ def publish_pending_outbox_events(
         published_event_ids=result.published_event_ids,
         failed_event_ids=result.failed_event_ids,
     )
+
+
+@router.post("/internal/jobs/outbox/publish-pending", response_model=OutboxPublishResponse)
+def publish_pending_outbox_from_scheduler(
+    limit: int | None = Query(default=None, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_scheduler_job),
+) -> OutboxPublishResponse:
+    batch_size = limit or settings.reservation_outbox_publish_batch_size
+    publisher = build_rabbitmq_publisher(settings)
+    try:
+        result = publish_pending_outbox(db, publisher, batch_size)
+    finally:
+        publisher.close()
+    return OutboxPublishResponse(
+        selected_count=result.selected_count,
+        published_count=result.published_count,
+        failed_count=result.failed_count,
+        skipped_count=result.skipped_count,
+        published_event_ids=result.published_event_ids,
+        failed_event_ids=result.failed_event_ids,
+    )
+
+
+@router.get("/internal/jobs/freshness")
+def read_internal_freshness(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_scheduler_job),
+) -> dict:
+    pending_outbox_count = db.scalar(
+        select(func.count()).select_from(ReservationEventOutbox).where(ReservationEventOutbox.publish_status == "pending"),
+    ) or 0
+    last_outbox_at = db.scalar(select(func.max(ReservationEventOutbox.created_at)))
+    last_published_at = db.scalar(select(func.max(ReservationEventOutbox.published_at)))
+    return {
+        "pending_outbox_count": pending_outbox_count,
+        "last_outbox_at": last_outbox_at.isoformat() if last_outbox_at else None,
+        "last_published_at": last_published_at.isoformat() if last_published_at else None,
+    }

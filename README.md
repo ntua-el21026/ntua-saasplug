@@ -54,6 +54,7 @@ status-service
 reservation-service
 analytics-service
 billing-service
+scheduler-service
 rabbitmq
 ```
 
@@ -73,6 +74,7 @@ Each stateful service owns exactly one PostgreSQL container.
 | `reservation-service` | `reservation-postgres` |
 | `analytics-service` | `analytics-postgres` |
 | `billing-service` | `billing-postgres` |
+| `scheduler-service` | `scheduler-postgres` |
 
 Rules:
 
@@ -126,6 +128,7 @@ Public entrypoints:
 | `http://localhost:8080/api/reservations/health` | `reservation-service` health |
 | `http://localhost:8080/api/analytics/health` | `analytics-service` health |
 | `http://localhost:8080/api/billing/health` | `billing-service` health |
+| `http://localhost:8080/api/scheduler/health` | `scheduler-service` health |
 
 Stop and remove local development volumes with:
 
@@ -175,6 +178,9 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
   RabbitMQ for analytics and billing propagation.
 - Analytics dashboards read precomputed aggregate/cache tables.
 - Billing owns pricing, charges, invoices, and mock full-invoice payments.
+- Scheduler background jobs are coordinated by `scheduler-service`, which
+  stores only job metadata/run history and calls service-owned internal job
+  endpoints.
 
 ## Validation
 
