@@ -108,6 +108,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Finalization GitHub Project #2 closure | Done | Project `saasPlug Finalization and Hardening` closed after Phase A-D completion |
 | Final verification-only audit | Done with warnings | 184 verified tests and full Docker/gateway/authenticated/scheduler smokes documented in `docs/ai/codex-runs/021-final-verification-only.md` |
 | Final audit/documentation Project #3 setup | Done | GitHub Project `saasPlug Final Audit and Documentation` contains issue #19 for this audit and issue #20 for full README documentation |
+| Live `.env` full verification | Done with warnings | Live provider reads, live `.env` Docker/gateway/auth/scheduler/catalog/status checks, and 184 tests documented in `docs/ai/codex-runs/022-live-env-full-verification.md` |
+| Final audit issue #19 | Done | Issue #19 closed and moved to `Done` in GitHub Project #3; issue #20 remains open/Todo |
 
 ## Manual Review Notes
 
@@ -137,5 +139,10 @@ Use this checklist before packaging or presenting the final course submission.
   scheduler smokes, skipped live provider checks because credentials were not
   exported outside `.env`, and created GitHub Project #3 with audit and README
   documentation tasks.
+- Prompt 22 reran final verification with the live local `.env` as private
+  runtime input, verified live provider read-only checks for all three
+  providers, verified live catalog/status reads through service-owned flows,
+  closed issue #19, and left issue #20 open. Full browser Google OAuth callback
+  and live reservation mutation remained skipped by safety/tooling policy.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

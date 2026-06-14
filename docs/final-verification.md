@@ -291,3 +291,36 @@ was not read.
 
 Verified test total in Prompt 21: 184 tests across frontend, backend services,
 shared event package, and root gateway contracts.
+
+## Prompt 22 Live Environment Full Verification Update
+
+Prompt 22 performed a verification-only live `.env` pass. The local `.env` was
+used only as private runtime input and was not printed, modified, copied,
+uploaded, committed, or removed. The run did not implement features, change
+architecture, change backend or frontend business logic, deploy, use Vercel, or
+run live reservation mutations.
+
+| Check | Result | Notes |
+|---|---|---|
+| `.env` tracking and structure | Pass | `.env` exists locally, is untracked, and has required live keys with coherent provider, OAuth, RabbitMQ, scheduler, and database settings |
+| Docker Compose config | Pass | `docker compose --env-file .env config --quiet` exited 0 |
+| Static architecture and frontend API checks | Pass | Canonical services, Compose containers, Nginx routes, provider artifacts, Bearer auth wiring, and gateway-only frontend calls verified |
+| Frontend tests/build | Pass | 11 frontend tests passed and production build succeeded |
+| Backend and shared tests | Pass | 170 backend/shared tests passed |
+| Root gateway contract tests | Pass | 3 gateway contract tests passed |
+| PlantUML validation | Pass | `plantuml -checkonly docs/diagrams/final/*.puml` exited 0 |
+| Live `.env` stack startup | Pass | Full stack built and all containers became healthy without targeted restarts |
+| Gateway/public health checks | Pass | `/`, `/health`, all public service health routes, and `/api/scheduler/health` returned HTTP 200 |
+| Authenticated role smokes | Pass | EV, provider-admin, and operator read-only smokes succeeded through the gateway |
+| Scheduler control-plane checks | Pass | Operator scheduler APIs worked, unauthenticated access returned 401, EV/provider-admin access returned 403, internal job gateway paths returned 404, and `billing.prepare-invoices` succeeded with target HTTP 200 |
+| Direct live provider read-only checks | Pass | redPlug returned 459 records, greenPlug 509 records, and bluePlug 486 records; one detail/status request per provider returned HTTP 200 with valid JSON |
+| Provider-mediated catalog imports | Pass with warning | `catalog.import.red`, `catalog.import.green`, and `catalog.import.blue` succeeded; bulk `catalog.import.all` timed out through scheduler-service |
+| Catalog/status live reads | Pass | Catalog contained 1,454 provider-derived points; authenticated status lookups for all three providers returned normalized status through status-service |
+| Google OAuth non-interactive check | Pass | OAuth endpoint reported configured credentials, `accounts.google.com` authorization host, expected redirect URI, and expected scopes |
+| Full browser Google OAuth callback | Skipped | Browser automation Node REPL `js` tool was unavailable and interactive Google login requires user action |
+| Live reservation mutation | Skipped | `RUN_LIVE_RESERVATION_SMOKE=true` was not set |
+| Docker cleanup | Pass | Containers and network were removed without deleting local volumes |
+| GitHub Project #3 audit issue | Done | Issue #19 was closed and moved to `Done`; issue #20 remained open/Todo |
+
+Verified test total in Prompt 22: 184 tests across frontend, backend services,
+shared event package, and root gateway contracts.
