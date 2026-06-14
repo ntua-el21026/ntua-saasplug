@@ -13,16 +13,31 @@ export function AuthLayout({
   return (
     <main className="auth-page">
       <section className="auth-hero" aria-labelledby="auth-title">
-        <div>
-          <p className="eyebrow">saasPlug EV access</p>
+        <div className="auth-hero-copy">
+          <Link to="/" className="auth-brand" aria-label="saasPlug home">
+            <span className="brand-mark">sP</span>
+            <span>
+              <strong>saasPlug</strong>
+              <small>Charging access platform</small>
+            </span>
+          </Link>
+          <p className="eyebrow">Unified charging access</p>
           <h1 id="auth-title">{title}</h1>
           <p>{subtitle}</p>
         </div>
-        <div className="auth-proof" aria-label="Demo route coverage">
-          <span>Gateway-only API calls</span>
-          <span>Viewport catalog search</span>
-          <span>Status cache lookup</span>
-          <span>Synchronous reservation flow</span>
+        <div className="auth-showcase" aria-label="Platform overview">
+          <div>
+            <strong>3</strong>
+            <span>charging networks</span>
+          </div>
+          <div>
+            <strong>Live</strong>
+            <span>availability checks</span>
+          </div>
+          <div>
+            <strong>Instant</strong>
+            <span>reservation handoff</span>
+          </div>
         </div>
       </section>
       <section className="auth-panel">

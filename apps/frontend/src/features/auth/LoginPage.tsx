@@ -17,6 +17,11 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const demoAccounts = [
+    { label: "EV user", email: "evuser@saasplug.local", description: "Search and reserve chargers" },
+    { label: "Operator", email: "operator@saasplug.local", description: "Manage platform operations" },
+    { label: "redPlug admin", email: "red-admin@saasplug.local", description: "Review provider activity" },
+  ];
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,9 +61,16 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Find and reserve EV charging points"
-      subtitle="Sign in to search the aggregated catalog, check charger status, and reserve through saasPlug."
+      title="Sign in to saasPlug"
+      subtitle="Access charging availability, reservations, provider operations, and platform controls from one secure workspace."
     >
+      <div className="auth-panel-header">
+        <div>
+          <p className="eyebrow">Welcome back</p>
+          <h2>Continue to your workspace</h2>
+        </div>
+        <span className="auth-status-pill">Secure session</span>
+      </div>
       <form className="form-stack" onSubmit={onSubmit}>
         <label>
           Email
@@ -82,24 +94,30 @@ export function LoginPage() {
         </label>
         <div className="button-row">
           <button className="button-primary" type="submit" disabled={submitting}>
-            Sign in
+            {submitting ? "Signing in..." : "Sign in"}
           </button>
           <button className="button-secondary" type="button" onClick={useGoogleHook} disabled={submitting}>
-            Google OAuth
+            Continue with Google
           </button>
         </div>
       </form>
 
-      <div className="demo-accounts" aria-label="Demo accounts">
-        <button type="button" onClick={() => setEmail("evuser@saasplug.local")}>
-          EV user
-        </button>
-        <button type="button" onClick={() => setEmail("operator@saasplug.local")}>
-          Operator
-        </button>
-        <button type="button" onClick={() => setEmail("red-admin@saasplug.local")}>
-          redPlug admin
-        </button>
+      <div className="demo-accounts" aria-label="Account shortcuts">
+        <p>Try a role</p>
+        {demoAccounts.map((account) => (
+          <button
+            className={email === account.email ? "is-selected" : undefined}
+            type="button"
+            key={account.email}
+            onClick={() => {
+              setEmail(account.email);
+              setPassword(DEMO_PASSWORD);
+            }}
+          >
+            <span>{account.label}</span>
+            <small>{account.description}</small>
+          </button>
+        ))}
       </div>
 
       {message ? <Alert title="Google OAuth local mode">{message}</Alert> : null}
