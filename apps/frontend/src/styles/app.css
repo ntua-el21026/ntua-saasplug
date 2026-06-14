@@ -146,11 +146,8 @@ a {
 .auth-page {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 480px);
-  background:
-    linear-gradient(90deg, rgb(246 248 244 / 96%), rgb(246 248 244 / 84%)),
-    url("data:image/svg+xml,%3Csvg width='900' height='620' viewBox='0 0 900 620' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='900' height='620' fill='%23e7efea'/%3E%3Cpath d='M0 478C160 389 287 421 426 318C565 215 681 190 900 121' stroke='%2396bbb4' stroke-width='26' fill='none'/%3E%3Cpath d='M0 228C154 214 245 249 368 300C524 365 682 395 900 349' stroke='%23d3b05d' stroke-width='20' fill='none' opacity='.65'/%3E%3Ccircle cx='288' cy='365' r='20' fill='%230f766e'/%3E%3Ccircle cx='644' cy='222' r='18' fill='%23b43f3f'/%3E%3Ccircle cx='534' cy='349' r='16' fill='%233b68a5'/%3E%3C/svg%3E");
-  background-size: cover;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 500px);
+  background: linear-gradient(135deg, #f8faf7 0%, #eef4f1 48%, #f7f3ea 100%);
 }
 
 .auth-hero {
@@ -158,22 +155,45 @@ a {
   min-height: 100vh;
   flex-direction: column;
   justify-content: space-between;
-  padding: 64px 56px;
+  padding: 56px;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 84px;
+  color: #172420;
+  text-decoration: none;
+}
+
+.auth-brand strong,
+.auth-brand small {
+  display: block;
+}
+
+.auth-brand small {
+  color: #63716d;
+  font-size: 0.82rem;
+}
+
+.auth-hero-copy {
+  max-width: 660px;
 }
 
 .auth-hero p {
-  max-width: 620px;
+  max-width: 560px;
   font-size: 1.08rem;
 }
 
-.auth-proof {
+.auth-showcase {
   display: grid;
   max-width: 620px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.auth-proof span,
+.auth-showcase div,
 .metric-strip div,
 .surface,
 .auth-panel,
@@ -184,16 +204,57 @@ a {
   box-shadow: 0 12px 32px rgb(23 32 42 / 7%);
 }
 
-.auth-proof span {
-  padding: 12px 14px;
-  color: #31413d;
-  font-weight: 700;
+.auth-showcase div {
+  min-height: 112px;
+  padding: 16px;
+}
+
+.auth-showcase strong,
+.auth-showcase span {
+  display: block;
+}
+
+.auth-showcase strong {
+  color: #10211d;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.auth-showcase span {
+  margin-top: 8px;
+  color: #64736f;
+  font-size: 0.9rem;
 }
 
 .auth-panel {
   align-self: center;
+  width: min(500px, calc(100% - 56px));
   margin: 28px;
-  padding: 28px;
+  padding: 30px;
+}
+
+.auth-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.auth-panel-header h2 {
+  margin: 0;
+  color: #10211d;
+  font-size: 1.35rem;
+}
+
+.auth-status-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #edf4ff;
+  color: #315d91;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .form-stack {
@@ -257,6 +318,10 @@ input::placeholder {
   padding: 10px 16px;
 }
 
+.button-primary:hover:not(:disabled) {
+  background: #0b5f59;
+}
+
 .button-secondary,
 .map-controls button,
 .demo-accounts button {
@@ -266,13 +331,19 @@ input::placeholder {
   padding: 9px 13px;
 }
 
+.button-secondary:hover:not(:disabled),
+.map-controls button:hover:not(:disabled),
+.demo-accounts button:hover:not(:disabled) {
+  border-color: #98b9b4;
+  background: #f7fbfa;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
 
-.auth-switch,
-.demo-accounts {
+.auth-switch {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -283,7 +354,42 @@ button:disabled {
 }
 
 .demo-accounts {
+  display: grid;
+  gap: 8px;
   margin-top: 18px;
+}
+
+.demo-accounts p {
+  margin: 0;
+  color: #64736f;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.demo-accounts button {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.demo-accounts button.is-selected {
+  border-color: #0f766e;
+  background: #eef8f6;
+  color: #0f5f59;
+}
+
+.demo-accounts button span,
+.demo-accounts button small {
+  display: block;
+}
+
+.demo-accounts button small {
+  color: #64736f;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .alert {
@@ -628,10 +734,89 @@ button:disabled {
 }
 
 .detail-layout,
-.profile-grid {
+.profile-grid,
+.account-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.account-page {
+  display: grid;
+  gap: 18px;
+}
+
+.account-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+}
+
+.account-hero h1 {
+  margin: 0;
+  color: #10211d;
+  font-size: 1.75rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.account-hero p {
+  margin: 6px 0 0;
+  color: #60706b;
+}
+
+.account-avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.account-action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.account-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #dbe2dc;
+  border-radius: 8px;
+  padding: 13px 14px;
+  color: #172420;
+  text-decoration: none;
+}
+
+.account-action:hover {
+  border-color: #98b9b4;
+  background: #f7fbfa;
+}
+
+.account-action strong,
+.account-action small {
+  display: block;
+}
+
+.account-action small {
+  margin-top: 2px;
+  color: #64736f;
+}
+
+.account-action > span:last-child {
+  flex: 0 0 auto;
+  color: #0f5f59;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .reservation-box {
@@ -656,6 +841,10 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
   gap: 12px;
+}
+
+.account-detail-list div {
+  grid-template-columns: minmax(130px, 0.55fr) minmax(0, 1.45fr);
 }
 
 dt {
@@ -903,6 +1092,8 @@ dd {
   .map-layout,
   .detail-layout,
   .profile-grid,
+  .account-grid,
+  .account-hero,
   .admin-grid {
     grid-template-columns: 1fr;
   }
@@ -913,6 +1104,7 @@ dd {
   }
 
   .auth-panel {
+    width: auto;
     margin: 0 28px 28px;
   }
 
@@ -944,7 +1136,7 @@ dd {
     font-size: 1.75rem;
   }
 
-  .auth-proof,
+  .auth-showcase,
   .catalog-toolbar,
   .metric-strip,
   .reservation-meta,
@@ -975,6 +1167,21 @@ dd {
 
   .detail-list div {
     grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    margin-bottom: 44px;
+  }
+
+  .auth-panel-header,
+  .account-hero {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .account-avatar {
+    width: 52px;
+    height: 52px;
   }
 
   .admin-definition-list div {

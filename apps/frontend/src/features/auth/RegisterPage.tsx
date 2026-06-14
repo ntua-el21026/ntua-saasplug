@@ -36,7 +36,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create an EV user account"
-      subtitle="Registration creates an EV_USER account only. Provider and operator roles are seeded for local demos."
+      subtitle="Set up a personal account to search charging points, check availability, and manage your reservations."
     >
       <form className="form-stack" onSubmit={onSubmit}>
         <label>
