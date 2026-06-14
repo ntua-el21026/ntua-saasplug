@@ -106,6 +106,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Phase D application test expansion | Done | `docs/ai/codex-runs/019-phase-d-test-expansion.md` |
 | Comprehensive test expansion | Done with warning | 184 verified tests; transient catalog/status startup retry documented in `docs/ai/codex-runs/020-comprehensive-test-expansion-and-project-closure.md` |
 | Finalization GitHub Project #2 closure | Done | Project `saasPlug Finalization and Hardening` closed after Phase A-D completion |
+| Final verification-only audit | Done with warnings | 184 verified tests and full Docker/gateway/authenticated/scheduler smokes documented in `docs/ai/codex-runs/021-final-verification-only.md` |
+| Final audit/documentation Project #3 setup | Done | GitHub Project `saasPlug Final Audit and Documentation` contains issue #19 for this audit and issue #20 for full README documentation |
 
 ## Manual Review Notes
 
@@ -130,5 +132,10 @@ Use this checklist before packaging or presenting the final course submission.
 - Prompt 20 expanded the suite to 184 verified tests, kept `.env` untracked,
   validated gateway/authenticated/scheduler smokes, and closed GitHub Project
   #2 after all Phase A-D work was complete.
+- Prompt 21 reran final verification using `.env.example` to avoid reading the
+  local ignored `.env`, confirmed 184 tests and Docker/gateway/authenticated
+  scheduler smokes, skipped live provider checks because credentials were not
+  exported outside `.env`, and created GitHub Project #3 with audit and README
+  documentation tasks.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

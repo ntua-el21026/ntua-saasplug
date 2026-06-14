@@ -259,3 +259,35 @@ behavior superseded the earlier plain-header assumption.
 
 After the comprehensive Phase D continuation, GitHub Project #2
 `saasPlug Finalization and Hardening` was closed with all Phase A-D issues done.
+
+## Prompt 21 Final Verification-Only Update
+
+Prompt 21 performed a verification-only pass. It did not implement features,
+change architecture, change backend or frontend business logic, deploy, use
+Vercel, create or modify `.env`, print secrets, or run live reservation
+mutations. Docker runtime checks used `.env.example` so the local ignored `.env`
+was not read.
+
+| Check | Result | Notes |
+|---|---|---|
+| Repository governance and `.env` handling | Pass | `.env` exists locally but is ignored and untracked; `.env.example` contains required safe placeholders |
+| Static architecture checks | Pass | Canonical services, PostgreSQL containers, Nginx scheduler route, internal-route 404 blocks, provider artifacts, final docs, and final diagrams were present |
+| Frontend API contract | Pass | 65 frontend API call sites use gateway-relative `/api/...` paths |
+| Provider Bearer auth | Pass | Provider clients default to Bearer auth and provider service suites passed |
+| PlantUML validation | Pass | `plantuml -checkonly docs/diagrams/final/*.puml` exited 0 |
+| Frontend tests/build | Pass | 11 frontend tests passed and the production build succeeded |
+| Backend and shared tests | Pass | 170 backend/shared tests passed |
+| Root gateway contract tests | Pass | 3 root gateway tests passed |
+| Docker Compose config/startup/health | Pass | Compose config validated; full stack started with all containers healthy |
+| Gateway health and root smoke | Pass | `/`, `/health`, public service health routes, and `/api/scheduler/health` returned HTTP 200 |
+| Authenticated role smokes | Pass | EV, provider-admin, and operator read-only smoke flows succeeded through the gateway |
+| Internal job gateway blocking | Pass | Catalog, analytics, billing, and reservation internal job prefixes returned HTTP 404 through the gateway |
+| Scheduler manual-run smoke | Pass | Operator-triggered `billing.prepare-invoices` succeeded with target HTTP 200; no invoice issuance was performed |
+| Docker cleanup | Pass | Containers and network were removed without deleting local volumes |
+| `git diff --check` | Pass | No whitespace errors |
+| Live provider checks | Skipped | Provider credentials were not exported in the process environment and local `.env` was not read |
+| Live reservation mutation | Skipped | `RUN_LIVE_RESERVATION_SMOKE` was not explicitly set to `true` |
+| GitHub Project #3 setup | Done | Project `saasPlug Final Audit and Documentation` was created, linked to the repository, and populated with issues #19 and #20 |
+
+Verified test total in Prompt 21: 184 tests across frontend, backend services,
+shared event package, and root gateway contracts.
