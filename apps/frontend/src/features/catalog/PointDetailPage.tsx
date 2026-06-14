@@ -124,7 +124,7 @@ export function PointDetailPage() {
         {point ? (
           <>
             <PageHeader
-              eyebrow="Charging point detail"
+              eyebrow="EV workspace"
               title={point.display_name}
               description={point.address ?? point.location_name ?? point.normalized_point_id}
               actions={
@@ -141,7 +141,7 @@ export function PointDetailPage() {
                 <div className="surface-header">
                   <div>
                     <h2>Catalog detail</h2>
-                    <p>Cached data from catalog-service</p>
+                    <p>Provider-normalized catalog data.</p>
                   </div>
                 </div>
                 <dl className="detail-list">

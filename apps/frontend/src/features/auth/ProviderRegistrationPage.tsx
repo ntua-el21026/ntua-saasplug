@@ -31,11 +31,11 @@ export function ProviderRegistrationPage() {
         </div>
       </div>
       <Alert title="Local demo flow">
-        Provider registration is managed by the backend provider-registry service. Sign in as a seeded provider admin to review the configured workspace.
+        Provider registration is an operator-only workflow. Provider admins can review their own configured workspace after an operator creates or updates the provider record.
       </Alert>
       <div className="button-row">
-        <Link className="button-primary button-link" to="/login">Sign in as provider admin</Link>
-        <Link className="button-secondary button-link" to="/">Back to entry</Link>
+        <Link className="button-primary button-link" to="/operator/providers">Manage providers</Link>
+        <Link className="button-secondary button-link" to="/operator/dashboard">Back to operator dashboard</Link>
       </div>
     </AuthLayout>
   );

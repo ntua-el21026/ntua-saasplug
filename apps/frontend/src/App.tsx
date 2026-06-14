@@ -102,7 +102,16 @@ export default function App() {
           <Route path="/auth" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/provider-register" element={<ProviderRegistrationPage />} />
+          <Route
+            path="/provider-register"
+            element={
+              <ProtectedRoute>
+                <RoleRoute allowedRoles={["OPERATOR"]}>
+                  <ProviderRegistrationPage />
+                </RoleRoute>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/logout" element={<LogoutPage />} />
           <Route
             path="/map"

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../components/AppShell";
 import {
   ChargingPointCard,
-  ChargingPointDrawer,
   MapFilterPanel,
   MapFloatingControls,
   SelectedFiltersBar,
@@ -12,7 +11,19 @@ import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
 import { MetricCard, PageHeader } from "../../components/ui";
 import { requestJson, messageFromUnknownError } from "../../lib/api";
 import { PROVIDERS, STATUSES } from "../../lib/formatting";
-import { ATHENS_DEFAULT_BOUNDS, buildCatalogPointsPath, moveBounds, zoomBounds } from "../../lib/routing";
+import {
+  ATHENS_DEFAULT_BOUNDS,
+  CATALOG_POINTS_PAGE_LIMIT,
+  CATALOG_RESULT_LIMIT_OPTIONS,
+  MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
+  buildCatalogPointsPath,
+  catalogQueryRadiusKm,
+  moveBounds,
+  pointWithinCatalogRadius,
+  zoomBounds,
+  type CatalogResultLimit,
+} from "../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPointListResponse, ProviderFreshness } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
@@ -27,13 +38,14 @@ const DEFAULT_FILTERS: CatalogFilters = {
 export function CatalogPage() {
   const [bounds, setBounds] = useState<Bounds>(ATHENS_DEFAULT_BOUNDS);
   const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
+  const [resultLimit, setResultLimit] = useState<CatalogResultLimit>("all");
   const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(null);
   const [freshness, setFreshness] = useState<ProviderFreshness[]>([]);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const catalogPath = useMemo(() => buildCatalogPointsPath(bounds, filters), [bounds, filters]);
+  const catalogRequest = useMemo(() => ({ bounds, filters, resultLimit }), [bounds, filters, resultLimit]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -42,7 +54,7 @@ export function CatalogPage() {
       setError(null);
       try {
         const [points, freshnessRows] = await Promise.all([
-          requestJson<CatalogPointListResponse>(catalogPath, { signal: abortController.signal }),
+          loadCatalogPoints(catalogRequest.bounds, catalogRequest.filters, catalogRequest.resultLimit, abortController.signal),
           requestJson<ProviderFreshness[]>("/api/catalog/freshness", { signal: abortController.signal }),
         ]);
         setCatalog(points);
@@ -62,19 +74,20 @@ export function CatalogPage() {
       window.clearTimeout(timeout);
       abortController.abort();
     };
-  }, [catalogPath]);
+  }, [catalogRequest]);
 
   const activeTotal = freshness.reduce((sum, row) => sum + row.active_count, 0);
   const staleTotal = freshness.reduce((sum, row) => sum + row.stale_count, 0);
-  const selectedPoint = catalog?.items.find((point) => point.id === selectedPointId) ?? catalog?.items[0] ?? null;
+  const selectedPoint = catalog?.items.find((point) => point.id === selectedPointId) ?? null;
+  const queryRadiusKm = catalogQueryRadiusKm(bounds.zoom);
 
   useEffect(() => {
     if (!catalog?.items.length) {
       setSelectedPointId(null);
       return;
     }
-    if (!selectedPointId || !catalog.items.some((point) => point.id === selectedPointId)) {
-      setSelectedPointId(catalog.items[0].id);
+    if (selectedPointId && !catalog.items.some((point) => point.id === selectedPointId)) {
+      setSelectedPointId(null);
     }
   }, [catalog, selectedPointId]);
 
@@ -82,13 +95,12 @@ export function CatalogPage() {
     <AppShell>
       <main className="page map-page">
         <PageHeader
-          eyebrow="EV charging map"
-          title="Charging point discovery"
-          description="Search the aggregated catalog by viewport, inspect provider freshness, and open a reservation flow without calling provider APIs from the browser."
+          title="Charging map"
+          description="Explore provider charging points, filter the visible catalog, and open reservation-ready point details."
         />
 
         <section className="metric-strip" aria-label="Catalog freshness">
-          <MetricCard label="Points in bounds" value={catalog?.total ?? 0} />
+          <MetricCard label="Points in radius" value={catalog?.total ?? 0} />
           <MetricCard label="Active catalog points" value={activeTotal} tone="success" />
           <MetricCard label="Stale catalog points" value={staleTotal} tone="warning" />
           <MetricCard label="Without coordinates" value={catalog?.missing_coordinates_count ?? 0} tone="info" />
@@ -96,11 +108,21 @@ export function CatalogPage() {
 
         <section className="map-workspace">
           <aside className="map-results-panel" aria-label="Charging point filters and results">
-            <MapFilterPanel filters={filters} providers={PROVIDERS} statuses={STATUSES} onChange={setFilters} />
+            <MapFilterPanel
+              filters={filters}
+              providers={PROVIDERS}
+              statuses={STATUSES}
+              resultLimit={resultLimit}
+              resultLimitOptions={CATALOG_RESULT_LIMIT_OPTIONS}
+              onChange={setFilters}
+              onResultLimitChange={setResultLimit}
+            />
             <SelectedFiltersBar filters={filters} onChange={setFilters} />
             <div className="results-summary">
-              <strong>{catalog?.items.length ?? 0} results</strong>
-              <span>{catalog?.bounds_applied ? "Viewport bounded" : "No bounds applied"}</span>
+              <strong>{catalog?.total ?? 0} results</strong>
+              <span>
+                {catalog ? `${catalog.items.length} shown` : "Loading"} · {queryRadiusKm.toFixed(1)} km radius
+              </span>
             </div>
             {loading ? <LoadingBlock label="Loading catalog" /> : null}
             {error ? (
@@ -130,7 +152,7 @@ export function CatalogPage() {
               <div>
                 <h2>Live viewport</h2>
                 <p>
-                  Lat {bounds.minLat.toFixed(3)}-{bounds.maxLat.toFixed(3)} · Lng {bounds.minLng.toFixed(3)}-{bounds.maxLng.toFixed(3)} · Zoom {bounds.zoom}
+                  Center radius {queryRadiusKm.toFixed(1)} km · Zoom {bounds.zoom} out of {MAP_MAX_ZOOM}
                 </p>
               </div>
             </div>
@@ -141,17 +163,64 @@ export function CatalogPage() {
               onEast={() => setBounds((current) => moveBounds(current, "east"))}
               onZoomIn={() => setBounds((current) => zoomBounds(current, "in"))}
               onZoomOut={() => setBounds((current) => zoomBounds(current, "out"))}
+              zoom={bounds.zoom}
+              minZoom={MAP_MIN_ZOOM}
+              maxZoom={MAP_MAX_ZOOM}
             />
             {catalog ? (
-              <CatalogMap points={catalog.items} bounds={bounds} selectedPointId={selectedPoint?.id} />
+              <CatalogMap
+                points={catalog.items}
+                bounds={bounds}
+                selectedPointId={selectedPoint?.id}
+                onSelectPoint={setSelectedPointId}
+                onClosePoint={() => setSelectedPointId(null)}
+                onBoundsChange={setBounds}
+              />
             ) : (
               <LoadingBlock label="Loading map" />
             )}
           </section>
 
-          <ChargingPointDrawer point={selectedPoint} bounds={bounds} />
         </section>
       </main>
     </AppShell>
   );
+}
+
+async function loadCatalogPoints(
+  bounds: Bounds,
+  filters: CatalogFilters,
+  resultLimit: CatalogResultLimit,
+  signal: AbortSignal,
+): Promise<CatalogPointListResponse> {
+  const firstPage = await requestJson<CatalogPointListResponse>(
+    buildCatalogPointsPath(bounds, filters, CATALOG_POINTS_PAGE_LIMIT, 0),
+    { signal },
+  );
+
+  const pageLimit = firstPage.limit || CATALOG_POINTS_PAGE_LIMIT;
+  const offsets: number[] = [];
+  for (let offset = pageLimit; offset < firstPage.total; offset += pageLimit) {
+    offsets.push(offset);
+  }
+
+  const pages = await Promise.all(
+    offsets.map((offset) => requestJson<CatalogPointListResponse>(
+      buildCatalogPointsPath(bounds, filters, pageLimit, offset),
+      { signal },
+    )),
+  );
+  const radiusItems = [firstPage, ...pages]
+    .flatMap((page) => page.items)
+    .filter((point) => pointWithinCatalogRadius(point, bounds));
+  const visibleItems = resultLimit === "all" ? radiusItems : radiusItems.slice(0, resultLimit);
+
+  return {
+    ...firstPage,
+    items: visibleItems,
+    total: radiusItems.length,
+    limit: resultLimit === "all" ? radiusItems.length : resultLimit,
+    offset: 0,
+    missing_coordinates_count: 0,
+  };
 }
