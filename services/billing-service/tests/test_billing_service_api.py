@@ -190,6 +190,16 @@ def test_scheduler_internal_invoice_prepare_requires_scheduler_token(test_contex
     assert response.status_code == 401
 
 
+def test_scheduler_internal_drain_requires_job_run_id(test_context) -> None:
+    response = test_context.post(
+        "/internal/jobs/events/drain",
+        headers={"X-Scheduler-Token": "scheduler-test-token"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Missing scheduler job run id"
+
+
 def test_scheduler_internal_invoice_prepare_is_read_only(test_context) -> None:
     assert ingest(test_context, envelope()).status_code == 200
 
@@ -241,6 +251,13 @@ def test_operator_can_create_update_pricing_provider_admin_cannot(test_context) 
     assert update_response.json()["point_view_fee_enabled"] is False
     assert update_response.json()["reservation_success_fee"] == "0.80"
     assert provider_create_response.status_code == 403
+
+
+def test_pricing_rejects_unsupported_provider_code(test_context) -> None:
+    response = create_provider_pricing(test_context, "yellowPlug")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["error_type"] == "unsupported_provider"
 
 
 def test_provider_admin_can_read_own_effective_pricing_only(test_context) -> None:
@@ -356,6 +373,13 @@ def test_provider_admin_cannot_issue_invoices(test_context) -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_invoice_issue_without_unbilled_charges_returns_conflict(test_context) -> None:
+    response = issue_invoice_for_red(test_context)
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "no_unbilled_charges"
 
 
 def test_provider_admin_can_view_and_pay_own_issued_invoice(test_context) -> None:

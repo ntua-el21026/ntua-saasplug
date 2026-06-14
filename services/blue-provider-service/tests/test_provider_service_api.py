@@ -184,3 +184,43 @@ def test_blue_http_client_uses_provider_specific_reservation_query(monkeypatch) 
     assert captured["authorization"] == "Bearer secret-value"
     assert captured["query"] == "minutes=45"
     assert result.payload["chargerId"] == 301
+
+
+def test_blue_http_client_sends_bearer_auth_on_list_points(monkeypatch) -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["authorization"] = request.headers.get("authorization")
+        return httpx.Response(200, json=[sample_point()])
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("BLUE_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        result = client.list_points()
+    finally:
+        client.close()
+
+    assert captured["path"] == "/locations"
+    assert captured["authorization"] == "Bearer secret-value"
+    assert result.payload[0]["chargerId"] == 301
+
+
+def test_blue_http_client_maps_connect_error_to_provider_unavailable(monkeypatch) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("provider offline")
+
+    monkeypatch.setenv("PROVIDER_BASE_URL", "https://provider.test")
+    monkeypatch.setenv("BLUE_PROVIDER_API_KEY", "secret-value")
+    get_settings.cache_clear()
+    client = ProviderHttpClient(get_settings(), transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(ProviderClientError) as exc:
+            client.list_points()
+    finally:
+        client.close()
+
+    assert exc.value.error_type == "provider_unavailable"
+    assert exc.value.external_status_code is None

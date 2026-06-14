@@ -169,6 +169,22 @@ def test_force_refresh_bypasses_valid_cache(test_context) -> None:
     assert fake_client.calls == [("redPlug", "101"), ("redPlug", "101")]
 
 
+def test_provider_unexpected_status_is_cached_as_unknown(test_context) -> None:
+    client, fake_client = test_context
+    fake_client.statuses[("redPlug", "101")] = provider_status("redPlug", "101", "provider-specific-surprise")
+
+    response = client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "unknown"
+    db = get_session_factory()()
+    try:
+        cache = db.query(StatusCache).one()
+        assert cache.status == "unknown"
+    finally:
+        db.close()
+
+
 def test_provider_failure_with_previous_cache_returns_stale_fallback(test_context) -> None:
     client, fake_client = test_context
     assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
@@ -207,6 +223,47 @@ def test_provider_failure_without_cache_returns_normalized_502(test_context) -> 
         log = db.query(StatusCheckLog).one()
         assert log.provider_error_type == "provider_http_error"
         assert log.external_status_code == 403
+    finally:
+        db.close()
+
+
+def test_provider_response_with_wrong_provider_code_returns_502_without_cache(test_context) -> None:
+    client, fake_client = test_context
+    fake_client.statuses[("redPlug", "101")] = provider_status("greenPlug", "101", "available")
+
+    response = client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["error_type"] == "provider_invalid_response"
+    db = get_session_factory()()
+    try:
+        assert db.query(StatusCache).count() == 0
+        log = db.query(StatusCheckLog).one()
+        assert log.provider_error_type == "provider_invalid_response"
+        assert log.result_status is None
+    finally:
+        db.close()
+
+
+def test_provider_response_with_wrong_normalized_id_returns_stale_fallback(test_context) -> None:
+    client, fake_client = test_context
+    assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
+    fake_client.statuses[("redPlug", "101")] = {
+        **provider_status("redPlug", "101", "charging"),
+        "normalized_point_id": "redPlug:other-point",
+    }
+
+    response = client.get("/points/redPlug/101/status?forceRefresh=true", headers=ev_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "available"
+    assert payload["returned_stale"] is True
+    assert payload["source"] == "cache_fallback"
+    db = get_session_factory()()
+    try:
+        cache = db.query(StatusCache).one()
+        assert cache.last_error_type == "provider_invalid_response"
     finally:
         db.close()
 

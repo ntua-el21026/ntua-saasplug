@@ -271,4 +271,37 @@ describe("admin role routing", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
   });
+
+  it("blocks provider admins from operator scheduler controls", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
+  });
+
+  it("blocks provider admins from the operator system page", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/operator/system");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
+  });
+
+  it("renders scheduler health and run history on the operator system page", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/system");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /system overview/i })).toBeInTheDocument();
+    expect(await screen.findByText(/scheduler health/i)).toBeInTheDocument();
+    expect(await screen.findByText(/scheduler runs/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/succeeded/i)).length).toBeGreaterThan(0);
+  });
 });

@@ -133,6 +133,39 @@ def test_operator_can_update_metadata_and_status(client: TestClient) -> None:
     assert status_response.json()["is_active"] is False
 
 
+def test_operator_cannot_create_duplicate_provider_code(client: TestClient) -> None:
+    response = client.post(
+        "/providers",
+        json={
+            "provider_code": "redPlug",
+            "display_name": "Duplicate Red Plug",
+            "api_base_url": "https://duplicate.example.test",
+        },
+        headers=auth_header("OPERATOR"),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Provider already exists"
+
+
+def test_provider_admin_can_update_only_safe_own_metadata(client: TestClient) -> None:
+    safe_response = client.patch(
+        "/providers/redPlug",
+        json={"contact_email": "red-ops@example.com"},
+        headers=auth_header("PROVIDER_ADMIN", "redPlug"),
+    )
+    forbidden_response = client.patch(
+        "/providers/redPlug",
+        json={"api_base_url": "https://blocked.example.test"},
+        headers=auth_header("PROVIDER_ADMIN", "redPlug"),
+    )
+
+    assert safe_response.status_code == 200
+    assert safe_response.json()["contact_email"] == "red-ops@example.com"
+    assert forbidden_response.status_code == 403
+    assert "api_base_url" in forbidden_response.json()["detail"]
+
+
 def test_integration_config_does_not_expose_raw_secret_values(client: TestClient) -> None:
     response = client.get(
         "/providers/redPlug/integration-config",
