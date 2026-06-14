@@ -185,8 +185,12 @@ queueing were not performed.
 | `plantuml -checkonly docs/diagrams/final/*.puml` | Pass | Updated final diagrams validated |
 | PlantUML PNG render | Pass | Rendered updated final diagrams to `/tmp/saasplug-phase-c-plantuml-render` without adding generated images to the repository |
 | Scheduler internal endpoint exposure | Pass | Nginx exposes `/api/scheduler/*` only; `/internal/jobs/*` routes are service-internal |
+| Phase C gateway internal-prefix hardening | Pass | `/api/catalog/internal/...`, `/api/analytics/internal/...`, `/api/billing/internal/...`, and `/api/reservations/internal/...` returned HTTP 404 |
+| Phase C scheduler route preservation | Pass | `/api/scheduler/health` returned HTTP 200 after adding internal-prefix blocks |
+| Phase C scheduler internal-call preservation | Pass | Operator-triggered `billing.prepare-invoices` scheduler run succeeded with target HTTP 200 after adding gateway blocks |
+| `docker compose exec -T nginx-gateway nginx -t` | Pass | Nginx syntax validated after the hardening change |
 | Frontend application-source forbidden-pattern check | Pass | No direct service-port, RabbitMQ, external provider API, provider-service, or `/internal/jobs` usage in application source |
-| Scheduler internal route gateway check | Pass | `deploy/nginx/default.conf` does not route `/internal/jobs/*` |
+| Scheduler internal route gateway check | Pass | `deploy/nginx/default.conf` returns 404 for `/api/{catalog,analytics,billing,reservations}/internal/` prefixes and does not block `/api/scheduler/*` |
 | `docker compose up -d --build` | Pass | Full stack built and started |
 | `docker compose ps` | Pass | Frontend, gateway, RabbitMQ, all services, and all PostgreSQL containers were healthy, including scheduler components |
 | Gateway/public health checks | Pass | `/`, `/health`, all existing service health routes, and `/api/scheduler/health` returned HTTP 200 |
