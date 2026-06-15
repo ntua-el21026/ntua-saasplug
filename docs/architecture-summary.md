@@ -144,8 +144,11 @@ Queues:
 | `catalog.provider_snapshots` | Catalog/provider snapshot propagation support |
 
 Delivery is at-least-once. Consumers must be idempotent using `event_id`.
-RabbitMQ is not used for login, map search, point details, status lookup,
-reservation provider calls, or live frontend actions.
+RabbitMQ is not used to complete login, map search, point details, status
+lookup, reservation provider calls, or live frontend actions. Catalog and
+status services publish usage/status/import events only after their own
+request/lookup/import work has completed, and those publishes are best-effort
+analytics propagation.
 
 ## End-to-End Flows
 
@@ -175,14 +178,19 @@ reservation provider calls, or live frontend actions.
 3. The provider service fetches the external provider API, stores raw payloads
    and local normalized snapshots, and returns normalized points.
 4. `catalog-service` upserts the aggregated catalog and records import runs.
+5. After successful imports, `catalog-service` publishes
+   `catalog.points.imported` for analytics/catalog-health projections.
 
 ### Analytics and Billing Propagation
 
 1. Reservation and billing services publish or drain staged events using the
    shared event envelope.
-2. `analytics-service` drains `analytics.events`, stores idempotent
+2. `catalog-service` publishes `usage.search_performed`,
+   `usage.point_viewed`, and `catalog.points.imported`; `status-service`
+   publishes `status.point_checked`.
+3. `analytics-service` drains `analytics.events`, stores idempotent
    `usage_events`, and refreshes aggregate/cache tables.
-3. `billing-service` drains `billing.reservations`, creates idempotent charges,
+4. `billing-service` drains `billing.reservations`, creates idempotent charges,
    issues invoices on operator request, and records mock payments.
 
 ### Scheduler Control Plane
@@ -190,13 +198,19 @@ reservation provider calls, or live frontend actions.
 1. `scheduler-service` stores job definitions and run history in
    `scheduler-postgres`.
 2. The scheduler evaluates due interval/cron jobs and supports operator manual
-   runs through `/api/scheduler/*`.
+   runs, ordered maintenance runs, pause/resume, and interval edits through
+   `/api/scheduler/*`.
 3. Job execution calls service-owned internal HTTP endpoints on
    `catalog-service`, `analytics-service`, `billing-service`, and
    `reservation-service` with `X-Scheduler-Token`.
 4. Target services execute their own logic and keep ownership of their own
    databases. The scheduler stores only metadata, run status, HTTP status, and
    redacted response summaries.
+
+Default scheduled cadences are daily catalog import, analytics event drain
+every 2 hours, analytics aggregate refresh every day, billing queue drain
+every 12 hours, billing outbox publish every 12 hours, reservation outbox
+publish every 60 seconds, and daily invoice preparation at 02:30 Europe/Athens.
 
 ### Invoice and Mock Payment
 

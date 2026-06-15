@@ -51,6 +51,18 @@ def get_current_principal(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
+def get_optional_principal(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    settings: Settings = Depends(get_settings),
+) -> CurrentPrincipal | None:
+    if credentials is None:
+        return None
+    try:
+        return principal_from_claims(decode_access_token(credentials.credentials, settings))
+    except ValueError:
+        return None
+
+
 def ensure_operator(principal: CurrentPrincipal) -> None:
     if "OPERATOR" not in principal.roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operator role required")

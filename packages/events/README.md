@@ -95,6 +95,19 @@ failure plumbing.
 type as routing key. Services should publish only after their source-of-truth
 state is committed.
 
+Current live producers:
+
+| Producer | Events |
+|---|---|
+| `catalog-service` | `usage.search_performed`, `usage.point_viewed`, `catalog.points.imported` |
+| `status-service` | `status.point_checked` |
+| `reservation-service` | `reservation.succeeded`, `reservation.failed` |
+| `billing-service` | `billing.charge_created`, `billing.invoice_issued`, `billing.invoice_paid` |
+
+Catalog and status usage events are best-effort propagation after the
+corresponding read/import/log operation has completed. They must not make the
+live user request fail if RabbitMQ is temporarily unavailable.
+
 ## Consumer behavior
 
 `handle_delivery` parses the envelope and maps handler results to explicit

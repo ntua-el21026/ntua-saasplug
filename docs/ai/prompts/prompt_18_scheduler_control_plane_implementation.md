@@ -278,7 +278,7 @@ Seed deterministic default job definitions:
 - `analytics.refresh-aggregates`
   - target: analytics-service
   - endpoint: `POST /internal/jobs/aggregates/refresh`
-  - every 5 minutes
+  - every day
   - timeout 90s
   - retries 1
 

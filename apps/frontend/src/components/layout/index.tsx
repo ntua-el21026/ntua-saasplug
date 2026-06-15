@@ -75,7 +75,14 @@ export function SidebarNav({ items }: { items: Array<{ href: string; label: stri
 
 export function RoleSwitcher({ roles }: { roles: Role[] }) {
   const role = roles[0] ?? "EV_USER";
-  return <span className="role-switcher">{role.replace("_", " ")}</span>;
+  const label = role === "PROVIDER_ADMIN" ? "Provider admin" : role === "OPERATOR" ? "Operator" : "EV user";
+  const tone = role === "PROVIDER_ADMIN" ? "provider" : role === "OPERATOR" ? "operator" : "ev";
+  return (
+    <span className={cx("role-badge", `role-badge-${tone}`)}>
+      <span className="role-badge-mark" aria-hidden="true" />
+      <span>{label}</span>
+    </span>
+  );
 }
 
 export function RoleEntry({

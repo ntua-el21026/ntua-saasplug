@@ -40,7 +40,9 @@ Public through `nginx-gateway` under `/api/scheduler/...`.
 | `GET /runs` | `/api/scheduler/runs` | `OPERATOR` only |
 | `GET /runs/{run_id}` | `/api/scheduler/runs/{run_id}` | `OPERATOR` only |
 
-The frontend operator Sync and System pages use these gateway routes only.
+The frontend operator Sync and System pages use these gateway routes only. The
+Sync page exposes manual run, pause/resume, and interval/cron editing controls
+for operator-managed jobs.
 
 ## Job definitions
 
@@ -48,11 +50,11 @@ Default jobs are seeded idempotently at startup.
 
 | Job key | Target service/path | Schedule |
 |---|---|---|
-| `catalog.import.all` | `catalog-service` `/internal/jobs/catalog/imports/all` | every 15 minutes |
-| `analytics.consume-events` | `analytics-service` `/internal/jobs/events/consume` | every 60 seconds |
-| `analytics.refresh-aggregates` | `analytics-service` `/internal/jobs/aggregates/refresh` | every 5 minutes |
-| `billing.drain-events` | `billing-service` `/internal/jobs/events/drain` | every 60 seconds |
-| `billing.publish-outbox` | `billing-service` `/internal/jobs/outbox/publish-pending` | every 60 seconds |
+| `catalog.import.all` | `catalog-service` `/internal/jobs/catalog/imports/all` | every day |
+| `analytics.consume-events` | `analytics-service` `/internal/jobs/events/consume` | every 2 hours |
+| `analytics.refresh-aggregates` | `analytics-service` `/internal/jobs/aggregates/refresh` | every day |
+| `billing.drain-events` | `billing-service` `/internal/jobs/events/drain` | every 12 hours |
+| `billing.publish-outbox` | `billing-service` `/internal/jobs/outbox/publish-pending` | every 12 hours |
 | `reservation.publish-outbox` | `reservation-service` `/internal/jobs/outbox/publish-pending` | every 60 seconds |
 | `billing.prepare-invoices` | `billing-service` `/internal/jobs/invoices/prepare` | daily at 02:30 Europe/Athens |
 | `catalog.import.red` | `catalog-service` `/internal/jobs/catalog/imports/providers/redPlug` | manual |
@@ -63,6 +65,35 @@ Default jobs are seeded idempotently at startup.
 
 `billing.prepare-invoices` is a safe non-mutating preparation job. Invoice
 issuance remains an explicit operator billing action.
+
+`analytics.consume-events` and `analytics.refresh-aggregates` are separate on
+purpose. The consume job moves RabbitMQ messages into analytics-owned raw event
+tables. The refresh job rebuilds dashboard aggregate/cache tables from those
+already-ingested events.
+
+`billing.drain-events` and `billing.publish-outbox` are also separate. The
+drain job consumes reservation/point-view events and creates billing-owned
+records/charges. The outbox publish job sends billing-created events, invoice
+events, and payment events onward after billing has already committed its own
+state.
+
+Operator-edited intervals are stored in `scheduler-postgres`. Startup seeding
+creates missing jobs and updates structural metadata, but it preserves custom
+operator interval edits instead of resetting them to code defaults.
+
+The operator Sync page also exposes one ordered maintenance action. It runs
+existing jobs through scheduler-service in this sequence:
+
+1. `catalog.import.all`
+2. `reservation.publish-outbox`
+3. `billing.drain-events`
+4. `billing.publish-outbox`
+5. `analytics.consume-events`
+6. `analytics.refresh-aggregates`
+
+This sequence refreshes catalog data, releases reservation outcomes, lets
+billing consume and publish its derived events, then lets analytics drain all
+available events and refresh dashboard aggregates.
 
 ## Internal endpoint security
 
@@ -149,8 +180,9 @@ curl http://localhost:8080/api/scheduler/jobs \
 - The scheduler owns only metadata and run history.
 - Target services own their internal job implementation and data mutations.
 - Live user actions remain synchronous through their responsible services.
-- RabbitMQ is not used for login, map search, point details, status lookup, or
-  reservation provider calls.
+- RabbitMQ is not used to complete login, map search, point details, status
+  lookup, or reservation provider calls. Catalog/status usage events are
+  best-effort analytics propagation after those requests finish.
 - The scheduler must not read or write other service databases.
 
 ## References

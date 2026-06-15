@@ -43,7 +43,7 @@ GET /freshness
 - Catalog search ownership.
 - Reservation truth.
 - Analytics aggregate ownership.
-- RabbitMQ business publishers or consumers.
+- RabbitMQ consumers or queue-drain workers.
 - Direct frontend-provider communication.
 - Direct calls to external provider APIs.
 
@@ -72,6 +72,12 @@ Lookup behavior:
    `returned_stale=true`, `source=cache_fallback`, and a non-sensitive warning.
 5. On provider timeout/error with no previous cache, return HTTP 502 with a
    normalized error body and write a failed log.
+
+After each completed status lookup/log write, `status-service` publishes a
+best-effort `status.point_checked` analytics event. The event includes provider
+code, normalized point id, external point id, normalized result status, cache
+hit/provider-called flags, `forceRefresh`, stale fallback state, and user id.
+If RabbitMQ publishing fails, the status response behavior is unchanged.
 
 Provider-specific status values are normalized to:
 
@@ -112,6 +118,10 @@ STATUS_PROVIDER_TIMEOUT_SECONDS=10
 RED_PROVIDER_SERVICE_URL=http://red-provider-service:8000
 GREEN_PROVIDER_SERVICE_URL=http://green-provider-service:8000
 BLUE_PROVIDER_SERVICE_URL=http://blue-provider-service:8000
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+RABBITMQ_EVENT_EXCHANGE=saasplug.events
+RABBITMQ_PUBLISH_TIMEOUT_SECONDS=5
+STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED=true
 ```
 
 The provider-service URLs are Docker-internal service URLs. `status-service`

@@ -52,6 +52,14 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 024 | 2026-06-14 | Canonical prompt invocation | `docs/ai/prompts/prompt_24_frontend_design_system_redesign.md` | Frontend design-system redesign and live visual QA | `completed_with_warnings` | `docs/ai/codex-runs/015-frontend-design-system-redesign.md` |
 | 025 | 2026-06-15 | Direct continuation prompt | N/A | Frontend MapLibre/OpenFreeMap charging-map integration | `completed_with_warnings` | `docs/ai/codex-runs/025-frontend-maplibre-integration.md` |
 | 026 | 2026-06-15 | Direct screenshot prompt | N/A | Login screen provider-entry polish and operator-only provider registration routing | `completed_with_warnings` | `docs/ai/codex-runs/026-login-provider-entry-polish.md` |
+| 027 | 2026-06-15 | Direct bugfix prompt | N/A | Provider page crash fixes and map marker/radius visibility | `completed_with_warnings` | `docs/ai/codex-runs/027-frontend-provider-map-fixes.md` |
+| 028 | 2026-06-15 | Direct screenshot/continuation prompt | N/A | Frontend map viewport fit, redundant-header removal, and landing/login polish | `completed_with_warnings` | `docs/ai/codex-runs/028-frontend-responsive-polish.md` |
+| 029 | 2026-06-15 | Direct screenshot/continuation prompt | N/A | Catalog radius filtering, role badges, and RabbitMQ/cache audit | `completed_with_warnings` | `docs/ai/codex-runs/029-map-radius-role-events.md` |
+| 030 | 2026-06-15 | Direct corrective screenshot prompt | N/A | Map radius render guard, provider-colored markers, and fetch cap responsiveness | `completed_with_warnings` | `docs/ai/codex-runs/030-map-radius-marker-correction.md` |
+| 031 | 2026-06-15 | Direct corrective clarification | N/A | Exact API-side catalog circle filtering before pagination | `completed_with_warnings` | `docs/ai/codex-runs/031-catalog-api-circle-filtering.md` |
+| 032 | 2026-06-15 | Direct implementation prompt | N/A | Live usage/status/catalog events, scheduler cadence updates, and operator schedule editing | `completed_with_warnings` | `docs/ai/codex-runs/032-event-scheduler-cadence-and-operator-controls.md` |
+| 033 | 2026-06-15 | Direct corrective continuation | N/A | Viewport-derived map search radius and all-in-circle catalog rendering | `completed_with_warnings` | `docs/ai/codex-runs/033-viewport-derived-map-radius.md` |
+| 034 | 2026-06-15 | Direct continuation prompt | N/A | Ordered scheduler maintenance run action for operators | `completed_with_warnings` | `docs/ai/codex-runs/034-ordered-scheduler-maintenance-run.md` |
 
 ---
 

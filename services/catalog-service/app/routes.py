@@ -1,9 +1,12 @@
+import math
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import PROVIDER_CODES, Settings, get_settings
 from app.database import get_db
+from app.event_publisher import publish_best_effort_event
 from app.importer import import_provider_catalog, validate_provider_code
 from app.models import CatalogImportRun, CatalogPoint
 from app.provider_client import ProviderServiceClient
@@ -11,15 +14,18 @@ from app.schemas import (
     CatalogPointDetailResponse,
     CatalogPointListResponse,
     CatalogPointResponse,
+    CatalogSearchCircleResponse,
     CurrentPrincipal,
     ImportAllResponse,
     ImportRunResponse,
     ImportSummaryResponse,
     ProviderFreshnessResponse,
 )
-from app.security import ensure_import_run_reader, ensure_operator, get_current_principal
+from app.security import ensure_import_run_reader, ensure_operator, get_current_principal, get_optional_principal
+from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["catalog"])
+EARTH_RADIUS_KM = 6371.0088
 
 
 def require_scheduler_token(
@@ -115,12 +121,42 @@ def base_point_filters(
     return filters
 
 
+def radius_prefilter_bounds(center_lat: float, center_lng: float, radius_km: float) -> list:
+    lng_scale = max(0.2, math.cos(math.radians(center_lat)))
+    lat_radius = radius_km / 111.32
+    lng_radius = radius_km / (111.32 * lng_scale)
+    return [
+        CatalogPoint.latitude >= center_lat - lat_radius,
+        CatalogPoint.latitude <= center_lat + lat_radius,
+        CatalogPoint.longitude >= center_lng - lng_radius,
+        CatalogPoint.longitude <= center_lng + lng_radius,
+    ]
+
+
+def point_within_radius(point: CatalogPoint, center_lat: float, center_lng: float, radius_km: float) -> bool:
+    if point.latitude is None or point.longitude is None:
+        return False
+    lat_delta = math.radians(point.latitude - center_lat)
+    lng_delta = math.radians(point.longitude - center_lng)
+    center_lat_rad = math.radians(center_lat)
+    point_lat_rad = math.radians(point.latitude)
+    haversine = (
+        math.sin(lat_delta / 2) ** 2
+        + math.cos(center_lat_rad) * math.cos(point_lat_rad) * math.sin(lng_delta / 2) ** 2
+    )
+    distance_km = 2 * EARTH_RADIUS_KM * math.asin(min(1, math.sqrt(haversine)))
+    return distance_km <= radius_km + 1e-9
+
+
 @router.get("/points", response_model=CatalogPointListResponse)
 def list_points(
     min_lat: float | None = Query(default=None, alias="minLat"),
     max_lat: float | None = Query(default=None, alias="maxLat"),
     min_lng: float | None = Query(default=None, alias="minLng"),
     max_lng: float | None = Query(default=None, alias="maxLng"),
+    center_lat: float | None = Query(default=None, alias="centerLat"),
+    center_lng: float | None = Query(default=None, alias="centerLng"),
+    radius_km: float | None = Query(default=None, alias="radiusKm", gt=0),
     provider_code: str | None = Query(default=None, alias="providerCode"),
     status_filter: str | None = Query(default=None, alias="status"),
     connector: str | None = None,
@@ -129,6 +165,8 @@ def list_points(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal | None = Depends(get_optional_principal),
 ) -> CatalogPointListResponse:
     if provider_code:
         try:
@@ -142,6 +180,12 @@ def list_points(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="All bounds must be provided")
     if bounds_applied and (min_lat > max_lat or min_lng > max_lng):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid bounds")
+    radius_values = (center_lat, center_lng, radius_km)
+    radius_applied = any(value is not None for value in radius_values)
+    if radius_applied and not all(value is not None for value in radius_values):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="All radius parameters must be provided")
+    if radius_applied and not (-90 <= center_lat <= 90 and -180 <= center_lng <= 180):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid radius center")
 
     filters = base_point_filters(include_stale, provider_code, status_filter, connector, q)
     missing_coordinates_count = db.scalar(
@@ -163,20 +207,51 @@ def list_points(
             CatalogPoint.longitude >= min_lng,
             CatalogPoint.longitude <= max_lng,
         )
-    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    points = db.scalars(
-        query.order_by(CatalogPoint.provider_code, CatalogPoint.external_point_id)
-        .offset(offset)
-        .limit(limit),
-    ).all()
-    return CatalogPointListResponse(
+    if radius_applied:
+        query = query.where(
+            CatalogPoint.latitude.is_not(None),
+            CatalogPoint.longitude.is_not(None),
+            *radius_prefilter_bounds(center_lat, center_lng, radius_km),
+        )
+    ordered_query = query.order_by(CatalogPoint.provider_code, CatalogPoint.external_point_id)
+    if radius_applied:
+        exact_radius_points = [
+            point
+            for point in db.scalars(ordered_query).all()
+            if point_within_radius(point, center_lat, center_lng, radius_km)
+        ]
+        total = len(exact_radius_points)
+        points = exact_radius_points[offset:offset + limit]
+    else:
+        total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        points = db.scalars(ordered_query.offset(offset).limit(limit)).all()
+    response = CatalogPointListResponse(
         items=[point_response(point) for point in points],
         total=total,
         limit=limit,
         offset=offset,
-        bounds_applied=bounds_applied,
+        bounds_applied=bounds_applied or radius_applied,
         missing_coordinates_count=missing_coordinates_count,
+        search_circle=CatalogSearchCircleResponse(
+            center_lat=center_lat,
+            center_lng=center_lng,
+            radius_km=radius_km,
+        ) if radius_applied else None,
     )
+    if offset == 0:
+        publish_search_event(
+            settings,
+            principal,
+            response,
+            provider_code=provider_code,
+            status_filter=status_filter,
+            connector=connector,
+            q=q,
+            include_stale=include_stale,
+            bounds_applied=bounds_applied,
+            radius_applied=radius_applied,
+        )
+    return response
 
 
 @router.get("/points/{provider_code}/{external_point_id}", response_model=CatalogPointDetailResponse)
@@ -184,6 +259,8 @@ def read_point_detail(
     provider_code: str,
     external_point_id: str,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal | None = Depends(get_optional_principal),
 ) -> CatalogPointDetailResponse:
     point = db.scalar(
         select(CatalogPoint).where(
@@ -193,7 +270,9 @@ def read_point_detail(
     )
     if point is None or not point.is_active or point.is_stale:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog point not found")
-    return point_detail_response(point)
+    response = point_detail_response(point)
+    publish_point_view_event(settings, principal, response)
+    return response
 
 
 @router.post("/imports/providers/{provider_code}", response_model=ImportSummaryResponse)
@@ -222,6 +301,7 @@ def import_provider(
                 "message": "Catalog import failed for provider service",
             },
         )
+    publish_import_event(settings, summary)
     return summary
 
 
@@ -236,7 +316,10 @@ def import_all_providers(
     summaries: list[ImportSummaryResponse] = []
     try:
         for provider_code in PROVIDER_CODES:
-            summaries.append(import_provider_catalog(db, provider_code, principal.email, provider_client))
+            summary = import_provider_catalog(db, provider_code, principal.email, provider_client)
+            summaries.append(summary)
+            if summary.status == "completed":
+                publish_import_event(settings, summary)
     finally:
         provider_client.close()
     completed = sum(1 for summary in summaries if summary.status == "completed")
@@ -269,6 +352,7 @@ def import_provider_from_scheduler(
                 "message": "Catalog import failed for provider service",
             },
         )
+    publish_import_event(settings, summary)
     return summary
 
 
@@ -282,7 +366,10 @@ def import_all_providers_from_scheduler(
     summaries: list[ImportSummaryResponse] = []
     try:
         for provider_code in PROVIDER_CODES:
-            summaries.append(import_provider_catalog(db, provider_code, "scheduler-service", provider_client))
+            summary = import_provider_catalog(db, provider_code, "scheduler-service", provider_client)
+            summaries.append(summary)
+            if summary.status == "completed":
+                publish_import_event(settings, summary)
     finally:
         provider_client.close()
     completed = sum(1 for summary in summaries if summary.status == "completed")
@@ -365,3 +452,83 @@ def catalog_freshness(db: Session) -> list[ProviderFreshnessResponse]:
             ),
         )
     return freshness
+
+
+def publish_search_event(
+    settings: Settings,
+    principal: CurrentPrincipal | None,
+    response: CatalogPointListResponse,
+    *,
+    provider_code: str | None,
+    status_filter: str | None,
+    connector: str | None,
+    q: str | None,
+    include_stale: bool,
+    bounds_applied: bool,
+    radius_applied: bool,
+) -> None:
+    matched_provider_codes = sorted({point.provider_code for point in response.items})
+    payload = {
+        "user_id": principal.sub if principal else None,
+        "provider_code": provider_code,
+        "matched_provider_codes": matched_provider_codes,
+        "search_term": q.strip()[:120] if q and q.strip() else None,
+        "status_filter": status_filter,
+        "connector": connector,
+        "include_stale": include_stale,
+        "bounds_applied": bounds_applied,
+        "radius_applied": radius_applied,
+        "result_count": len(response.items),
+        "total": response.total,
+        "limit": response.limit,
+        "offset": response.offset,
+    }
+    publish_best_effort_event(
+        settings,
+        event_type=EventType.USAGE_SEARCH_PERFORMED.value,
+        payload=payload,
+    )
+
+
+def publish_point_view_event(
+    settings: Settings,
+    principal: CurrentPrincipal | None,
+    point: CatalogPointDetailResponse,
+) -> None:
+    payload = {
+        "user_id": principal.sub if principal else None,
+        "provider_code": point.provider_code,
+        "internal_point_id": point.normalized_point_id,
+        "normalized_point_id": point.normalized_point_id,
+        "external_point_id": point.external_point_id,
+        "point_name": point.display_name,
+        "status": point.status,
+    }
+    publish_best_effort_event(
+        settings,
+        event_type=EventType.USAGE_POINT_VIEWED.value,
+        payload=payload,
+    )
+
+
+def publish_import_event(settings: Settings, summary: ImportSummaryResponse) -> None:
+    if summary.status != "completed":
+        return
+    payload = {
+        "provider_code": summary.provider_code,
+        "import_run_id": summary.run_id,
+        "status": summary.status,
+        "provider_sync_triggered": summary.provider_sync_triggered,
+        "provider_fetched_count": summary.provider_fetched_count,
+        "catalog_upserted_count": summary.catalog_upserted_count,
+        "catalog_changed_count": summary.catalog_changed_count,
+        "catalog_marked_stale_count": summary.catalog_marked_stale_count,
+        "imported_count": summary.catalog_upserted_count,
+        "active_count": summary.catalog_upserted_count,
+        "stale_count": summary.catalog_marked_stale_count,
+    }
+    publish_best_effort_event(
+        settings,
+        event_type=EventType.CATALOG_POINTS_IMPORTED.value,
+        payload=payload,
+    )

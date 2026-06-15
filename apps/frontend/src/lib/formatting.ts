@@ -37,13 +37,14 @@ export function formatPrice(value: number | null | undefined): string {
   }).format(value);
 }
 
-export function formatMoney(value: number | null | undefined, currency = "EUR"): string {
+export function formatMoney(value: number | null | undefined, currency: string | null | undefined = "EUR"): string {
   if (value === null || value === undefined) {
     return "Not available";
   }
+  const safeCurrency = currency && /^[A-Z]{3}$/.test(currency) ? currency : "EUR";
   return new Intl.NumberFormat("en", {
     style: "currency",
-    currency,
+    currency: safeCurrency,
     maximumFractionDigits: 2,
   }).format(value);
 }

@@ -79,7 +79,7 @@ manual operations.
 |---|---|---|---|---:|---:|---|
 | `catalog.import.all` | `catalog-service` | `POST /internal/jobs/catalog/imports/all` | every 15 minutes | 180s | 1 | Fetches providers through provider services and upserts aggregated catalog |
 | `analytics.consume-events` | `analytics-service` | `POST /internal/jobs/events/consume` | every 60 seconds | 30s | 2 | Drains up to configured batch size from `analytics.events` |
-| `analytics.refresh-aggregates` | `analytics-service` | `POST /internal/jobs/aggregates/refresh` | every 5 minutes | 90s | 1 | Refreshes provider/operator/point/catalog health aggregate tables |
+| `analytics.refresh-aggregates` | `analytics-service` | `POST /internal/jobs/aggregates/refresh` | every day | 90s | 1 | Refreshes provider/operator/point/catalog health aggregate tables |
 | `billing.drain-events` | `billing-service` | `POST /internal/jobs/events/drain` | every 60 seconds | 30s | 2 | Drains reservation/billing events into charge records idempotently |
 | `billing.publish-outbox` | `billing-service` | `POST /internal/jobs/outbox/publish-pending` | every 60 seconds | 30s | 2 | Publishes pending billing outbox events |
 | `reservation.publish-outbox` | `reservation-service` | `POST /internal/jobs/outbox/publish-pending` | every 60 seconds | 30s | 2 | Publishes pending reservation outbox events |
@@ -103,7 +103,8 @@ Intervals are deliberately conservative:
   hammering external provider APIs;
 - event drains every 60 seconds keep analytics/billing near real-time while
   preserving RabbitMQ as asynchronous propagation;
-- aggregate refresh every 5 minutes keeps operator/provider dashboards fresh;
+- aggregate refresh every day keeps operator/provider dashboards aligned with the
+  current accepted maintenance cadence;
 - invoice preparation is daily and non-final, preserving operator control over
   invoice issuance.
 
@@ -390,4 +391,3 @@ Acceptance criteria:
 - `docs/ai/prompts/prompt_17_scheduler_design.md`
 - `docs/ai/codex-runs/017-scheduler-design.md`
 - `docs/ai/prompt-log.md`
-

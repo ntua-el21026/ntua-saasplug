@@ -4,7 +4,9 @@ This report records the final verification evidence for the saasPlug MVP,
 including the original final verification pass, finalization audit, live
 environment verification, scheduler control-plane implementation, test
 expansion, final verification-only audit, live `.env` full verification, and
-README documentation polish. The canonical architecture remains
+README documentation polish, usage/status/catalog event wiring, scheduler
+cadence updates, and operator scheduler interval controls. The canonical
+architecture remains
 `docs/specs/SPECIFICATIONS.md`.
 
 ## Environment
@@ -341,3 +343,47 @@ Docker runtime behavior, Nginx routing behavior, tests, deployment settings, or
 | `git diff --check` | Pass | No whitespace errors in the documentation-only diff |
 | `.env` handling | Pass | `.env` was not read, printed, modified, copied, uploaded, committed, or removed |
 | GitHub Project #3 documentation issue | Done | Issue #20 was closed and moved to `Done`; issue #19 was not changed |
+
+## Prompt 32 Event and Scheduler Cadence Update
+
+Prompt 32 implemented the remaining documented live event publishers and
+operator scheduler interval controls. It preserved the accepted architecture:
+RabbitMQ is still asynchronous best-effort propagation, live user-facing
+search/detail/status requests remain synchronous HTTP flows, and no new service
+or cross-service database access was introduced.
+
+| Check | Result | Notes |
+|---|---|---|
+| `usage.search_performed` live emitter | Pass | `catalog-service` publishes a best-effort event for first-page catalog searches |
+| `usage.point_viewed` live emitter | Pass | `catalog-service` publishes a best-effort event when a catalog detail is opened |
+| `status.point_checked` live emitter | Pass | `status-service` publishes best-effort success and provider-error status check events |
+| `catalog.points.imported` live emitter | Pass | `catalog-service` publishes a best-effort event after successful provider imports |
+| Scheduler default cadence | Pass | Daily catalog import, 2-hour analytics drain, daily aggregate refresh, 12-hour billing drain/outbox publish, and 60-second reservation outbox publish are configured |
+| Operator scheduler controls | Pass | Operator UI supports manual run, pause/resume, run history, and interval/cron schedule edits through gateway scheduler APIs |
+| `docker compose config --quiet` | Pass | Compose configuration validates with catalog/status event publishing environment wiring |
+| Frontend tests | Pass | `cd apps/frontend && npm test -- --run` passed 21 tests |
+| Frontend build | Pass with warning | `cd apps/frontend && npm run build` passed with Vite's existing large MapLibre chunk warning |
+| Scheduler service tests | Pass | `docker compose run --build --rm --no-deps scheduler-service pytest -q` passed 12 tests |
+| Catalog service tests | Pass | `docker compose run --build --rm --no-deps catalog-service pytest -q` passed 24 tests |
+| Status service tests | Pass | `docker compose run --build --rm --no-deps status-service pytest -q` passed 17 tests |
+| Shared event package tests | Pass | Python 3.12 container run passed 10 tests |
+| PlantUML validation | Pass | `plantuml -checkonly docs/diagrams/final/*.puml` passed after updating the event propagation sequence |
+| `git diff --check` | Pass | No whitespace errors |
+
+## Prompt 34 Ordered Scheduler Maintenance Run Update
+
+Prompt 34 added a single operator action for running the maintenance job chain
+in dependency order. It did not add a new worker or move business logic into
+the scheduler: scheduler-service still calls existing service-owned internal
+job endpoints over Docker-internal URLs.
+
+| Check | Result | Notes |
+|---|---|---|
+| Ordered maintenance API | Pass | `POST /api/scheduler/jobs/run-maintenance` runs catalog import, reservation outbox publish, billing drain, billing outbox publish, analytics drain, then analytics aggregate refresh |
+| Operator UI action | Pass | `/operator/sync` exposes a single `Run maintenance sequence` action through the gateway scheduler API |
+| Aggregate refresh cadence correction | Pass | `analytics.refresh-aggregates` default interval is daily, and old 2-hour default seeds migrate to daily |
+| `docker compose config --quiet` | Pass | Compose configuration validates |
+| Scheduler service tests | Pass | `docker compose run --build --rm --no-deps scheduler-service pytest -q` passed 14 tests |
+| Frontend tests | Pass | `cd apps/frontend && npm test -- --run` passed 23 tests |
+| Frontend build | Pass with warning | `cd apps/frontend && npm run build` passed with Vite's existing large MapLibre chunk warning |
+| `git diff --check` | Pass | No whitespace errors |

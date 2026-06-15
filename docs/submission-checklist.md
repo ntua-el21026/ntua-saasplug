@@ -20,6 +20,7 @@ Use this checklist before packaging or presenting the final course submission.
 | Nginx gateway | Done | `deploy/nginx/default.conf` |
 | FastAPI backend services | Done | `services/` |
 | RabbitMQ event infrastructure | Done | `packages/events/` |
+| Live usage/status/catalog import event producers | Done | `services/catalog-service/`, `services/status-service/`, and `packages/events/README.md` |
 | Separate PostgreSQL container per stateful service | Done | `docker-compose.yml` |
 | Scheduler control plane | Done | `services/scheduler-service/` and `scheduler-postgres` |
 | No MongoDB in MVP | Done | No MongoDB runtime files present |
@@ -52,6 +53,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Provider dashboard/points/analytics/invoices/export/settings | Done | `apps/frontend/README.md` |
 | Operator dashboard/providers/analytics/catalog/invoices/pricing/sync/system | Done | `apps/frontend/README.md` |
 | Operator scheduler health/jobs/manual runs/run history | Done | `apps/frontend/src/features/admin/AdminPages.tsx` |
+| Operator scheduler interval and cron editing | Done | `apps/frontend/src/features/admin/AdminPages.tsx` |
+| Operator ordered maintenance sequence | Done | `/operator/sync` calls `/api/scheduler/jobs/run-maintenance` through the gateway |
 | Gateway-only frontend API calls | Done | `apps/frontend/src/lib/api.ts` and final static checks |
 
 ## Final Documentation
@@ -111,6 +114,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Live `.env` full verification | Done with warnings | Live provider reads, live `.env` Docker/gateway/auth/scheduler/catalog/status checks, and 184 tests documented in `docs/ai/codex-runs/022-live-env-full-verification.md` |
 | Final audit issue #19 | Done | Issue #19 closed and moved to `Done` in GitHub Project #3 |
 | README documentation issue #20 | Done | Issue #20 closed and moved to `Done` in GitHub Project #3 after README polish validation |
+| Usage/status/catalog event and scheduler cadence update | Done with warning | Live event emitters, editable scheduler intervals, and targeted validation documented in `docs/ai/codex-runs/032-event-scheduler-cadence-and-operator-controls.md` |
+| Ordered scheduler maintenance run | Done | Single operator action and ordered scheduler API documented in `docs/ai/codex-runs/034-ordered-scheduler-maintenance-run.md` |
 
 ## Manual Review Notes
 
@@ -149,5 +154,11 @@ Use this checklist before packaging or presenting the final course submission.
   stale prompt/process wording from user-facing README files, confirmed 35
   generated/cache-free README files, closed issue #20, and moved its GitHub
   Project #3 item to `Done`.
+- Prompt 32 wired the remaining best-effort usage/status/catalog event
+  publishers, changed scheduler default cadence, added operator schedule
+  editing in the scheduler UI, and updated canonical specs and service docs.
+- Prompt 34 added one operator action to run the maintenance job chain in
+  dependency order through scheduler-service while preserving service-owned
+  execution.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

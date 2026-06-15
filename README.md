@@ -176,11 +176,17 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
   `frontend -> nginx-gateway -> reservation-service -> provider service`.
 - Successful/failed reservation events are staged in an outbox and published to
   RabbitMQ for analytics and billing propagation.
+- Catalog searches, point-detail views, status checks, and completed catalog
+  imports publish best-effort analytics events after the user-facing service
+  work succeeds.
 - Analytics dashboards read precomputed aggregate/cache tables.
 - Billing owns pricing, charges, invoices, and mock full-invoice payments.
 - Scheduler background jobs are coordinated by `scheduler-service`, which
   stores only job metadata/run history and calls service-owned internal job
-  endpoints.
+  endpoints. Operators can manually run jobs, pause/resume jobs, and edit
+  interval cadences from the Sync page. Operators can also trigger one ordered
+  maintenance sequence that refreshes catalog data, publishes reservation and
+  billing events, drains analytics, and refreshes dashboard aggregates.
 
 ## Provider API Integration
 

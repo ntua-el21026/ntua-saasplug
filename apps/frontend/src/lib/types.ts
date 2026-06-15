@@ -50,6 +50,12 @@ export interface CatalogPointDetail extends CatalogPoint {
   raw_provider_payload: Record<string, unknown>;
 }
 
+export interface CatalogSearchCircleResponse {
+  center_lat: number;
+  center_lng: number;
+  radius_km: number;
+}
+
 export interface CatalogPointListResponse {
   items: CatalogPoint[];
   total: number;
@@ -57,6 +63,7 @@ export interface CatalogPointListResponse {
   offset: number;
   bounds_applied: boolean;
   missing_coordinates_count: number;
+  search_circle?: CatalogSearchCircleResponse | null;
 }
 
 export interface ProviderFreshness {
@@ -124,6 +131,7 @@ export interface Bounds {
   minLng: number;
   maxLng: number;
   zoom: number;
+  radiusKm: number;
 }
 
 export interface CatalogFilters {
@@ -164,7 +172,7 @@ export interface ProviderAuditLog {
   provider_code: ProviderCode;
   actor_email: string | null;
   action: string;
-  changed_fields: string[];
+  changed_fields: Record<string, unknown> | string[];
   created_at: string;
 }
 
@@ -228,8 +236,8 @@ export interface StatusCheckLog {
 export interface PointMetric {
   provider_code: ProviderCode;
   internal_point_id: string | null;
-  external_point_id: string;
-  point_name: string;
+  external_point_id: string | null;
+  point_name: string | null;
   point_views: number;
   successful_reservations: number;
   failed_reservations: number;
@@ -255,7 +263,7 @@ export interface ProviderDailyTrend {
   failed_reservations: number;
   reservation_conversion_rate: number | null;
   observed_amount: number;
-  currency: string;
+  currency: string | null;
 }
 
 export interface ProviderSummary {
@@ -267,7 +275,7 @@ export interface ProviderSummary {
   failed_reservations: number;
   reservation_conversion_rate: number | null;
   observed_amount: number;
-  currency: string;
+  currency: string | null;
   top_viewed_points: PointMetric[];
   top_reserved_points: PointMetric[];
   status_distribution: Record<string, number>;
@@ -381,6 +389,13 @@ export interface SchedulerRun {
   error_type: string | null;
   error_message: string | null;
   correlation_id: string;
+}
+
+export interface SchedulerSequenceRun {
+  sequence_key: string;
+  status: "succeeded" | "completed_with_failures";
+  ordered_job_keys: string[];
+  runs: SchedulerRun[];
 }
 
 export interface SchedulerHealth {

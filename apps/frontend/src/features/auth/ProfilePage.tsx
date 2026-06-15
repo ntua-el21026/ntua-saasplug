@@ -19,7 +19,6 @@ export function ProfilePage() {
             {getInitials(user?.email)}
           </div>
           <div>
-            <p className="eyebrow">Account</p>
             <h1>{user?.email}</h1>
             <p>Manage your saasPlug identity, workspace access, and provider scope.</p>
           </div>

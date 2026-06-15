@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import {
@@ -8,8 +8,8 @@ import {
   SelectedFiltersBar,
 } from "../../components/domain/ev";
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
-import { MetricCard, PageHeader } from "../../components/ui";
 import { requestJson, messageFromUnknownError } from "../../lib/api";
+import { useAuth } from "../auth/AuthContext";
 import { PROVIDERS, STATUSES } from "../../lib/formatting";
 import {
   ATHENS_DEFAULT_BOUNDS,
@@ -17,14 +17,17 @@ import {
   CATALOG_RESULT_LIMIT_OPTIONS,
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
+  boundsFromCatalogSearchCircle,
   buildCatalogPointsPath,
+  catalogSearchCircle,
   catalogQueryRadiusKm,
   moveBounds,
-  pointWithinCatalogRadius,
+  pointWithinCatalogSearchCircle,
+  sameCatalogSearchCircle,
   zoomBounds,
   type CatalogResultLimit,
 } from "../../lib/routing";
-import type { Bounds, CatalogFilters, CatalogPointListResponse, ProviderFreshness } from "../../lib/types";
+import type { Bounds, CatalogFilters, CatalogPointListResponse } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
 const DEFAULT_FILTERS: CatalogFilters = {
@@ -36,35 +39,49 @@ const DEFAULT_FILTERS: CatalogFilters = {
 };
 
 export function CatalogPage() {
+  const { session } = useAuth();
   const [bounds, setBounds] = useState<Bounds>(ATHENS_DEFAULT_BOUNDS);
   const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
   const [resultLimit, setResultLimit] = useState<CatalogResultLimit>("all");
   const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(null);
-  const [freshness, setFreshness] = useState<ProviderFreshness[]>([]);
+  const [mapCircleReady, setMapCircleReady] = useState(false);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const latestRequestIdRef = useRef(0);
 
   const catalogRequest = useMemo(() => ({ bounds, filters, resultLimit }), [bounds, filters, resultLimit]);
 
   useEffect(() => {
+    if (!mapCircleReady) {
+      return;
+    }
+
     const abortController = new AbortController();
+    const requestId = latestRequestIdRef.current + 1;
+    latestRequestIdRef.current = requestId;
+    setCatalog(null);
+    setLoading(true);
+    setError(null);
+
     const timeout = window.setTimeout(async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const [points, freshnessRows] = await Promise.all([
-          loadCatalogPoints(catalogRequest.bounds, catalogRequest.filters, catalogRequest.resultLimit, abortController.signal),
-          requestJson<ProviderFreshness[]>("/api/catalog/freshness", { signal: abortController.signal }),
-        ]);
-        setCatalog(points);
-        setFreshness(freshnessRows);
+        const points = await loadCatalogPoints(
+          catalogRequest.bounds,
+          catalogRequest.filters,
+          catalogRequest.resultLimit,
+          abortController.signal,
+          session?.accessToken,
+        );
+        if (!abortController.signal.aborted && latestRequestIdRef.current === requestId) {
+          setCatalog(points);
+        }
       } catch (caught) {
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && latestRequestIdRef.current === requestId) {
           setError(messageFromUnknownError(caught));
         }
       } finally {
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && latestRequestIdRef.current === requestId) {
           setLoading(false);
         }
       }
@@ -74,38 +91,50 @@ export function CatalogPage() {
       window.clearTimeout(timeout);
       abortController.abort();
     };
-  }, [catalogRequest]);
+  }, [catalogRequest, mapCircleReady, session?.accessToken]);
 
-  const activeTotal = freshness.reduce((sum, row) => sum + row.active_count, 0);
-  const staleTotal = freshness.reduce((sum, row) => sum + row.stale_count, 0);
-  const selectedPoint = catalog?.items.find((point) => point.id === selectedPointId) ?? null;
-  const queryRadiusKm = catalogQueryRadiusKm(bounds.zoom);
+  const catalogSearchBounds = useMemo(
+    () => (catalog?.search_circle ? boundsFromCatalogSearchCircle(catalog.search_circle, bounds.zoom) : null),
+    [bounds, catalog?.search_circle],
+  );
+  const catalogMatchesCurrentCircle = catalog
+    ? catalogSearchBounds !== null && sameCatalogSearchCircle(catalogSearchBounds, bounds)
+    : true;
+  const catalogItemsForCircle = useMemo(
+    () => (catalogMatchesCurrentCircle ? catalog?.items ?? [] : []),
+    [catalog, catalogMatchesCurrentCircle],
+  );
+  const displayedCatalog = catalogMatchesCurrentCircle ? catalog : null;
+  const searchBounds = catalogMatchesCurrentCircle && catalogSearchBounds ? catalogSearchBounds : bounds;
+  const currentItems = useMemo(
+    () => catalogItemsForCircle.filter((point) => pointWithinCatalogSearchCircle(point, searchBounds)),
+    [catalogItemsForCircle, searchBounds],
+  );
+  const selectedPoint = currentItems.find((point) => point.id === selectedPointId) ?? null;
+  const queryRadiusKm = catalogQueryRadiusKm(searchBounds);
+
+  const handleBoundsChange = useCallback((nextBounds: Bounds) => {
+    setMapCircleReady(true);
+    setBounds((current) => (sameCatalogSearchCircle(current, nextBounds) ? current : nextBounds));
+  }, []);
+
+  const updateBoundsFromControl = useCallback((updater: (current: Bounds) => Bounds) => {
+    setBounds((current) => updater(current));
+  }, []);
 
   useEffect(() => {
-    if (!catalog?.items.length) {
+    if (!currentItems.length) {
       setSelectedPointId(null);
       return;
     }
-    if (selectedPointId && !catalog.items.some((point) => point.id === selectedPointId)) {
+    if (selectedPointId && !currentItems.some((point) => point.id === selectedPointId)) {
       setSelectedPointId(null);
     }
-  }, [catalog, selectedPointId]);
+  }, [currentItems, selectedPointId]);
 
   return (
     <AppShell>
       <main className="page map-page">
-        <PageHeader
-          title="Charging map"
-          description="Explore provider charging points, filter the visible catalog, and open reservation-ready point details."
-        />
-
-        <section className="metric-strip" aria-label="Catalog freshness">
-          <MetricCard label="Points in radius" value={catalog?.total ?? 0} />
-          <MetricCard label="Active catalog points" value={activeTotal} tone="success" />
-          <MetricCard label="Stale catalog points" value={staleTotal} tone="warning" />
-          <MetricCard label="Without coordinates" value={catalog?.missing_coordinates_count ?? 0} tone="info" />
-        </section>
-
         <section className="map-workspace">
           <aside className="map-results-panel" aria-label="Charging point filters and results">
             <MapFilterPanel
@@ -119,9 +148,9 @@ export function CatalogPage() {
             />
             <SelectedFiltersBar filters={filters} onChange={setFilters} />
             <div className="results-summary">
-              <strong>{catalog?.total ?? 0} results</strong>
+              <strong>{displayedCatalog ? currentItems.length : 0} results</strong>
               <span>
-                {catalog ? `${catalog.items.length} shown` : "Loading"} · {queryRadiusKm.toFixed(1)} km radius
+                {displayedCatalog ? `${currentItems.length} shown` : "Loading"} · {queryRadiusKm.toFixed(1)} km radius
               </span>
             </div>
             {loading ? <LoadingBlock label="Loading catalog" /> : null}
@@ -130,13 +159,13 @@ export function CatalogPage() {
                 {error}
               </Alert>
             ) : null}
-            {!loading && !error && catalog?.items.length === 0 ? (
+            {!loading && !error && displayedCatalog && currentItems.length === 0 ? (
               <EmptyState title="No charging points found">
                 The catalog may be empty until provider sync/import runs with valid provider credentials.
               </EmptyState>
             ) : null}
             <div className="point-list">
-              {catalog?.items.map((point) => (
+              {currentItems.map((point) => (
                 <ChargingPointCard
                   key={point.id}
                   point={point}
@@ -157,28 +186,26 @@ export function CatalogPage() {
               </div>
             </div>
             <MapFloatingControls
-              onNorth={() => setBounds((current) => moveBounds(current, "north"))}
-              onSouth={() => setBounds((current) => moveBounds(current, "south"))}
-              onWest={() => setBounds((current) => moveBounds(current, "west"))}
-              onEast={() => setBounds((current) => moveBounds(current, "east"))}
-              onZoomIn={() => setBounds((current) => zoomBounds(current, "in"))}
-              onZoomOut={() => setBounds((current) => zoomBounds(current, "out"))}
+              onNorth={() => updateBoundsFromControl((current) => moveBounds(current, "north"))}
+              onSouth={() => updateBoundsFromControl((current) => moveBounds(current, "south"))}
+              onWest={() => updateBoundsFromControl((current) => moveBounds(current, "west"))}
+              onEast={() => updateBoundsFromControl((current) => moveBounds(current, "east"))}
+              onZoomIn={() => updateBoundsFromControl((current) => zoomBounds(current, "in"))}
+              onZoomOut={() => updateBoundsFromControl((current) => zoomBounds(current, "out"))}
               zoom={bounds.zoom}
               minZoom={MAP_MIN_ZOOM}
               maxZoom={MAP_MAX_ZOOM}
             />
-            {catalog ? (
-              <CatalogMap
-                points={catalog.items}
-                bounds={bounds}
-                selectedPointId={selectedPoint?.id}
-                onSelectPoint={setSelectedPointId}
-                onClosePoint={() => setSelectedPointId(null)}
-                onBoundsChange={setBounds}
-              />
-            ) : (
-              <LoadingBlock label="Loading map" />
-            )}
+            <CatalogMap
+              points={currentItems}
+              bounds={bounds}
+              searchBounds={searchBounds}
+              selectedPointId={selectedPoint?.id}
+              onSelectPoint={setSelectedPointId}
+              onClosePoint={() => setSelectedPointId(null)}
+              onBoundsChange={handleBoundsChange}
+              loading={loading}
+            />
           </section>
 
         </section>
@@ -192,35 +219,41 @@ async function loadCatalogPoints(
   filters: CatalogFilters,
   resultLimit: CatalogResultLimit,
   signal: AbortSignal,
+  accessToken?: string | null,
 ): Promise<CatalogPointListResponse> {
+  const fetchLimit = resultLimit === "all" ? CATALOG_POINTS_PAGE_LIMIT : Math.min(CATALOG_POINTS_PAGE_LIMIT, resultLimit);
+  const requestCircle = catalogSearchCircle(bounds);
   const firstPage = await requestJson<CatalogPointListResponse>(
-    buildCatalogPointsPath(bounds, filters, CATALOG_POINTS_PAGE_LIMIT, 0),
-    { signal },
+    buildCatalogPointsPath(bounds, filters, fetchLimit, 0),
+    { signal, accessToken },
   );
 
   const pageLimit = firstPage.limit || CATALOG_POINTS_PAGE_LIMIT;
   const offsets: number[] = [];
-  for (let offset = pageLimit; offset < firstPage.total; offset += pageLimit) {
-    offsets.push(offset);
+  if (resultLimit === "all") {
+    for (let offset = pageLimit; offset < firstPage.total; offset += pageLimit) {
+      offsets.push(offset);
+    }
   }
 
   const pages = await Promise.all(
     offsets.map((offset) => requestJson<CatalogPointListResponse>(
       buildCatalogPointsPath(bounds, filters, pageLimit, offset),
-      { signal },
+      { signal, accessToken },
     )),
   );
-  const radiusItems = [firstPage, ...pages]
-    .flatMap((page) => page.items)
-    .filter((point) => pointWithinCatalogRadius(point, bounds));
-  const visibleItems = resultLimit === "all" ? radiusItems : radiusItems.slice(0, resultLimit);
+  const items = [firstPage, ...pages].flatMap((page) => page.items);
 
   return {
     ...firstPage,
-    items: visibleItems,
-    total: radiusItems.length,
-    limit: resultLimit === "all" ? radiusItems.length : resultLimit,
+    items,
+    total: firstPage.total,
+    limit: firstPage.limit,
     offset: 0,
-    missing_coordinates_count: 0,
+    search_circle: firstPage.search_circle ?? {
+      center_lat: requestCircle.centerLat,
+      center_lng: requestCircle.centerLng,
+      radius_km: requestCircle.radiusKm,
+    },
   };
 }

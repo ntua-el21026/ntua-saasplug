@@ -5,19 +5,17 @@ import { Card, DataTable as UiDataTable, MetricCard as UiMetricCard, PageHeader,
 import { formatNumber } from "../../lib/formatting";
 
 export function DashboardPage({
-  eyebrow,
   title,
   description,
   children,
 }: {
-  eyebrow: string;
   title: string;
   description: string;
   children: ReactNode;
 }) {
   return (
     <main className="page admin-page">
-      <PageHeader eyebrow={eyebrow} title={title} description={description} />
+      <PageHeader title={title} description={description} />
       {children}
     </main>
   );

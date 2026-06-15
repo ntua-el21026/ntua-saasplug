@@ -1,6 +1,8 @@
 @startuml
-title Reservation event propagation to analytics and billing
+title Event propagation to analytics and billing
 
+participant "catalog-service" as Catalog
+participant "status-service" as Status
 participant "reservation-service" as Reservation
 database "reservation-postgres" as ReservationDb
 queue "RabbitMQ\nsaasplug.events" as RabbitMQ
@@ -8,6 +10,10 @@ participant "analytics-service" as Analytics
 database "analytics-postgres" as AnalyticsDb
 participant "billing-service" as Billing
 database "billing-postgres" as BillingDb
+
+Catalog -> RabbitMQ : Publish usage.search_performed or usage.point_viewed
+Catalog -> RabbitMQ : Publish catalog.points.imported after imports
+Status -> RabbitMQ : Publish status.point_checked after status lookups
 
 Reservation -> ReservationDb : Read pending reservation_event_outbox rows
 Reservation -> RabbitMQ : Publish reservation.succeeded or reservation.failed

@@ -32,7 +32,6 @@ export function ChargingPointCard({
           <span className="point-card-meta">
             {providerLabel(point.provider_code)} · {point.connector ?? "Connector unknown"} · {formatCapacity(point.capacity)}
           </span>
-          {point.coordinate_source === "demo_synthetic" ? <span className="demo-coordinate-note">Demo map coordinates</span> : null}
         </span>
         <span className="point-card-side">
           <ChargingPointStatusBadge status={point.status} />
