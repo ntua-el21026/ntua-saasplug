@@ -5,12 +5,26 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import routes
+from app import event_publisher
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.main import app
 from app.models import StatusCache, StatusCheckLog, utcnow
 from app.provider_client import ProviderServiceError
 from app.schemas import ProviderStatusDTO
+from saasplug_events.routing import EventType
+
+
+class FakeEventPublisher:
+    def __init__(self) -> None:
+        self.envelopes = []
+        self.closed = False
+
+    def publish(self, envelope) -> None:
+        self.envelopes.append(envelope)
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def provider_status(
@@ -75,6 +89,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "status-test-secret")
     monkeypatch.setenv("STATUS_CACHE_TTL_SECONDS", "300")
     monkeypatch.setenv("STATUS_PROVIDER_TIMEOUT_SECONDS", "2")
+    monkeypatch.setenv("STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED", "false")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     fake_client = FakeProviderServiceClient()
@@ -90,6 +105,13 @@ def operator_headers() -> dict[str, str]:
 
 def ev_headers() -> dict[str, str]:
     return auth_headers(["EV_USER"], "evuser@saasplug.local")
+
+
+def enable_fake_event_publisher(monkeypatch) -> FakeEventPublisher:
+    fake_publisher = FakeEventPublisher()
+    get_settings().rabbitmq_event_publish_enabled = True
+    monkeypatch.setattr(event_publisher, "build_event_publisher", lambda settings: fake_publisher)
+    return fake_publisher
 
 
 def test_health_endpoint_still_works(test_context) -> None:
@@ -118,6 +140,24 @@ def test_first_lookup_calls_provider_and_stores_cache(test_context) -> None:
         assert db.query(StatusCheckLog).count() == 1
     finally:
         db.close()
+
+
+def test_status_lookup_publishes_status_checked_event(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+
+    response = client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    assert response.status_code == 200
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.STATUS_POINT_CHECKED.value
+    assert envelope.producer == "status-service"
+    assert envelope.payload["provider_code"] == "redPlug"
+    assert envelope.payload["external_point_id"] == "101"
+    assert envelope.payload["status"] == "available"
+    assert envelope.payload["provider_called"] is True
+    assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
 
 
 def test_second_lookup_within_ttl_returns_cache_without_provider_call(test_context) -> None:
@@ -225,6 +265,28 @@ def test_provider_failure_without_cache_returns_normalized_502(test_context) -> 
         assert log.external_status_code == 403
     finally:
         db.close()
+
+
+def test_status_lookup_failure_publishes_status_checked_error_event(test_context, monkeypatch) -> None:
+    client, fake_client = test_context
+    fake_client.failures[("redPlug", "101")] = ProviderServiceError(
+        "redPlug",
+        "provider_http_error",
+        "Provider returned an HTTP error",
+        status_code=502,
+        external_status_code=403,
+    )
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+
+    response = client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    assert response.status_code == 502
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.STATUS_POINT_CHECKED.value
+    assert envelope.payload["status"] == "unknown"
+    assert envelope.payload["source"] == "provider_error"
+    assert envelope.payload["error_type"] == "provider_http_error"
 
 
 def test_provider_response_with_wrong_provider_code_returns_502_without_cache(test_context) -> None:

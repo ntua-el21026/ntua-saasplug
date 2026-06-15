@@ -144,6 +144,12 @@ distributed transaction mechanism.
 the configured `saasplug.events` exchange and preserves failed rows as pending
 with attempt/error metadata.
 
+Draining billing events and publishing the billing outbox are intentionally
+separate. The drain step consumes `reservation.succeeded`,
+`reservation.failed`, and `usage.point_viewed` to create billing-owned records.
+The outbox publish step propagates billing-created charge, invoice, and payment
+events after billing has already committed its own state.
+
 Internal scheduler endpoints:
 
 ```text

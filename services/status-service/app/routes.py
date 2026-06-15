@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.config import PROVIDER_CODES, Settings, get_settings
 from app.database import get_db
+from app.event_publisher import publish_best_effort_event
 from app.models import StatusCache, StatusCheckLog, utcnow
 from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import (
@@ -15,6 +16,7 @@ from app.schemas import (
 )
 from app.security import ensure_log_reader, get_current_principal
 from app.status_logic import get_cache, lookup_status, validate_provider_code
+from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["status"])
 
@@ -71,7 +73,7 @@ def read_point_status(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     provider_client = ProviderServiceClient(settings)
     try:
-        return lookup_status(
+        response = lookup_status(
             db,
             provider_code=provider_code,
             external_point_id=external_point_id,
@@ -80,7 +82,18 @@ def read_point_status(
             settings=settings,
             provider_client=provider_client,
         )
+        publish_status_event(settings, principal, response, force_refresh=force_refresh)
+        return response
     except ProviderServiceError as exc:
+        publish_status_error_event(
+            settings,
+            principal,
+            provider_code=provider_code,
+            external_point_id=external_point_id,
+            force_refresh=force_refresh,
+            error_type=exc.error_type,
+            external_status_code=exc.external_status_code,
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
@@ -193,3 +206,63 @@ def read_freshness(db: Session = Depends(get_db)) -> list[ProviderFreshnessRespo
             ),
         )
     return freshness
+
+
+def publish_status_event(
+    settings: Settings,
+    principal: CurrentPrincipal,
+    response: StatusLookupResponse,
+    *,
+    force_refresh: bool,
+) -> None:
+    payload = {
+        "user_id": principal.sub,
+        "provider_code": response.provider_code,
+        "internal_point_id": response.normalized_point_id,
+        "normalized_point_id": response.normalized_point_id,
+        "external_point_id": response.external_point_id,
+        "status": response.status,
+        "cache_hit": response.cache_hit,
+        "force_refresh": force_refresh,
+        "provider_called": response.provider_called,
+        "returned_stale": response.returned_stale,
+        "source": response.source,
+    }
+    publish_best_effort_event(
+        settings,
+        event_type=EventType.STATUS_POINT_CHECKED.value,
+        payload=payload,
+    )
+
+
+def publish_status_error_event(
+    settings: Settings,
+    principal: CurrentPrincipal,
+    *,
+    provider_code: str,
+    external_point_id: str,
+    force_refresh: bool,
+    error_type: str,
+    external_status_code: int | None,
+) -> None:
+    normalized_point_id = f"{provider_code}:{external_point_id}"
+    payload = {
+        "user_id": principal.sub,
+        "provider_code": provider_code,
+        "internal_point_id": normalized_point_id,
+        "normalized_point_id": normalized_point_id,
+        "external_point_id": external_point_id,
+        "status": "unknown",
+        "cache_hit": False,
+        "force_refresh": force_refresh,
+        "provider_called": True,
+        "returned_stale": False,
+        "source": "provider_error",
+        "error_type": error_type,
+        "external_status_code": external_status_code,
+    }
+    publish_best_effort_event(
+        settings,
+        event_type=EventType.STATUS_POINT_CHECKED.value,
+        payload=payload,
+    )

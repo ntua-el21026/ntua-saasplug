@@ -75,7 +75,7 @@ Implemented frontend routes:
 | `/operator/invoices/new` | Operator invoice issuance |
 | `/operator/invoices/:invoiceId` | Operator invoice detail view |
 | `/operator/pricing` | Pricing rule creation and activation controls |
-| `/operator/sync` | Scheduler jobs/manual runs plus catalog, analytics, billing, and reservation outbox action controls |
+| `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, interval editing, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
 | `/operator/system` | Service health, scheduler health, freshness, and run-history overview |
 
 Authenticated EV routes require `EV_USER`. Provider routes require
@@ -125,6 +125,17 @@ The map surface uses `maplibre-gl` with the public OpenFreeMap style at
 API key, registration, or frontend secret. The browser still reads charging
 points only from gateway-relative catalog routes and never calls provider APIs
 directly.
+
+The EV map derives its search circle from the rendered MapLibre viewport, not
+from a fixed zoom-to-kilometers table. On pan or zoom, the frontend computes a
+circle that occupies a stable percentage of the visible map, sends
+`centerLat`, `centerLng`, and `radiusKm` to `/api/catalog/points`, and renders
+only the rows returned inside that same circle. The catalog response echoes the
+applied `search_circle`; the blue radius overlay and radius text are driven by
+that committed response circle when points are displayed. As a fail-closed
+guard, the frontend applies the same Haversine circle check before rendering
+cards or markers, so broad or stale responses cannot place points outside the
+blue circle.
 
 ## Commands
 

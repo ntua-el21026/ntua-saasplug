@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.executor import select_due_jobs
+from app.jobs import ORDERED_MAINTENANCE_JOB_KEYS, seed_default_jobs
 from app.main import app
 from app.models import ScheduledJob, utcnow
 
@@ -123,14 +124,14 @@ def test_patch_rejects_invalid_interval_before_mutating_job(test_context) -> Non
     assert response.status_code == 422
     unchanged = test_context.get("/jobs/catalog.import.all", headers=operator_headers())
     assert unchanged.status_code == 200
-    assert unchanged.json()["interval_seconds"] == 900
+    assert unchanged.json()["interval_seconds"] == 86400
 
 
 def test_interval_next_run_and_due_job_selection(test_context) -> None:
     session = get_session_factory()()
     try:
         job = session.query(ScheduledJob).filter(ScheduledJob.job_key == "catalog.import.all").one()
-        assert job.interval_seconds == 900
+        assert job.interval_seconds == 86400
         assert job.next_run_at is not None
 
         job.next_run_at = utcnow() - timedelta(seconds=1)
@@ -140,6 +141,53 @@ def test_interval_next_run_and_due_job_selection(test_context) -> None:
         assert [due_job.job_key for due_job in due_jobs] == ["catalog.import.all"]
     finally:
         session.close()
+
+
+def test_default_job_intervals_match_operational_cadence(test_context) -> None:
+    response = test_context.get("/jobs", headers=operator_headers())
+
+    assert response.status_code == 200
+    jobs = {job["job_key"]: job for job in response.json()}
+    assert jobs["catalog.import.all"]["interval_seconds"] == 86400
+    assert jobs["analytics.consume-events"]["interval_seconds"] == 7200
+    assert jobs["analytics.refresh-aggregates"]["interval_seconds"] == 86400
+    assert jobs["billing.drain-events"]["interval_seconds"] == 43200
+    assert jobs["billing.publish-outbox"]["interval_seconds"] == 43200
+    assert jobs["reservation.publish-outbox"]["interval_seconds"] == 60
+
+
+def test_seed_refresh_migrates_previous_analytics_aggregate_defaults(test_context) -> None:
+    session = get_session_factory()()
+    try:
+        job = session.query(ScheduledJob).filter(ScheduledJob.job_key == "analytics.refresh-aggregates").one()
+        job.interval_seconds = 7200
+        session.commit()
+
+        seed_default_jobs(session)
+        session.refresh(job)
+
+        assert job.interval_seconds == 86400
+    finally:
+        session.close()
+
+
+def test_operator_interval_override_survives_seed_refresh(test_context) -> None:
+    patch_response = test_context.patch(
+        "/jobs/catalog.import.all",
+        headers=operator_headers(),
+        json={"interval_seconds": 172800},
+    )
+    assert patch_response.status_code == 200
+
+    session = get_session_factory()()
+    try:
+        seed_default_jobs(session)
+    finally:
+        session.close()
+
+    response = test_context.get("/jobs/catalog.import.all", headers=operator_headers())
+    assert response.status_code == 200
+    assert response.json()["interval_seconds"] == 172800
 
 
 def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context, monkeypatch) -> None:
@@ -190,6 +238,45 @@ def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context,
     assert run_detail_response.status_code == 200
     assert run_detail_response.json()["id"] == payload["id"]
     assert ev_runs_response.status_code == 403
+
+
+def test_operator_can_run_ordered_maintenance_sequence(test_context, monkeypatch) -> None:
+    captured_calls: list[str] = []
+    real_httpx_client = httpx.Client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_calls.append(f"{request.url.host}{request.url.path}")
+        return httpx.Response(200, json={"status": "completed"}, headers={"Content-Type": "application/json"})
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.client = real_httpx_client(transport=httpx.MockTransport(handler), timeout=timeout)
+
+        def request(self, *args, **kwargs):
+            return self.client.request(*args, **kwargs)
+
+        def close(self) -> None:
+            self.client.close()
+
+    monkeypatch.setattr("app.client.httpx.Client", FakeClient)
+
+    response = test_context.post("/jobs/run-maintenance", headers=operator_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["sequence_key"] == "maintenance.ordered"
+    assert payload["status"] == "succeeded"
+    assert payload["ordered_job_keys"] == list(ORDERED_MAINTENANCE_JOB_KEYS)
+    assert [run["job_key"] for run in payload["runs"]] == list(ORDERED_MAINTENANCE_JOB_KEYS)
+    assert {run["trigger_type"] for run in payload["runs"]} == {"manual_sequence"}
+    assert captured_calls == [
+        "catalog-service/internal/jobs/catalog/imports/all",
+        "reservation-service/internal/jobs/outbox/publish-pending",
+        "billing-service/internal/jobs/events/drain",
+        "billing-service/internal/jobs/outbox/publish-pending",
+        "analytics-service/internal/jobs/events/consume",
+        "analytics-service/internal/jobs/aggregates/refresh",
+    ]
 
 
 def test_target_http_error_is_persisted(test_context, monkeypatch) -> None:

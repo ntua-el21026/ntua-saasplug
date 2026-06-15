@@ -1,4 +1,5 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
@@ -53,8 +54,14 @@ function responseFor(pathname: string, role: Role): unknown {
   if (pathname === "/api/analytics/provider/trends/daily") {
     return [];
   }
+  if (pathname === "/api/analytics/provider/freshness") {
+    return analyticsFreshness();
+  }
   if (pathname === "/api/billing/providers/redPlug/overview" || pathname === "/api/billing/overview") {
     return billingOverview();
+  }
+  if (pathname === "/api/billing/pricing/effective/redPlug") {
+    return pricingRule();
   }
   if (pathname === "/api/billing/invoices") {
     return [];
@@ -74,6 +81,15 @@ function responseFor(pathname: string, role: Role): unknown {
   if (pathname === "/api/providers/providers") {
     return [];
   }
+  if (pathname === "/api/providers/providers/redPlug") {
+    return providerRecord();
+  }
+  if (pathname === "/api/providers/providers/redPlug/integration-config") {
+    return providerIntegrationConfig();
+  }
+  if (pathname === "/api/providers/providers/redPlug/audit-logs") {
+    return [providerAuditLog()];
+  }
   if (pathname === "/api/catalog/imports/runs") {
     return [];
   }
@@ -85,6 +101,21 @@ function responseFor(pathname: string, role: Role): unknown {
   }
   if (pathname === "/api/scheduler/runs") {
     return [schedulerRun()];
+  }
+  if (pathname === "/api/scheduler/jobs/run-maintenance") {
+    return {
+      sequence_key: "maintenance.ordered",
+      status: "succeeded",
+      ordered_job_keys: [
+        "catalog.import.all",
+        "reservation.publish-outbox",
+        "billing.drain-events",
+        "billing.publish-outbox",
+        "analytics.consume-events",
+        "analytics.refresh-aggregates",
+      ],
+      runs: [schedulerRun()],
+    };
   }
   if (pathname.endsWith("/health")) {
     return { status: "healthy" };
@@ -102,13 +133,88 @@ function providerSummary() {
     failed_reservations: 0,
     reservation_conversion_rate: null,
     observed_amount: 0,
-    currency: "EUR",
+    currency: null,
     top_viewed_points: [],
     top_reserved_points: [],
     status_distribution: {},
     data_freshness: null,
     last_event_ingested_at: null,
     last_aggregate_computed_at: null,
+  };
+}
+
+function analyticsFreshness() {
+  return {
+    provider_code: "redPlug",
+    last_event_ingested_at: null,
+    last_aggregate_computed_at: null,
+    last_catalog_import_at: null,
+    latest_catalog_import_status: null,
+    analytics_delay_notice: "no_events_ingested",
+  };
+}
+
+function providerRecord() {
+  return {
+    id: "red-provider-id",
+    provider_code: "redPlug",
+    display_name: "redPlug",
+    legal_name: "Red Plug SA",
+    contact_email: "red-admin@saasplug.local",
+    api_base_url: "https://red.example.test",
+    api_key_env_var: "RED_PROVIDER_API_KEY",
+    api_auth_type: "api_key",
+    api_auth_header: "Authorization",
+    timeout_seconds: 10,
+    is_active: true,
+    is_seeded: true,
+  };
+}
+
+function providerIntegrationConfig() {
+  return {
+    provider_code: "redPlug",
+    api_base_url: "https://red.example.test",
+    api_auth_type: "api_key",
+    api_auth_header: "Authorization",
+    api_key_env_var: "RED_PROVIDER_API_KEY",
+    timeout_seconds: 10,
+    is_active: true,
+    secret_configured_elsewhere: true,
+  };
+}
+
+function pricingRule() {
+  return {
+    id: "pricing-red",
+    provider_code: "redPlug",
+    name: "Default provider pricing",
+    active: true,
+    currency: "EUR",
+    reservation_success_fee: 0.5,
+    point_view_fee: 0.01,
+    point_view_fee_enabled: true,
+    reservation_failure_fee: 0,
+    created_by_email: "operator@saasplug.local",
+    created_at: "2026-06-13T00:00:00Z",
+    updated_at: "2026-06-13T00:00:00Z",
+  };
+}
+
+function providerAuditLog() {
+  return {
+    id: "audit-1",
+    provider_id: "red-provider-id",
+    provider_code: "redPlug",
+    actor_user_id: "operator-id",
+    actor_email: "operator@saasplug.local",
+    actor_roles: ["OPERATOR"],
+    action: "updated",
+    changed_fields: {
+      display_name: { old: "redPlug", new: "redPlug Athens" },
+      is_active: { old: true, new: false },
+    },
+    created_at: "2026-06-13T00:00:00Z",
   };
 }
 
@@ -169,7 +275,7 @@ function schedulerJob() {
     target_url_path: "/internal/jobs/catalog/imports/all",
     http_method: "POST",
     schedule_type: "interval",
-    interval_seconds: 900,
+    interval_seconds: 86400,
     cron_expression: null,
     timezone: "UTC",
     enabled: true,
@@ -229,6 +335,41 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /provider command center/i })).toBeInTheDocument();
+    expect(screen.queryByText(/provider workspace/i)).not.toBeInTheDocument();
+  });
+
+  it("renders provider analytics when aggregates do not yet have a currency", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/provider/analytics");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^provider analytics$/i })).toBeInTheDocument();
+    expect(await screen.findByText("€0.00")).toBeInTheDocument();
+  });
+
+  it("renders provider settings audit fields returned as a backend object", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/provider/settings");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^provider settings$/i })).toBeInTheDocument();
+    expect(await screen.findByText("display_name, is_active")).toBeInTheDocument();
+  });
+
+  it("renders the provider-admin profile without leaving the workspace shell blank", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/profile");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /provider_admin@saasplug.local/i })).toBeInTheDocument();
+    expect(screen.getByText("redPlug")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open provider workspace/i })).toHaveAttribute("href", "/provider/dashboard");
   });
 
   it("redirects operators to the operator dashboard", async () => {
@@ -239,6 +380,7 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /operator command center/i })).toBeInTheDocument();
+    expect(screen.queryByText(/operator workspace/i)).not.toBeInTheDocument();
   });
 
   it("blocks EV users from provider-admin routes", async () => {
@@ -260,6 +402,53 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /scheduler control plane/i })).toBeInTheDocument();
     expect((await screen.findAllByText(/catalog import all/i)).length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue("86400")).toBeInTheDocument();
+    expect(screen.getByText(/every day/i)).toBeInTheDocument();
+  });
+
+  it("lets operators update an interval job schedule", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    const intervalInput = await screen.findByLabelText(/catalog\.import\.all interval seconds/i);
+    await userEvent.clear(intervalInput);
+    await userEvent.type(intervalInput, "172800");
+    const form = intervalInput.closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form as HTMLFormElement);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/catalog.import.all",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+    const patchCall = vi.mocked(fetch).mock.calls.find(([input, options]) => (
+      input === "/api/scheduler/jobs/catalog.import.all" && options?.method === "PATCH"
+    ));
+    expect(patchCall).toBeDefined();
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({ interval_seconds: 172800 });
+  });
+
+  it("lets operators run the ordered maintenance sequence", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    const button = await screen.findByRole("button", { name: /run maintenance sequence/i });
+    await userEvent.click(button);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/run-maintenance",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
   });
 
   it("blocks EV users from operator scheduler controls", async () => {

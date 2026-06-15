@@ -85,7 +85,6 @@ export function LoginPage() {
     >
       <div className="auth-panel-header">
         <div>
-          <p className="eyebrow">Welcome back</p>
           <h2>Continue to your workspace</h2>
         </div>
       </div>
@@ -123,7 +122,7 @@ export function LoginPage() {
             </button>
           </span>
         </label>
-        <div className="button-row">
+        <div className="button-row auth-action-row">
           <button className="button-primary" type="submit" disabled={submitting}>
             {submitting ? "Signing in..." : "Sign in"}
           </button>

@@ -202,11 +202,15 @@ services:
   catalog-service:
     container_name: catalog-service
     build:
-      context: ./services/catalog-service
+      context: .
+      dockerfile: services/catalog-service/Dockerfile
     environment:
       SERVICE_NAME: catalog-service
       DATABASE_URL: ${CATALOG_DATABASE_URL:-postgresql://saasplug:saasplug@catalog-postgres:5432/catalog}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
+      RABBITMQ_PUBLISH_TIMEOUT_SECONDS: ${RABBITMQ_PUBLISH_TIMEOUT_SECONDS:-5}
+      CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED: ${CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED:-true}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       RED_PROVIDER_SERVICE_URL: ${RED_PROVIDER_SERVICE_URL:-http://red-provider-service:8000}
       GREEN_PROVIDER_SERVICE_URL: ${GREEN_PROVIDER_SERVICE_URL:-http://green-provider-service:8000}
@@ -228,11 +232,15 @@ services:
   status-service:
     container_name: status-service
     build:
-      context: ./services/status-service
+      context: .
+      dockerfile: services/status-service/Dockerfile
     environment:
       SERVICE_NAME: status-service
       DATABASE_URL: ${STATUS_DATABASE_URL:-postgresql://saasplug:saasplug@status-postgres:5432/status}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
+      RABBITMQ_PUBLISH_TIMEOUT_SECONDS: ${RABBITMQ_PUBLISH_TIMEOUT_SECONDS:-5}
+      STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED: ${STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED:-true}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       STATUS_CACHE_TTL_SECONDS: ${STATUS_CACHE_TTL_SECONDS:-300}
       STATUS_PROVIDER_TIMEOUT_SECONDS: ${STATUS_PROVIDER_TIMEOUT_SECONDS:-10}

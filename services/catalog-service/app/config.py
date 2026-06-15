@@ -30,6 +30,12 @@ class Settings:
         )
         self.import_on_startup = os.getenv("CATALOG_IMPORT_ON_STARTUP", "false").lower() == "true"
         self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
+        self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+        self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")
+        self.rabbitmq_publish_timeout_seconds = float(os.getenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "5"))
+        self.rabbitmq_event_publish_enabled = (
+            os.getenv("CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED", "false").lower() == "true"
+        )
 
     def provider_service_url(self, provider_code: str) -> str:
         provider_urls = {

@@ -46,7 +46,7 @@ GET  /freshness
 - Provider-specific raw API calls in the normal user search path.
 - Reservation truth.
 - Status cache ownership.
-- RabbitMQ business publishers or consumers.
+- RabbitMQ consumers or queue-drain workers.
 - Cross-service SQL joins.
 
 ## Provider-service import flow
@@ -75,6 +75,8 @@ Each import:
 6. marks provider points missing from the latest import as `is_active=false`
    and `is_stale=true`;
 7. records final counts and completion/failure status.
+8. publishes a best-effort `catalog.points.imported` analytics event after a
+   successful import.
 
 Raw provider payloads are stored in `catalog_points.raw_provider_payload`, but
 sensitive-looking keys such as API keys, tokens, passwords, and authorization
@@ -109,6 +111,9 @@ minLat
 maxLat
 minLng
 maxLng
+centerLat
+centerLng
+radiusKm
 providerCode
 status
 connector
@@ -118,10 +123,15 @@ limit
 offset
 ```
 
-If any bounds are supplied, all four bounds are required. Coordinate-less rows
-do not match bounded viewport queries. The default result set includes only
-active, non-stale points. `q` searches display name, location name, address, and
-normalized point ID.
+If any bounds are supplied, all four bounds are required. If any radius
+parameter is supplied, `centerLat`, `centerLng`, and `radiusKm` are all
+required. Radius queries use a SQL bounding-box prefilter followed by exact
+Haversine distance filtering before `total`, `limit`, and `offset` are applied,
+so returned rows are inside the requested circle. Radius responses include
+`search_circle` with the exact center and radius applied by the service.
+Coordinate-less rows do not match bounded or radius queries. The default result
+set includes only active, non-stale points. `q` searches display name, location
+name, address, and normalized point ID.
 
 ## Coordinate limitation
 
@@ -152,10 +162,29 @@ CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS=10
 CATALOG_IMPORT_ON_STARTUP=false
 JWT_SECRET=change-me-in-local-env
 SCHEDULER_INTERNAL_TOKEN=change-me-scheduler-token
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+RABBITMQ_EVENT_EXCHANGE=saasplug.events
+RABBITMQ_PUBLISH_TIMEOUT_SECONDS=5
+CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED=true
 ```
 
 `CATALOG_IMPORT_ON_STARTUP` intentionally defaults to `false` so normal stack
 startup does not surprise-call provider sync endpoints.
+
+## Analytics events
+
+`catalog-service` publishes best-effort analytics events through the shared
+RabbitMQ topology:
+
+| Event | Published after | Notes |
+|---|---|---|
+| `usage.search_performed` | First page of `GET /points` completes | Includes filters, matched provider codes, result count, and authenticated user id when a bearer token is present |
+| `usage.point_viewed` | `GET /points/{provider_code}/{external_point_id}` returns an active point | Includes provider, normalized point id, external point id, point name, and authenticated user id when available |
+| `catalog.points.imported` | A provider import completes successfully | Includes provider/import counts for analytics catalog-health projections |
+
+Event publishing is best-effort and non-blocking for user-facing catalog reads.
+If RabbitMQ is unavailable after the catalog operation completes, the catalog
+response still succeeds.
 
 ## Internal scheduler endpoints
 

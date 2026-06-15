@@ -60,6 +60,13 @@ class JobRunResponse(BaseModel):
     correlation_id: str
 
 
+class JobSequenceRunResponse(BaseModel):
+    sequence_key: str
+    status: Literal["succeeded", "completed_with_failures"]
+    ordered_job_keys: list[str]
+    runs: list[JobRunResponse]
+
+
 class JobPatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

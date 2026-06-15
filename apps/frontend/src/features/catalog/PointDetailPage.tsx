@@ -35,6 +35,7 @@ export function PointDetailPage() {
       try {
         const payload = await requestJson<CatalogPointDetail>(
           `/api/catalog/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}`,
+          { accessToken: session?.accessToken },
         );
         if (!cancelled) {
           setPoint(payload);
@@ -53,7 +54,7 @@ export function PointDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [externalPointId, providerCode]);
+  }, [externalPointId, providerCode, session?.accessToken]);
 
   useEffect(() => {
     if (session?.accessToken) {
@@ -124,7 +125,6 @@ export function PointDetailPage() {
         {point ? (
           <>
             <PageHeader
-              eyebrow="EV workspace"
               title={point.display_name}
               description={point.address ?? point.location_name ?? point.normalized_point_id}
               actions={

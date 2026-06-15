@@ -23,6 +23,25 @@ class JobSeed:
     retry_backoff_seconds: int = 5
 
 
+SEEDED_INTERVAL_REPLACEMENT_SECONDS = {
+    "catalog.import.all": {15 * 60},
+    "analytics.consume-events": {60},
+    "analytics.refresh-aggregates": {5 * 60, 2 * 60 * 60},
+    "billing.drain-events": {60},
+    "billing.publish-outbox": {60},
+    "reservation.publish-outbox": {60},
+}
+
+ORDERED_MAINTENANCE_JOB_KEYS = (
+    "catalog.import.all",
+    "reservation.publish-outbox",
+    "billing.drain-events",
+    "billing.publish-outbox",
+    "analytics.consume-events",
+    "analytics.refresh-aggregates",
+)
+
+
 DEFAULT_JOBS: tuple[JobSeed, ...] = (
     JobSeed(
         "catalog.import.all",
@@ -30,7 +49,7 @@ DEFAULT_JOBS: tuple[JobSeed, ...] = (
         "catalog-service",
         "/internal/jobs/catalog/imports/all",
         "interval",
-        15 * 60,
+        24 * 60 * 60,
         None,
         "UTC",
         180,
@@ -42,7 +61,7 @@ DEFAULT_JOBS: tuple[JobSeed, ...] = (
         "analytics-service",
         "/internal/jobs/events/consume",
         "interval",
-        60,
+        2 * 60 * 60,
         None,
         "UTC",
         30,
@@ -54,7 +73,7 @@ DEFAULT_JOBS: tuple[JobSeed, ...] = (
         "analytics-service",
         "/internal/jobs/aggregates/refresh",
         "interval",
-        5 * 60,
+        24 * 60 * 60,
         None,
         "UTC",
         90,
@@ -66,7 +85,7 @@ DEFAULT_JOBS: tuple[JobSeed, ...] = (
         "billing-service",
         "/internal/jobs/events/drain",
         "interval",
-        60,
+        12 * 60 * 60,
         None,
         "UTC",
         30,
@@ -78,7 +97,7 @@ DEFAULT_JOBS: tuple[JobSeed, ...] = (
         "billing-service",
         "/internal/jobs/outbox/publish-pending",
         "interval",
-        60,
+        12 * 60 * 60,
         None,
         "UTC",
         30,
@@ -200,18 +219,50 @@ def seed_default_jobs(db: Session) -> None:
         job.target_service = seed.target_service
         job.target_url_path = seed.target_url_path
         job.http_method = "POST"
+        previous_schedule_type = job.schedule_type
         job.schedule_type = seed.schedule_type
-        job.interval_seconds = seed.interval_seconds
-        job.cron_expression = seed.cron_expression
+        schedule_changed = previous_schedule_type != seed.schedule_type
+        if should_apply_seeded_interval(job.job_key, previous_schedule_type, job.interval_seconds, seed.interval_seconds):
+            schedule_changed = schedule_changed or job.interval_seconds != seed.interval_seconds
+            job.interval_seconds = seed.interval_seconds
+        if should_apply_seeded_cron(previous_schedule_type, job.cron_expression, seed.cron_expression):
+            schedule_changed = schedule_changed or job.cron_expression != seed.cron_expression
+            job.cron_expression = seed.cron_expression
         job.timezone = seed.timezone
         job.timeout_seconds = seed.timeout_seconds
         job.max_retries = seed.max_retries
         job.retry_backoff_seconds = seed.retry_backoff_seconds
         if job.request_body is None:
             job.request_body = {}
-        if job.enabled and job.next_run_at is None:
+        if job.enabled and (job.next_run_at is None or schedule_changed):
             job.next_run_at = calculate_next_run(job, now)
     db.commit()
+
+
+def should_apply_seeded_interval(
+    job_key: str,
+    previous_schedule_type: str,
+    current_interval_seconds: int | None,
+    seeded_interval_seconds: int | None,
+) -> bool:
+    if seeded_interval_seconds is None:
+        return True
+    if previous_schedule_type != "interval":
+        return True
+    previous_seeded_defaults = SEEDED_INTERVAL_REPLACEMENT_SECONDS.get(job_key, set())
+    return current_interval_seconds is None or current_interval_seconds in previous_seeded_defaults
+
+
+def should_apply_seeded_cron(
+    previous_schedule_type: str,
+    current_cron_expression: str | None,
+    seeded_cron_expression: str | None,
+) -> bool:
+    if seeded_cron_expression is None:
+        return True
+    if previous_schedule_type != "cron":
+        return True
+    return current_cron_expression is None
 
 
 def calculate_next_run(job: ScheduledJob, from_time: datetime | None = None) -> datetime | None:

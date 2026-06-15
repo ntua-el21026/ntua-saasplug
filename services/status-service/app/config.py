@@ -15,6 +15,12 @@ class Settings:
         self.jwt_secret = os.getenv("JWT_SECRET", "change-me-in-local-env")
         self.cache_ttl_seconds = int(os.getenv("STATUS_CACHE_TTL_SECONDS", "300"))
         self.provider_timeout_seconds = float(os.getenv("STATUS_PROVIDER_TIMEOUT_SECONDS", "10"))
+        self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+        self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")
+        self.rabbitmq_publish_timeout_seconds = float(os.getenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "5"))
+        self.rabbitmq_event_publish_enabled = (
+            os.getenv("STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED", "false").lower() == "true"
+        )
         self.red_provider_service_url = os.getenv(
             "RED_PROVIDER_SERVICE_URL",
             "http://red-provider-service:8000",

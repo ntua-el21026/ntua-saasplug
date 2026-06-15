@@ -11,7 +11,6 @@ export function ProviderRegistrationPage() {
     >
       <div className="auth-panel-header">
         <div>
-          <p className="eyebrow">Provider onboarding</p>
           <h2>Integration requirements</h2>
         </div>
         <span className="auth-status-pill">API metadata</span>

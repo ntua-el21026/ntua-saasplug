@@ -76,6 +76,15 @@ billing.invoice_issued
 billing.invoice_paid
 ```
 
+Primary live producers are:
+
+| Producer | Events |
+|---|---|
+| `catalog-service` | `usage.search_performed`, `usage.point_viewed`, `catalog.points.imported` |
+| `status-service` | `status.point_checked` |
+| `reservation-service` | `reservation.succeeded`, `reservation.failed` |
+| `billing-service` | `billing.charge_created`, `billing.invoice_issued`, `billing.invoice_paid` |
+
 Manual deterministic ingest endpoint:
 
 ```text
@@ -126,6 +135,10 @@ POST /aggregates/refresh
 For the MVP, refresh truncates and rebuilds aggregate/cache tables from
 `usage_events`. Dashboards read these precomputed rows, not other services or
 live cross-service data.
+
+Queue draining and aggregate refresh are separate jobs. Draining moves RabbitMQ
+messages into `usage_events`. Refreshing aggregates recalculates dashboard
+tables from `usage_events`; it does not read RabbitMQ directly.
 
 Aggregates include:
 

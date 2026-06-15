@@ -6,11 +6,13 @@ ENV PYTHONPATH=/app
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY packages/events /tmp/packages/events
+COPY services/catalog-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir /tmp/packages/events
 
-COPY app ./app
-COPY tests ./tests
+COPY services/catalog-service/app ./app
+COPY services/catalog-service/tests ./tests
 
 EXPOSE 8000
 

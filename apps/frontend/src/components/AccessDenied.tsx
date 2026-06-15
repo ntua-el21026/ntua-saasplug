@@ -5,7 +5,6 @@ export function AccessDenied() {
     <AppShell>
       <main className="page page-narrow">
         <section className="page-heading">
-          <p className="eyebrow">Access control</p>
           <h1>Access denied</h1>
           <p>Your account role does not have access to this workspace.</p>
         </section>

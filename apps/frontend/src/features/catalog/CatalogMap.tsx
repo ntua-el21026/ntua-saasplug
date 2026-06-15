@@ -1,31 +1,50 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 
 import { AvailabilityLegend } from "../../components/domain/ev";
 import { ProviderBadge } from "../../components/domain/provider";
 import { ChargingPointStatusBadge } from "../../components/domain/status";
 import { formatCapacity, formatDateTime, formatPrice, providerLabel } from "../../lib/formatting";
-import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, boundsCenter, boundsFromCenter, pointPath } from "../../lib/routing";
+import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, boundsCenter, boundsFromCenter, catalogQueryRadiusKm, pointPath } from "../../lib/routing";
 import type { Bounds, CatalogPoint } from "../../lib/types";
 
 const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const RADIUS_SOURCE_ID = "catalog-radius";
+const RADIUS_FILL_LAYER_ID = "catalog-radius-fill";
+const RADIUS_LINE_LAYER_ID = "catalog-radius-line";
+const EARTH_RADIUS_KM = 6371;
 type MapLibreRuntime = typeof import("maplibre-gl");
+type RadiusGeoJson = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    properties: Record<string, never>;
+    geometry: {
+      type: "Polygon";
+      coordinates: Array<Array<[number, number]>>;
+    };
+  }>;
+};
 
 export function CatalogMap({
   points,
   bounds,
+  searchBounds,
   selectedPointId,
   onSelectPoint,
   onClosePoint,
   onBoundsChange,
+  loading = false,
 }: {
   points: CatalogPoint[];
   bounds: Bounds;
+  searchBounds?: Bounds;
   selectedPointId?: string | null;
   onSelectPoint: (pointId: string) => void;
   onClosePoint: () => void;
   onBoundsChange: (bounds: Bounds) => void;
+  loading?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -37,11 +56,10 @@ export function CatalogMap({
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  const plotted = useMemo(
-    () => points.filter((point) => point.latitude !== null && point.longitude !== null),
-    [points],
-  );
+  const plotted = useMemo(() => points.filter(pointHasCoordinates), [points]);
   const selectedPoint = plotted.find((point) => point.id === selectedPointId) ?? null;
+  const circleBounds = searchBounds ?? bounds;
+  const radiusKm = catalogQueryRadiusKm(circleBounds);
 
   useEffect(() => {
     latestSelectRef.current = onSelectPoint;
@@ -53,6 +71,7 @@ export function CatalogMap({
     }
 
     let disposed = false;
+    let handleLoad: (() => void) | null = null;
     let handleMoveEnd: (() => void) | null = null;
     let handleError: (() => void) | null = null;
 
@@ -78,26 +97,34 @@ export function CatalogMap({
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         map.addControl(new maplibre.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
 
+        handleLoad = () => {
+          const viewportBounds = boundsFromMap(map);
+          updateRadiusLayer(map, viewportBounds);
+          setMapReady(true);
+          onBoundsChange(viewportBounds);
+        };
         handleMoveEnd = () => {
+          const viewportBounds = boundsFromMap(map);
+          updateRadiusLayer(map, viewportBounds);
           if (programmaticMoveRef.current) {
             programmaticMoveRef.current = false;
+            onBoundsChange(viewportBounds);
             return;
           }
-          onBoundsChange(boundsFromMap(map));
+          onBoundsChange(viewportBounds);
         };
         handleError = () => {
           setMapError("The map tiles are temporarily unavailable. Charging point data is still available in the result list.");
         };
 
+        map.on("load", handleLoad);
         map.on("moveend", handleMoveEnd);
         map.on("error", handleError);
-        markProgrammaticMove(programmaticMoveRef);
-        fitMapToBounds(map, initialBoundsRef.current);
-        setMapReady(true);
       })
       .catch(() => {
         if (!disposed) {
           setMapError("The map renderer could not be loaded. Charging point data is still available in the result list.");
+          onBoundsChange(initialBoundsRef.current);
         }
       });
 
@@ -107,6 +134,9 @@ export function CatalogMap({
       markersRef.current = [];
       const map = mapRef.current;
       if (map) {
+        if (handleLoad) {
+          map.off("load", handleLoad);
+        }
         if (handleMoveEnd) {
           map.off("moveend", handleMoveEnd);
         }
@@ -130,9 +160,19 @@ export function CatalogMap({
     const current = boundsFromMap(map);
     if (!sameBounds(current, bounds)) {
       markProgrammaticMove(programmaticMoveRef);
-      fitMapToBounds(map, bounds);
+      jumpMapToBounds(map, bounds);
     }
   }, [bounds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maplibre = maplibreRef.current;
+    if (!map || !maplibre || !mapReady) {
+      return;
+    }
+
+    updateRadiusLayer(map, circleBounds);
+  }, [circleBounds, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -146,6 +186,9 @@ export function CatalogMap({
       const marker = document.createElement("button");
       marker.type = "button";
       marker.className = `maplibre-point-marker provider-${point.provider_code}${selectedPointId === point.id ? " is-selected" : ""}`;
+      marker.dataset.pointId = point.id;
+      marker.dataset.provider = point.provider_code;
+      marker.style.setProperty("--map-marker-color", providerMarkerColor(point.provider_code));
       marker.setAttribute("aria-label", `Show ${point.display_name} details`);
       marker.title = point.display_name;
       marker.addEventListener("click", () => latestSelectRef.current(point.id));
@@ -174,13 +217,15 @@ export function CatalogMap({
           role="application"
           aria-label={`${plotted.length} charging points in current center radius`}
         />
-        <div className="map-radius-indicator" aria-hidden="true" />
+        <div className="map-radius-label" aria-label="Current catalog radius">
+          {radiusKm.toFixed(1)} km radius
+        </div>
         {mapError ? (
           <div className="map-service-warning" role="status">
             {mapError}
           </div>
         ) : null}
-        {!plotted.length ? (
+        {!loading && !plotted.length ? (
           <div className="map-empty-overlay">
             <strong>No mapped points</strong>
             <span>Try a wider viewport or clear filters.</span>
@@ -252,14 +297,127 @@ function ChargingPointMapPanel({
   );
 }
 
-function fitMapToBounds(map: MapLibreMap, bounds: Bounds) {
-  map.fitBounds(
-    [
-      [bounds.minLng, bounds.minLat],
-      [bounds.maxLng, bounds.maxLat],
+function jumpMapToBounds(map: MapLibreMap, bounds: Bounds) {
+  map.jumpTo({
+    center: mapCenter(bounds),
+    zoom: bounds.zoom,
+  });
+}
+
+function updateRadiusLayer(map: MapLibreMap, bounds: Bounds) {
+  const data = radiusGeoJson(bounds);
+  const existingSource = map.getSource(RADIUS_SOURCE_ID) as GeoJSONSource | undefined;
+  if (existingSource) {
+    existingSource.setData(data as Parameters<GeoJSONSource["setData"]>[0]);
+    return;
+  }
+
+  map.addSource(RADIUS_SOURCE_ID, {
+    type: "geojson",
+    data: data as Parameters<GeoJSONSource["setData"]>[0],
+  });
+  map.addLayer({
+    id: RADIUS_FILL_LAYER_ID,
+    type: "fill",
+    source: RADIUS_SOURCE_ID,
+    paint: {
+      "fill-color": "#2563eb",
+      "fill-opacity": 0.12,
+    },
+  });
+  map.addLayer({
+    id: RADIUS_LINE_LAYER_ID,
+    type: "line",
+    source: RADIUS_SOURCE_ID,
+    paint: {
+      "line-color": "#2563eb",
+      "line-opacity": 0.74,
+      "line-width": 3,
+    },
+  });
+}
+
+function radiusGeoJson(bounds: Bounds): RadiusGeoJson {
+  const center = boundsCenter(bounds);
+  const radiusKm = catalogQueryRadiusKm(bounds);
+  const coordinates: Array<[number, number]> = [];
+  for (let bearing = 0; bearing <= 360; bearing += 4) {
+    coordinates.push(destinationPoint(center.lat, center.lng, radiusKm, bearing));
+  }
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates],
+        },
+      },
     ],
-    { duration: 0, maxZoom: bounds.zoom, padding: 48 },
+  };
+}
+
+function destinationPoint(lat: number, lng: number, distanceKm: number, bearingDegrees: number): [number, number] {
+  const earthRadiusKm = 6371;
+  const angularDistance = distanceKm / earthRadiusKm;
+  const bearing = toRadians(bearingDegrees);
+  const lat1 = toRadians(lat);
+  const lng1 = toRadians(lng);
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance)
+      + Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing),
   );
+  const lng2 = lng1 + Math.atan2(
+    Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+    Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2),
+  );
+  return [toDegrees(lng2), toDegrees(lat2)];
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
+
+function toDegrees(radians: number): number {
+  return radians * (180 / Math.PI);
+}
+
+function searchRadiusKmFromMap(map: MapLibreMap): number {
+  const center = map.getCenter();
+  const bounds = map.getBounds();
+  return Math.min(
+    distanceKm({ lat: center.lat, lng: center.lng }, { lat: bounds.getNorth(), lng: center.lng }),
+    distanceKm({ lat: center.lat, lng: center.lng }, { lat: bounds.getSouth(), lng: center.lng }),
+    distanceKm({ lat: center.lat, lng: center.lng }, { lat: center.lat, lng: bounds.getEast() }),
+    distanceKm({ lat: center.lat, lng: center.lng }, { lat: center.lat, lng: bounds.getWest() }),
+  );
+}
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const latDelta = toRadians(b.lat - a.lat);
+  const lngDelta = toRadians(b.lng - a.lng);
+  const latA = toRadians(a.lat);
+  const latB = toRadians(b.lat);
+  const haversine = Math.sin(latDelta / 2) ** 2
+    + Math.cos(latA) * Math.cos(latB) * Math.sin(lngDelta / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(haversine)));
+}
+
+function providerMarkerColor(providerCode: CatalogPoint["provider_code"]): string {
+  switch (providerCode) {
+    case "redPlug":
+      return "#ef4444";
+    case "greenPlug":
+      return "#10b981";
+    case "bluePlug":
+      return "#2563eb";
+  }
+}
+
+function pointHasCoordinates(point: CatalogPoint): point is CatalogPoint & { latitude: number; longitude: number } {
+  return point.latitude !== null && point.longitude !== null;
 }
 
 function markProgrammaticMove(ref: { current: boolean }) {
@@ -272,7 +430,7 @@ function markProgrammaticMove(ref: { current: boolean }) {
 function boundsFromMap(map: MapLibreMap): Bounds {
   const center = map.getCenter();
   const zoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, Math.round(map.getZoom())));
-  return boundsFromCenter({ lat: center.lat, lng: center.lng }, zoom);
+  return boundsFromCenter({ lat: center.lat, lng: center.lng }, zoom, searchRadiusKmFromMap(map));
 }
 
 function mapCenter(bounds: Bounds): [number, number] {
@@ -287,6 +445,7 @@ function sameBounds(a: Bounds, b: Bounds): boolean {
     Math.abs(a.maxLat - b.maxLat) < epsilon &&
     Math.abs(a.minLng - b.minLng) < epsilon &&
     Math.abs(a.maxLng - b.maxLng) < epsilon &&
-    a.zoom === b.zoom
+    a.zoom === b.zoom &&
+    Math.abs(a.radiusKm - b.radiusKm) < 0.005
   );
 }

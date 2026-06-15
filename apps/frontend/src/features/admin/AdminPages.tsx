@@ -40,6 +40,7 @@ import type {
   SchedulerHealth,
   SchedulerJob,
   SchedulerRun,
+  SchedulerSequenceRun,
   StatusProviderFreshness,
 } from "../../lib/types";
 import {
@@ -120,8 +121,34 @@ function providerQuery(providerCode: ProviderCode | null): string {
   return providerCode ? `?providerCode=${encodeURIComponent(providerCode)}` : "";
 }
 
-function effectiveCurrency(overview: BillingOverview | null, fallback = "EUR"): string {
-  return overview?.currency || overview?.effective_pricing?.currency || fallback;
+function effectiveCurrency(overview: BillingOverview | null, fallback: string | null | undefined = "EUR"): string {
+  return overview?.currency || overview?.effective_pricing?.currency || fallback || "EUR";
+}
+
+function formatSchedule(job: SchedulerJob): string {
+  if (job.schedule_type === "manual") {
+    return "Manual";
+  }
+  if (job.schedule_type === "interval" && job.interval_seconds !== null) {
+    return formatDurationSeconds(job.interval_seconds);
+  }
+  return job.cron_expression ?? "Not scheduled";
+}
+
+function formatDurationSeconds(totalSeconds: number): string {
+  if (totalSeconds % 86400 === 0) {
+    const days = totalSeconds / 86400;
+    return days === 1 ? "Every day" : `Every ${days} days`;
+  }
+  if (totalSeconds % 3600 === 0) {
+    const hours = totalSeconds / 3600;
+    return hours === 1 ? "Every hour" : `Every ${hours} hours`;
+  }
+  if (totalSeconds % 60 === 0) {
+    const minutes = totalSeconds / 60;
+    return minutes === 1 ? "Every minute" : `Every ${minutes} minutes`;
+  }
+  return `Every ${totalSeconds} seconds`;
 }
 
 function HealthPill({ ok, label }: { ok: boolean; label: string }) {
@@ -130,6 +157,82 @@ function HealthPill({ ok, label }: { ok: boolean; label: string }) {
 
 function InvoiceStatus({ status }: { status: string }) {
   return <InvoiceStatusBadge status={status} />;
+}
+
+function changedFieldSummary(changedFields: ProviderAuditLog["changed_fields"] | null | undefined): string {
+  if (Array.isArray(changedFields)) {
+    return changedFields.join(", ") || "None";
+  }
+  if (changedFields && typeof changedFields === "object") {
+    return Object.keys(changedFields).join(", ") || "None";
+  }
+  return "None";
+}
+
+function SchedulerScheduleEditor({
+  accessToken,
+  job,
+  onSaved,
+  onMessage,
+}: {
+  accessToken: string;
+  job: SchedulerJob;
+  onSaved: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const initialValue = job.schedule_type === "interval"
+    ? String(job.interval_seconds ?? "")
+    : job.cron_expression ?? "";
+  const [value, setValue] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  if (job.schedule_type === "manual") {
+    return <span>{formatSchedule(job)}</span>;
+  }
+
+  async function saveSchedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const body = job.schedule_type === "interval"
+        ? { interval_seconds: Number(value) }
+        : { cron_expression: value.trim() };
+      await requestJson<SchedulerJob>(
+        `/api/scheduler/jobs/${encodeURIComponent(job.job_key)}`,
+        { method: "PATCH", accessToken, bodyJson: body },
+      );
+      onMessage(`${job.job_key} schedule updated.`);
+      onSaved();
+    } catch (caught) {
+      onMessage(messageFromUnknownError(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="scheduler-schedule-form" onSubmit={saveSchedule}>
+      <label>
+        <span className="sr-only">{job.schedule_type === "interval" ? "Interval seconds" : "Cron expression"}</span>
+        <input
+          aria-label={`${job.job_key} ${job.schedule_type === "interval" ? "interval seconds" : "cron expression"}`}
+          min={job.schedule_type === "interval" ? 30 : undefined}
+          step={job.schedule_type === "interval" ? 60 : undefined}
+          type={job.schedule_type === "interval" ? "number" : "text"}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+      </label>
+      <span className="muted">{formatSchedule(job)}</span>
+      <button className="button-secondary" type="submit" disabled={saving}>
+        {saving ? "Saving..." : "Save"}
+      </button>
+    </form>
+  );
 }
 
 function requireProvider(providerCode: ProviderCode | null) {
@@ -167,7 +270,6 @@ export function ProviderDashboardPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider workspace"
         title="Provider command center"
         description="Monitor your provider catalog, reservation conversion, invoice exposure, and aggregate freshness."
       >
@@ -211,7 +313,7 @@ export function ProviderDashboardPage() {
               <DashboardPanel title="Top viewed points" description="Highest point-view activity in the current aggregates.">
                 <BarList
                   rows={data.summary.top_viewed_points}
-                  getLabel={(row) => row.point_name || row.external_point_id}
+                  getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
                   getValue={(row) => row.point_views}
                 />
               </DashboardPanel>
@@ -251,7 +353,6 @@ export function ProviderPointsPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider catalog"
         title="Provider points"
         description="Inspect your normalized catalog projection, stale flags, cached status posture, and catalog sync metadata."
       >
@@ -317,11 +418,12 @@ export function ProviderAnalyticsPage() {
     return { summary, trends, topViews, topReservations, freshness };
   }, [accessToken, providerCode]);
   const summary = state.data?.summary ?? null;
+  const currency = summary?.currency ?? "EUR";
+  const statusDistribution = summary?.status_distribution ?? {};
 
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider analytics"
         title="Provider analytics"
         description="Review precomputed aggregate metrics for point demand, conversion, status checks, and dashboard freshness."
       >
@@ -332,7 +434,7 @@ export function ProviderAnalyticsPage() {
               <MetricCard label="Searches" value={formatNumber(summary.total_searches)} />
               <MetricCard label="Status checks" value={formatNumber(summary.total_status_checks)} />
               <MetricCard label="Failed reservations" value={formatNumber(summary.failed_reservations)} />
-              <MetricCard label="Observed amount" value={formatMoney(summary.observed_amount, summary.currency)} />
+              <MetricCard label="Observed amount" value={formatMoney(summary.observed_amount, currency)} />
             </MetricGrid>
             <DashboardGrid>
               <DashboardPanel title="Reservation trend" description="Successful reservations per day.">
@@ -344,7 +446,7 @@ export function ProviderAnalyticsPage() {
               </DashboardPanel>
               <DashboardPanel title="Status distribution" description="Normalized status counts observed by analytics.">
                 <BarList
-                  rows={Object.entries(summary.status_distribution)}
+                  rows={Object.entries(statusDistribution)}
                   getLabel={(row) => statusLabel(row[0])}
                   getValue={(row) => row[1]}
                 />
@@ -379,7 +481,6 @@ export function ProviderInvoicesPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider billing"
         title="Provider invoices"
         description="View issued invoices, pay outstanding invoices through the mock payment flow, and monitor unpaid balances."
       >
@@ -437,7 +538,6 @@ export function ProviderInvoiceDetailPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider billing"
         title={invoice ? invoice.invoice_number : "Invoice detail"}
         description="Inspect invoice lines and submit a full mock invoice payment when the invoice is issued."
       >
@@ -527,7 +627,6 @@ export function ProviderExportPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider export"
         title="Usage export"
         description="Download provider-scoped analytics usage logs as CSV from analytics-service."
       >
@@ -567,7 +666,6 @@ export function ProviderSettingsPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Provider settings"
         title="Provider settings"
         description="View provider account metadata, external API configuration metadata, pricing, and recent provider-registry audit logs."
       >
@@ -641,7 +739,7 @@ export function ProviderSettingsPage() {
                 columns={[
                   { key: "action", label: "Action", render: (row) => row.action },
                   { key: "actor", label: "Actor", render: (row) => row.actor_email ?? "System" },
-                  { key: "fields", label: "Fields", render: (row) => row.changed_fields.join(", ") || "None" },
+                  { key: "fields", label: "Fields", render: (row) => changedFieldSummary(row.changed_fields) },
                   { key: "created", label: "Created", render: (row) => formatDateTime(row.created_at) },
                 ]}
               />
@@ -670,7 +768,6 @@ export function OperatorDashboardPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator workspace"
         title="Operator command center"
         description="Global SaaS overview across providers, catalog imports, analytics freshness, and billing posture."
       >
@@ -753,7 +850,6 @@ export function OperatorProvidersPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator providers"
         title="Provider management"
         description="Review provider-registry metadata and control provider activation state."
       >
@@ -804,7 +900,6 @@ export function OperatorAnalyticsPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator analytics"
         title="Operator analytics"
         description="Inspect global aggregates without live cross-service joins."
       >
@@ -896,7 +991,6 @@ export function OperatorCatalogPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator catalog"
         title="Catalog and sync controls"
         description="Inspect the aggregated catalog, freshness, and trigger accepted catalog import flows."
       >
@@ -972,7 +1066,6 @@ export function OperatorInvoicesPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator billing"
         title="Operator invoices"
         description="Monitor issued invoices and provider billing exposure."
       >
@@ -1041,7 +1134,6 @@ export function OperatorIssueInvoicePage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator billing"
         title="Issue invoice"
         description="Issue a provider invoice from eligible billing charges in the selected period."
       >
@@ -1136,7 +1228,6 @@ export function OperatorPricingPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator pricing"
         title="Pricing controls"
         description="Manage global pricing defaults and provider-specific pricing overrides."
       >
@@ -1234,9 +1325,8 @@ export function OperatorSyncPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator sync"
         title="Sync controls"
-        description="Trigger accepted local orchestration actions for catalog imports, aggregate refresh, queue drains, and outbox publishing."
+        description="Run background jobs on demand, pause scheduled jobs, and tune their cadence without bypassing service ownership."
       >
         <section className="admin-toolbar">
           <label>
@@ -1247,9 +1337,20 @@ export function OperatorSyncPage() {
               ))}
             </select>
           </label>
+          <button
+            className="button-primary"
+            type="button"
+            onClick={() => runAction(
+              "Maintenance sequence",
+              () => requestJson<SchedulerSequenceRun>("/api/scheduler/jobs/run-maintenance", { method: "POST", accessToken }),
+              () => setRefreshKey((value) => value + 1),
+            )}
+          >
+            Run maintenance sequence
+          </button>
         </section>
         <DashboardGrid>
-          <DashboardPanel title="Scheduler control plane" description="Central job metadata, manual runs, and pause controls.">
+          <DashboardPanel title="Scheduler control plane" description="Central job metadata, manual runs, pause controls, editable job intervals, and ordered maintenance execution.">
             <LoadState loading={schedulerState.loading} error={schedulerState.error} />
             {schedulerState.data ? (
               <DataTable
@@ -1258,7 +1359,18 @@ export function OperatorSyncPage() {
                 columns={[
                   { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
                   { key: "target", label: "Target", render: (row) => row.target_service },
-                  { key: "schedule", label: "Schedule", render: (row) => row.schedule_type === "interval" ? `${row.interval_seconds}s` : row.cron_expression ?? "manual" },
+                  {
+                    key: "schedule",
+                    label: "Schedule",
+                    render: (row) => (
+                      <SchedulerScheduleEditor
+                        accessToken={accessToken}
+                        job={row}
+                        onSaved={() => setRefreshKey((value) => value + 1)}
+                        onMessage={setMessage}
+                      />
+                    ),
+                  },
                   { key: "enabled", label: "Enabled", render: (row) => (row.enabled ? "Yes" : "No") },
                   { key: "last", label: "Last run", render: (row) => row.last_run_status ?? "None" },
                   { key: "next", label: "Next run", render: (row) => formatDateTime(row.next_run_at) },
@@ -1370,7 +1482,6 @@ export function OperatorSystemPage() {
   return (
     <AppShell>
       <DashboardPage
-        eyebrow="Operator system"
         title="System overview"
         description="Inspect service health, cache freshness, and recent background-operation records."
       >

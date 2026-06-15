@@ -222,6 +222,8 @@ The operator must be able to:
 | Filter analytics by provider/date | Supported. |
 | View invoice/payment overview | Supported. |
 | Trigger provider sync manually | Supported for demo/debug. |
+| Run/pause/resume scheduler jobs | Supported through the operator Sync page and `/api/scheduler/*`. |
+| Change scheduler intervals | Supported for interval jobs through the operator Sync page and scheduler API. |
 | Configure pricing rules dynamically | Supported simply: global defaults and provider-specific overrides. |
 | Manage users/providers deeply | Out of scope. |
 | Issue invoices | Supported. Operator-only. |
@@ -254,6 +256,30 @@ Phase C implements this through `scheduler-service` as a control plane with
 service-owned internal HTTP job endpoints protected by `X-Scheduler-Token`; it
 does not contain catalog, analytics, billing, or reservation business logic and
 does not access other service databases.
+
+Default automatic job cadence:
+
+| Job | Default cadence | Purpose |
+|---|---|---|
+| `catalog.import.all` | Daily | Refresh the local aggregated catalog from provider-service snapshots. |
+| `analytics.consume-events` | Every 2 hours | Drain RabbitMQ events into analytics-owned raw event tables. |
+| `analytics.refresh-aggregates` | Daily | Rebuild dashboard aggregate/cache tables from already-ingested analytics events. |
+| `billing.drain-events` | Every 12 hours | Drain reservation/point-view events from RabbitMQ into billing-owned event and charge tables. |
+| `billing.publish-outbox` | Every 12 hours | Publish billing outbox events after billing has created charges, issued invoices, or recorded payments. |
+| `reservation.publish-outbox` | Every 60 seconds | Publish reservation result events after synchronous reservation completion. |
+| `billing.prepare-invoices` | Daily at 02:30 Europe/Athens | Prepare invoice candidate summaries without issuing invoices. |
+
+Operators may manually run these jobs and may adjust interval-job cadences from
+the UI without bypassing service ownership. The scheduler persists operator
+schedule edits in `scheduler-postgres`.
+
+Operators may also run the ordered maintenance sequence from the Sync page. The
+sequence runs existing service-owned jobs in this order: `catalog.import.all`,
+`reservation.publish-outbox`, `billing.drain-events`,
+`billing.publish-outbox`, `analytics.consume-events`, and
+`analytics.refresh-aggregates`. This order first refreshes catalog data and
+publishes reservation/billing events, then drains analytics and refreshes
+dashboard aggregates.
 
 ## SPEC-1.9 Explicitly out of scope
 
@@ -944,6 +970,10 @@ RabbitMQ is used for:
 - provider catalog sync,
 - provider snapshot readiness,
 - catalog aggregation/import events,
+- catalog search and point-view analytics events after the catalog read has
+  completed,
+- status-check analytics events after the status lookup/log write has
+  completed,
 - analytics aggregation,
 - billing charge creation,
 - optional invoice/payment notifications.
@@ -952,9 +982,9 @@ RabbitMQ is not used for:
 
 - login,
 - provider registration,
-- map search,
-- point details,
-- status lookup,
+- completing map search responses,
+- completing point-detail responses,
+- completing status lookup responses,
 - reservation provider call,
 - direct frontend actions.
 
@@ -1037,8 +1067,14 @@ The MVP does not require a DLQ UI. Logs are sufficient.
 ## SPEC-5.8 Provider sync event flow
 
 ```text
-scheduler/operator -> provider.sync.requested -> provider services -> provider-local DBs -> provider.points.snapshot_ready -> catalog-service -> catalog-postgres
+scheduler/operator -> provider services -> provider-local DBs -> catalog-service -> catalog-postgres -> catalog.points.imported
 ```
+
+The current MVP catalog import is executed by service-owned HTTP calls through
+`catalog-service` and provider services. After a successful import,
+`catalog-service` publishes `catalog.points.imported` as a best-effort analytics
+event. RabbitMQ provider snapshot events remain part of the shared topology but
+are not required to complete the MVP import path.
 
 ## SPEC-5.9 Usage analytics events
 
@@ -1052,6 +1088,13 @@ The following user/system activities publish analytics events:
 - catalog imported,
 - invoice issued,
 - invoice paid.
+
+`catalog-service` publishes `usage.search_performed`,
+`usage.point_viewed`, and `catalog.points.imported` after the relevant catalog
+operation has completed. `status-service` publishes `status.point_checked`
+after a status lookup/log write has completed. These publishers are best-effort:
+a RabbitMQ outage must not make catalog search, point details, or status lookup
+fail after the source service has completed its own request.
 
 ## SPEC-5.10 Reservation event flow
 

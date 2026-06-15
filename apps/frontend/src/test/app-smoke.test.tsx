@@ -22,6 +22,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
     expect(screen.queryByText(/secure session/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/welcome back/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /create ev account/i })).toHaveAttribute("href", "/register");
     expect(screen.queryByRole("link", { name: /provider entry/i })).not.toBeInTheDocument();
 
@@ -67,6 +68,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: /evuser@saasplug.local/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /profile details/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open charging map/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^account$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/local demo accounts/i)).not.toBeInTheDocument();
   });
 });

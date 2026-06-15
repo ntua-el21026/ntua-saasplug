@@ -1,11 +1,6 @@
 import { Link } from "react-router-dom";
 
-import chargerIcon from "../../assets/icons/charger.svg";
-import invoiceIcon from "../../assets/icons/invoice.svg";
-import operatorIcon from "../../assets/icons/operator.svg";
-import plugIcon from "../../assets/icons/plug.svg";
-import providerIcon from "../../assets/icons/provider.svg";
-import { BrandLockup, MarketingLayout, RoleEntry } from "../../components/layout";
+import { BrandLockup, MarketingLayout } from "../../components/layout";
 
 export function LandingPage() {
   return (
@@ -54,32 +49,6 @@ export function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <RoleEntry
-        items={[
-          { title: "EV user", description: "Search, compare, and reserve chargers.", href: "/login", icon: plugIcon },
-          { title: "Provider admin", description: "Sign in after operator-managed onboarding.", href: "/login", icon: providerIcon },
-          { title: "Operator", description: "Control catalog health, pricing, sync, and billing.", href: "/login", icon: operatorIcon },
-        ]}
-      />
-
-      <section className="benefits-strip" aria-label="Platform benefits">
-        <div>
-          <img src={chargerIcon} alt="" />
-          <strong>Viewport catalog</strong>
-          <span>Bounds-based search keeps the map responsive.</span>
-        </div>
-        <div>
-          <img src={providerIcon} alt="" />
-          <strong>Provider operations</strong>
-          <span>Freshness, status checks, and export workflows.</span>
-        </div>
-        <div>
-          <img src={invoiceIcon} alt="" />
-          <strong>Billing control</strong>
-          <span>Issued invoices, mock payments, and pricing rules.</span>
         </div>
       </section>
     </MarketingLayout>

@@ -5,12 +5,13 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.executor import JobNotFoundError, get_job_or_raise, run_job
-from app.jobs import calculate_next_run
+from app.jobs import ORDERED_MAINTENANCE_JOB_KEYS, calculate_next_run
 from app.models import JobRun, ScheduledJob
 from app.schemas import (
     CurrentPrincipal,
     JobPatchRequest,
     JobRunResponse,
+    JobSequenceRunResponse,
     ManualRunRequest,
     ScheduledJobResponse,
     SchedulerHealthResponse,
@@ -98,6 +99,38 @@ def run_job_endpoint(
         request_body_override=body.request_body if body else None,
     )
     return run_response(run)
+
+
+@router.post("/jobs/run-maintenance", response_model=JobSequenceRunResponse)
+def run_maintenance_jobs(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> JobSequenceRunResponse:
+    ensure_operator(principal)
+    runs: list[JobRun] = []
+    for job_key in ORDERED_MAINTENANCE_JOB_KEYS:
+        try:
+            job = get_job_or_raise(db, job_key)
+        except JobNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        runs.append(
+            run_job(
+                db,
+                settings,
+                job,
+                "manual_sequence",
+                triggered_by_email=principal.email,
+            ),
+        )
+
+    sequence_status = "succeeded" if all(run.status == "succeeded" for run in runs) else "completed_with_failures"
+    return JobSequenceRunResponse(
+        sequence_key="maintenance.ordered",
+        status=sequence_status,
+        ordered_job_keys=list(ORDERED_MAINTENANCE_JOB_KEYS),
+        runs=[run_response(run) for run in runs],
+    )
 
 
 @router.post("/jobs/{job_key}/pause", response_model=ScheduledJobResponse)

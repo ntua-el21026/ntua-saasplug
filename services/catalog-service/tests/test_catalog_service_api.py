@@ -5,11 +5,26 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import routes
+from app import event_publisher
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
+from app.importer import synthetic_coordinates
 from app.main import app
 from app.models import CatalogImportRun, CatalogPoint, utcnow
 from app.schemas import ProviderPointDTO, ProviderSyncSummaryDTO
+from saasplug_events.routing import EventType
+
+
+class FakeEventPublisher:
+    def __init__(self) -> None:
+        self.envelopes = []
+        self.closed = False
+
+    def publish(self, envelope) -> None:
+        self.envelopes.append(envelope)
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def provider_point(
@@ -96,6 +111,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("SERVICE_NAME", "catalog-service")
     monkeypatch.setenv("JWT_SECRET", "catalog-test-secret")
     monkeypatch.setenv("CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS", "2")
+    monkeypatch.setenv("CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED", "false")
     monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "scheduler-test-token")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
@@ -116,6 +132,13 @@ def import_red(client: TestClient) -> None:
 
 def scheduler_headers() -> dict[str, str]:
     return {"X-Scheduler-Token": "scheduler-test-token", "X-Job-Run-Id": "scheduler-run-1"}
+
+
+def enable_fake_event_publisher(monkeypatch) -> FakeEventPublisher:
+    fake_publisher = FakeEventPublisher()
+    get_settings().rabbitmq_event_publish_enabled = True
+    monkeypatch.setattr(event_publisher, "build_event_publisher", lambda settings: fake_publisher)
+    return fake_publisher
 
 
 def test_health_endpoint_still_works(test_context) -> None:
@@ -140,6 +163,24 @@ def test_operator_can_import_one_provider_from_fake_provider_service(test_contex
     assert payload["provider_code"] == "redPlug"
     assert payload["status"] == "completed"
     assert payload["catalog_upserted_count"] == 2
+
+
+def test_successful_import_publishes_catalog_imported_event(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+
+    response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.CATALOG_POINTS_IMPORTED.value
+    assert envelope.producer == "catalog-service"
+    assert envelope.payload["provider_code"] == "redPlug"
+    assert envelope.payload["catalog_upserted_count"] == 2
 
 
 def test_scheduler_internal_import_requires_scheduler_token(test_context) -> None:
@@ -233,6 +274,39 @@ def test_points_endpoint_supports_provider_status_and_search_filters(test_contex
     assert payload["items"][0]["coordinate_source"] == "demo_synthetic"
 
 
+def test_first_catalog_page_publishes_search_event(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+    import_red(client)
+    fake_publisher.envelopes.clear()
+
+    response = client.get(
+        "/points?providerCode=redPlug&status=available&q=Red%20Hub",
+        headers=auth_headers(["EV_USER"], "evuser@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.USAGE_SEARCH_PERFORMED.value
+    assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
+    assert envelope.payload["provider_code"] == "redPlug"
+    assert envelope.payload["search_term"] == "Red Hub"
+    assert envelope.payload["result_count"] == 1
+
+
+def test_paginated_catalog_offsets_do_not_publish_new_search_events(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+    import_red(client)
+    fake_publisher.envelopes.clear()
+
+    response = client.get("/points?providerCode=redPlug&offset=1")
+
+    assert response.status_code == 200
+    assert fake_publisher.envelopes == []
+
+
 def test_points_endpoint_supports_bounds_and_excludes_coordinate_less_points(test_context) -> None:
     client, _ = test_context
     import_red(client)
@@ -283,6 +357,120 @@ def test_points_endpoint_rejects_partial_or_invalid_bounds(test_context) -> None
     assert inverted_response.status_code == 400
 
 
+def test_points_endpoint_filters_by_center_radius(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+    center_lat, center_lng = synthetic_coordinates("redPlug", "101")
+    db = get_session_factory()()
+    try:
+        db.add(
+            CatalogPoint(
+                normalized_point_id="redPlug:outside-circle",
+                provider_code="redPlug",
+                external_point_id="outside-circle",
+                display_name="Outside Circle",
+                location_name="Outside Circle",
+                address="Just outside radius",
+                latitude=center_lat + 0.00016,
+                longitude=center_lng + 0.00016,
+                coordinate_source="provider",
+                status="available",
+                is_active=True,
+                is_stale=False,
+                last_provider_seen_at=datetime.now(timezone.utc),
+                last_catalog_sync_at=utcnow(),
+                raw_provider_payload={"external_id": "outside-circle"},
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        "/points"
+        f"?minLat={center_lat - 0.05}&maxLat={center_lat + 0.05}"
+        f"&minLng={center_lng - 0.05}&maxLng={center_lng + 0.05}"
+        f"&centerLat={center_lat}&centerLng={center_lng}&radiusKm=0.02",
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["external_point_id"] == "101"
+    assert "outside-circle" not in {item["external_point_id"] for item in payload["items"]}
+    assert payload["search_circle"]["center_lat"] == pytest.approx(center_lat)
+    assert payload["search_circle"]["center_lng"] == pytest.approx(center_lng)
+    assert payload["search_circle"]["radius_km"] == pytest.approx(0.02)
+
+
+def test_points_endpoint_applies_exact_radius_before_pagination(test_context) -> None:
+    client, _ = test_context
+    center_lat = 37.985
+    center_lng = 23.78
+    db = get_session_factory()()
+    try:
+        db.add_all([
+            CatalogPoint(
+                normalized_point_id="redPlug:000-outside-circle",
+                provider_code="redPlug",
+                external_point_id="000-outside-circle",
+                display_name="Outside Circle",
+                location_name="Outside Circle",
+                address="Inside bounding box but outside circle",
+                latitude=center_lat + 0.0044,
+                longitude=center_lng + 0.0044,
+                coordinate_source="provider",
+                status="available",
+                is_active=True,
+                is_stale=False,
+                last_provider_seen_at=datetime.now(timezone.utc),
+                last_catalog_sync_at=utcnow(),
+                raw_provider_payload={"external_id": "000-outside-circle"},
+            ),
+            CatalogPoint(
+                normalized_point_id="redPlug:999-inside-circle",
+                provider_code="redPlug",
+                external_point_id="999-inside-circle",
+                display_name="Inside Circle",
+                location_name="Inside Circle",
+                address="Inside exact circle",
+                latitude=center_lat,
+                longitude=center_lng,
+                coordinate_source="provider",
+                status="available",
+                is_active=True,
+                is_stale=False,
+                last_provider_seen_at=datetime.now(timezone.utc),
+                last_catalog_sync_at=utcnow(),
+                raw_provider_payload={"external_id": "999-inside-circle"},
+            ),
+        ])
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(f"/points?centerLat={center_lat}&centerLng={center_lng}&radiusKm=0.5&limit=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["bounds_applied"] is True
+    assert payload["search_circle"]["center_lat"] == pytest.approx(center_lat)
+    assert payload["search_circle"]["center_lng"] == pytest.approx(center_lng)
+    assert payload["search_circle"]["radius_km"] == pytest.approx(0.5)
+    assert [item["external_point_id"] for item in payload["items"]] == ["999-inside-circle"]
+
+
+def test_points_endpoint_rejects_partial_radius_parameters(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+
+    response = client.get("/points?centerLat=37.985&centerLng=23.78")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "All radius parameters must be provided"
+
+
 def test_points_endpoint_rejects_unsupported_provider_filter(test_context) -> None:
     client, _ = test_context
 
@@ -302,6 +490,26 @@ def test_cached_point_details_are_returned_without_live_provider_call(test_conte
     payload = response.json()
     assert payload["normalized_point_id"] == "redPlug:101"
     assert payload["raw_provider_payload"]["external_id"] == "101"
+
+
+def test_point_detail_publishes_point_view_event(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+    import_red(client)
+    fake_publisher.envelopes.clear()
+
+    response = client.get(
+        "/points/redPlug/101",
+        headers=auth_headers(["EV_USER"], "evuser@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.USAGE_POINT_VIEWED.value
+    assert envelope.payload["provider_code"] == "redPlug"
+    assert envelope.payload["external_point_id"] == "101"
+    assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
 
 
 def test_stale_point_details_are_hidden_from_normal_detail_path(test_context) -> None:

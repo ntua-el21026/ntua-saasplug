@@ -35,6 +35,12 @@ class CatalogPointDetailResponse(CatalogPointResponse):
     raw_provider_payload: dict
 
 
+class CatalogSearchCircleResponse(BaseModel):
+    center_lat: float
+    center_lng: float
+    radius_km: float
+
+
 class CatalogPointListResponse(BaseModel):
     items: list[CatalogPointResponse]
     total: int
@@ -42,6 +48,7 @@ class CatalogPointListResponse(BaseModel):
     offset: int
     bounds_applied: bool
     missing_coordinates_count: int
+    search_circle: CatalogSearchCircleResponse | None = None
 
 
 class ImportRunResponse(BaseModel):
