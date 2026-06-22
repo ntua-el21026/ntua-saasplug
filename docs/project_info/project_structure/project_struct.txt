@@ -164,6 +164,43 @@ NTUA-saasPlug/
 │   │   │   ├── prompt_23_readme_documentation_polish.md
 │   │   │   ├── prompt_24_frontend_design_system_redesign.md
 │   │   │   └── README.md
+│   │   ├── prompts_chatgpt/
+│   │   │   ├── pdf/
+│   │   │   │   ├── NTUA - Τεχνολογίες Υπηρεσιών Λογισμικού - App Audit and Env Connection.pdf
+│   │   │   │   ├── NTUA - Τεχνολογίες Υπηρεσιών Λογισμικού - App Build - Prompts 1-14.pdf
+│   │   │   │   ├── NTUA--~1.PDF
+│   │   │   │   └── NTUA--~4.PDF
+│   │   │   └── prompts/
+│   │   │       ├── prompt_001.md
+│   │   │       ├── prompt_002.md
+│   │   │       ├── prompt_003.md
+│   │   │       ├── prompt_004.md
+│   │   │       ├── prompt_005.md
+│   │   │       ├── prompt_006.md
+│   │   │       ├── prompt_007.md
+│   │   │       ├── prompt_008.md
+│   │   │       ├── prompt_009.md
+│   │   │       ├── prompt_010.md
+│   │   │       ├── prompt_011.md
+│   │   │       ├── prompt_012.md
+│   │   │       ├── prompt_013.md
+│   │   │       ├── prompt_014.md
+│   │   │       ├── prompt_015.md
+│   │   │       ├── prompt_016.md
+│   │   │       ├── prompt_017.md
+│   │   │       ├── prompt_018.md
+│   │   │       ├── prompt_019.md
+│   │   │       ├── prompt_020.md
+│   │   │       ├── prompt_021.md
+│   │   │       ├── prompt_022.md
+│   │   │       ├── prompt_023.md
+│   │   │       ├── prompt_024.md
+│   │   │       ├── prompt_025.md
+│   │   │       ├── prompt_026.md
+│   │   │       ├── prompt_027.md
+│   │   │       ├── prompt_028.md
+│   │   │       ├── prompt_029.md
+│   │   │       └── README.md
 │   │   ├── prompt-log.md
 │   │   └── README.md
 │   ├── assignment/
@@ -545,4 +582,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 95, Total files: 451
+Total directories: 98, Total files: 485
