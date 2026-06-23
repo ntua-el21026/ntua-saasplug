@@ -48,7 +48,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       sidebar={session ? (
         <Sidebar label="Workspace">
           <div className="sidebar-workspace">
-            <RoleSwitcher roles={session.user.roles} />
+            <RoleSwitcher
+              roles={session.user.roles}
+              providerCode={session.user.provider_code}
+            />
           </div>
           <SidebarNav items={navItems} />
         </Sidebar>

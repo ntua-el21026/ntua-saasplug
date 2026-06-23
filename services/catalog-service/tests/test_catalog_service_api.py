@@ -228,6 +228,21 @@ def test_scheduler_internal_import_uses_service_owned_importer(test_context) -> 
         db.close()
 
 
+def test_scheduler_all_import_can_be_scoped_to_one_provider(test_context) -> None:
+    client, _ = test_context
+
+    response = client.post(
+        "/internal/jobs/catalog/imports/all",
+        headers=scheduler_headers(),
+        json={"provider_code": "greenPlug"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert [provider["provider_code"] for provider in payload["providers"]] == ["greenPlug"]
+
+
 def test_repeated_import_upserts_without_duplicates(test_context) -> None:
     client, _ = test_context
 

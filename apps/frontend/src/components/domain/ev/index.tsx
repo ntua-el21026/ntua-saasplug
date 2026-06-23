@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button, Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
 import { formatCapacity, formatCostPerKwh, formatDateTime, formatMoney, providerLabel } from "../../../lib/formatting";
@@ -202,94 +202,111 @@ export function MapFilterPanel({
   onChange: (filters: CatalogFilters) => void;
   onResultLimitChange: (limit: CatalogResultLimit) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <Card className="map-filter-panel">
+    <Card className={`map-filter-panel ${expanded ? "is-expanded" : "is-collapsed"}`}>
       <div className="filter-panel-header">
-        <h2>Filters</h2>
-        <p>Narrow nearby chargers by location, provider, availability, and charger type.</p>
-      </div>
-      <label className="filter-field filter-field-wide">
-        Search
-        <SearchInput
-          value={filters.q}
-          onChange={(event) => onChange({ ...filters, q: event.target.value })}
-          placeholder="Station, address, connector"
-        />
-      </label>
-      <fieldset className="filter-fieldset">
-        <legend>Availability</legend>
-        <div className="compact-filter-row">
-          {statuses.slice(0, 3).map((status) => (
-            <button
-              className={`compact-filter ${filters.status === status ? "is-selected" : ""}`}
-              key={status}
-              onClick={() => onChange({ ...filters, status: filters.status === status ? "" : status })}
-              type="button"
-            >
-              {status}
-            </button>
-          ))}
+        <div>
+          <h2>Filters</h2>
+          <p>{expanded ? "Narrow nearby chargers by location, provider, availability, and charger type." : "Expand to refine the visible charging points."}</p>
         </div>
-      </fieldset>
-      <div className="filter-grid">
-        <label className="filter-field">
-          Provider
-          <Select value={filters.providerCode} onChange={(event) => onChange({ ...filters, providerCode: event.target.value as CatalogFilters["providerCode"] })}>
-            <option value="">All providers</option>
-            {providers.map((provider) => (
-              <option key={provider} value={provider}>{providerLabel(provider)}</option>
-            ))}
-          </Select>
-        </label>
-        <label className="filter-field">
-          Status
-          <Select value={filters.status} onChange={(event) => onChange({ ...filters, status: event.target.value as CatalogFilters["status"] })}>
-            <option value="">Any status</option>
-            {statuses.map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </Select>
-        </label>
-        <label className="filter-field">
-          Charger type
-          <Select
-            value={filters.connector}
-            onChange={(event) => onChange({ ...filters, connector: event.target.value })}
-          >
-            {CHARGER_TYPE_OPTIONS.map((option) => (
-              <option key={option.label} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="filter-field">
-          Results to show
-          <Select
-            value={String(resultLimit)}
-            onChange={(event) => {
-              const value = event.target.value;
-              onResultLimitChange(value === "all" ? "all" : Number(value) as CatalogResultLimit);
-            }}
-          >
-            {resultLimitOptions.map((limit) => (
-              <option key={String(limit)} value={String(limit)}>
-                {limit === "all" ? "All results" : `${limit} results`}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <button
+          aria-expanded={expanded}
+          className="filter-panel-toggle"
+          onClick={() => setExpanded((current) => !current)}
+          type="button"
+        >
+          <span>{expanded ? "Hide filters" : "Show filters"}</span>
+          <i aria-hidden="true" />
+        </button>
       </div>
-      <div className="filter-footer">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={filters.includeStale}
-            onChange={(event) => onChange({ ...filters, includeStale: event.target.checked })}
-          />
-          Include stale
-        </label>
-      </div>
+      {expanded ? (
+        <div className="filter-panel-fields">
+          <label className="filter-field filter-field-wide">
+            Search
+            <SearchInput
+              value={filters.q}
+              onChange={(event) => onChange({ ...filters, q: event.target.value })}
+              placeholder="Station, address, connector"
+            />
+          </label>
+          <fieldset className="filter-fieldset">
+            <legend>Availability</legend>
+            <div className="compact-filter-row">
+              {statuses.slice(0, 3).map((status) => (
+                <button
+                  className={`compact-filter ${filters.status === status ? "is-selected" : ""}`}
+                  key={status}
+                  onClick={() => onChange({ ...filters, status: filters.status === status ? "" : status })}
+                  type="button"
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div className="filter-grid">
+            <label className="filter-field">
+              Provider
+              <Select value={filters.providerCode} onChange={(event) => onChange({ ...filters, providerCode: event.target.value as CatalogFilters["providerCode"] })}>
+                <option value="">All providers</option>
+                {providers.map((provider) => (
+                  <option key={provider} value={provider}>{providerLabel(provider)}</option>
+                ))}
+              </Select>
+            </label>
+            <label className="filter-field">
+              Status
+              <Select value={filters.status} onChange={(event) => onChange({ ...filters, status: event.target.value as CatalogFilters["status"] })}>
+                <option value="">Any status</option>
+                {statuses.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </Select>
+            </label>
+            <label className="filter-field">
+              Charger type
+              <Select
+                value={filters.connector}
+                onChange={(event) => onChange({ ...filters, connector: event.target.value })}
+              >
+                {CHARGER_TYPE_OPTIONS.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="filter-field">
+              Results to show
+              <Select
+                value={String(resultLimit)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  onResultLimitChange(value === "all" ? "all" : Number(value) as CatalogResultLimit);
+                }}
+              >
+                {resultLimitOptions.map((limit) => (
+                  <option key={String(limit)} value={String(limit)}>
+                    {limit === "all" ? "All results" : `${limit} results`}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </div>
+          <div className="filter-footer">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.includeStale}
+                onChange={(event) => onChange({ ...filters, includeStale: event.target.checked })}
+              />
+              Include stale
+            </label>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }

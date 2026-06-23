@@ -5,7 +5,7 @@ export interface User {
   email: string;
   roles: Role[];
   provider_id: string | null;
-  provider_code: string | null;
+  provider_code: ProviderCode | null;
   auth_provider?: "local" | "google" | string;
   last_login_method?: "local" | "google" | string;
   password_change_supported?: boolean;
@@ -298,6 +298,16 @@ export interface ProviderDailyTrend {
   currency: string | null;
 }
 
+export interface OperatorDailyTrend {
+  day_bucket: string;
+  total_searches: number;
+  total_point_views: number;
+  total_status_checks: number;
+  successful_reservations: number;
+  failed_reservations: number;
+  global_conversion_rate: number | null;
+}
+
 export interface ProviderSummary {
   provider_code: ProviderCode;
   total_searches: number;
@@ -446,10 +456,10 @@ export interface PricingRule {
   name: string;
   active: boolean;
   currency: string;
-  reservation_success_fee: number;
-  point_view_fee: number;
+  reservation_success_fee: number | string;
+  point_view_fee: number | string;
   point_view_fee_enabled: boolean;
-  reservation_failure_fee: number;
+  reservation_failure_fee: number | string;
   created_by_email: string | null;
   created_at: string;
   updated_at: string;

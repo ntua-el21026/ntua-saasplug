@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AppShell } from "../../components/AppShell";
 import { Alert } from "../../components/Feedback";
 import { messageFromUnknownError } from "../../lib/api";
+import { providerAdminLabel } from "../../lib/formatting";
 import { useAuth } from "./AuthContext";
 
 export function ProfilePage() {
@@ -78,7 +79,7 @@ export function ProfilePage() {
               </div>
               <div>
                 <dt>Role</dt>
-                <dd>{formatRole(primaryRole)}</dd>
+                <dd>{formatRole(primaryRole, user?.provider_code)}</dd>
               </div>
               <div>
                 <dt>Workspace</dt>
@@ -199,12 +200,12 @@ function getInitials(email?: string): string {
   return email.slice(0, 2).toUpperCase();
 }
 
-function formatRole(role: string): string {
+function formatRole(role: string, providerCode?: string | null): string {
   if (role === "OPERATOR") {
     return "Operator";
   }
   if (role === "PROVIDER_ADMIN") {
-    return "Provider admin";
+    return providerAdminLabel(providerCode);
   }
   return "EV user";
 }

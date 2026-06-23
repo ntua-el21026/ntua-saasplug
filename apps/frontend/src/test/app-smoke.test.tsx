@@ -83,7 +83,7 @@ describe("App", () => {
     const providerView = render(<App />);
 
     expect(await screen.findByRole("heading", { name: /provider_admin@saasplug.local/i })).toBeInTheDocument();
-    expect(screen.getAllByText("Provider admin").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Red provider admin").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /update password/i })).not.toBeInTheDocument();
     providerView.unmount();
   });

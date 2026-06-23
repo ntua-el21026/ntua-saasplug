@@ -26,8 +26,10 @@ import type {
   CatalogPointListResponse,
   Charge,
   Invoice,
+  OperatorDailyTrend,
   OperatorProviderComparison,
   OperatorSummary,
+  PointMetric,
   PricingRule,
   ProviderAuditLog,
   ProviderCode,
@@ -45,10 +47,14 @@ import type {
 } from "../../lib/types";
 import {
   BarList,
+  ColumnChart,
   DashboardGrid,
   DashboardPage,
   DashboardPanel,
+  DashboardTabs,
   DataTable,
+  DistributionChart,
+  GroupedColumnChart,
   InlineResult,
   LoadState,
   MetricCard,
@@ -62,6 +68,56 @@ type AsyncState<T> = {
 };
 
 const DEFAULT_LIMIT = 100;
+const ANALYTICS_TABS = [
+  { value: "activity", label: "Activity trend" },
+  { value: "status", label: "Status distribution" },
+  { value: "views", label: "Top viewed points" },
+  { value: "reservations", label: "Top reserved points" },
+  { value: "conversion", label: "Conversion rate" },
+  { value: "revenue", label: "Observed revenue" },
+] as const;
+type AnalyticsTab = (typeof ANALYTICS_TABS)[number]["value"];
+const OPERATOR_ANALYTICS_TABS = [
+  { value: "activity", label: "Platform activity" },
+  { value: "reservations", label: "Provider reservations" },
+  { value: "conversion", label: "Provider conversion" },
+  { value: "revenue", label: "Observed revenue" },
+  { value: "comparison", label: "Comparison table" },
+] as const;
+type OperatorAnalyticsTab = (typeof OPERATOR_ANALYTICS_TABS)[number]["value"];
+
+const CATALOG_TABS = [
+  { value: "inventory", label: "Point inventory" },
+  { value: "coverage", label: "Coverage health" },
+  { value: "runs", label: "Import runs" },
+] as const;
+type CatalogTab = (typeof CATALOG_TABS)[number]["value"];
+const OPERATOR_CATALOG_PAGE_SIZES = [25, 50, 100, "all"] as const;
+type OperatorCatalogPageSize = (typeof OPERATOR_CATALOG_PAGE_SIZES)[number];
+
+const SYNC_TABS = [
+  { value: "jobs", label: "Scheduled jobs" },
+  { value: "history", label: "Run history" },
+  { value: "manual", label: "Manual operations" },
+] as const;
+type SyncTab = (typeof SYNC_TABS)[number]["value"];
+
+const SYSTEM_TABS = [
+  { value: "services", label: "Service health" },
+  { value: "scheduler", label: "Scheduler posture" },
+  { value: "freshness", label: "Data freshness" },
+  { value: "activity", label: "Background activity" },
+] as const;
+type SystemTab = (typeof SYSTEM_TABS)[number]["value"];
+
+const STATUS_COLORS: Record<string, string> = {
+  available: "#10b981",
+  charging: "#2563eb",
+  reserved: "#f59e0b",
+  malfunction: "#ef4444",
+  offline: "#64748b",
+  unknown: "#94a3b8",
+};
 
 function useDashboardLoad<T>(load: () => Promise<T>, deps: unknown[]): AsyncState<T> {
   const [state, setState] = useState<AsyncState<T>>({ data: null, error: null, loading: true });
@@ -417,15 +473,16 @@ export function ProviderPointsPage() {
 export function ProviderAnalyticsPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("activity");
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
     const query = `providerCode=${encodeURIComponent(code)}`;
     const [summary, trends, topViews, topReservations, freshness] = await Promise.all([
       requestJson<ProviderSummary>(`/api/analytics/provider/summary?${query}`, { accessToken }),
       requestJson<ProviderDailyTrend[]>(`/api/analytics/provider/trends/daily?${query}`, { accessToken }),
-      requestJson<ProviderSummary>(`/api/analytics/provider/summary?${query}`, { accessToken }),
-      requestJson<ProviderSummary>(`/api/analytics/provider/summary?${query}`, { accessToken }),
-      requestJson(`/api/analytics/provider/freshness?${query}`, { accessToken }),
+      requestJson<PointMetric[]>(`/api/analytics/provider/top-points?${query}&metric=views&limit=8`, { accessToken }),
+      requestJson<PointMetric[]>(`/api/analytics/provider/top-points?${query}&metric=reservations&limit=8`, { accessToken }),
+      requestJson<ProviderSummary["data_freshness"]>(`/api/analytics/provider/freshness?${query}`, { accessToken }),
     ]);
     return { summary, trends, topViews, topReservations, freshness };
   }, [accessToken, providerCode]);
@@ -448,28 +505,85 @@ export function ProviderAnalyticsPage() {
               <MetricCard label="Failed reservations" value={formatNumber(summary.failed_reservations)} />
               <MetricCard label="Observed amount" value={formatMoney(summary.observed_amount, currency)} />
             </MetricGrid>
-            <DashboardGrid>
-              <DashboardPanel title="Reservation trend" description="Successful reservations per day.">
-                <BarList
-                  rows={state.data?.trends ?? []}
-                  getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
-                  getValue={(row) => row.successful_reservations}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Status distribution" description="Latest availability mix across observed charging points.">
-                <BarList
-                  rows={Object.entries(statusDistribution)}
-                  getLabel={(row) => statusLabel(row[0])}
-                  getValue={(row) => row[1]}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Top viewed points" description="Point-view leaders.">
-                <TopPointTable rows={summary.top_viewed_points} valueLabel="Views" valueSelector={(row) => row.point_views} />
-              </DashboardPanel>
-              <DashboardPanel title="Top reserved points" description="Reservation leaders.">
-                <TopPointTable rows={summary.top_reserved_points} valueLabel="Reservations" valueSelector={(row) => row.successful_reservations} />
-              </DashboardPanel>
-            </DashboardGrid>
+            <DashboardTabs
+              items={[...ANALYTICS_TABS]}
+              value={activeTab}
+              onValueChange={setActiveTab}
+              label="Analytics detail views"
+              meta={`Updated ${formatDateTime(state.data?.freshness?.last_aggregate_computed_at)}`}
+            >
+              {activeTab === "activity" ? (
+                <DashboardPanel title="Activity trend" description="Daily demand and reservation outcomes from analytics aggregates.">
+                  <GroupedColumnChart
+                    rows={state.data?.trends ?? []}
+                    getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                    series={[
+                      { label: "Searches", color: "#0ea5e9", getValue: (row) => row.searches },
+                      { label: "Point views", color: "#2563eb", getValue: (row) => row.point_views },
+                      { label: "Successful reservations", color: "#10b981", getValue: (row) => row.successful_reservations },
+                      { label: "Failed reservations", color: "#ef4444", getValue: (row) => row.failed_reservations },
+                    ]}
+                    label="Provider activity"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "status" ? (
+                <DashboardPanel title="Status distribution" description="Latest availability mix across observed charging points.">
+                  <DistributionChart
+                    rows={Object.entries(statusDistribution).map(([status, value]) => ({
+                      label: statusLabel(status),
+                      value,
+                      color: STATUS_COLORS[status] ?? STATUS_COLORS.unknown,
+                    }))}
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "views" ? (
+                <DashboardPanel title="Top viewed points" description="Charging points receiving the most customer attention.">
+                  <ColumnChart
+                    rows={state.data?.topViews ?? []}
+                    getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
+                    getValue={(row) => row.point_views}
+                    valueLabel="Point views"
+                    color="#2563eb"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "reservations" ? (
+                <DashboardPanel title="Top reserved points" description="Charging points leading successful reservation activity.">
+                  <ColumnChart
+                    rows={state.data?.topReservations ?? []}
+                    getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
+                    getValue={(row) => row.successful_reservations}
+                    valueLabel="Successful reservations"
+                    color="#10b981"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "conversion" ? (
+                <DashboardPanel title="Reservation conversion" description="Daily successful reservations as a share of point views.">
+                  <GroupedColumnChart
+                    rows={state.data?.trends ?? []}
+                    getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                    series={[
+                      { label: "Conversion %", color: "#7c3aed", getValue: (row) => (row.reservation_conversion_rate ?? 0) * 100 },
+                    ]}
+                    label="Reservation conversion"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "revenue" ? (
+                <DashboardPanel title="Observed revenue" description="Daily billing amounts observed by the analytics service.">
+                  <ColumnChart
+                    rows={state.data?.trends ?? []}
+                    getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                    getValue={(row) => row.observed_amount}
+                    valueLabel="Observed amount"
+                    color="#f59e0b"
+                  />
+                </DashboardPanel>
+              ) : null}
+            </DashboardTabs>
           </>
         ) : null}
       </DashboardPage>
@@ -666,13 +780,13 @@ export function ProviderSettingsPage() {
   const providerCode = useProviderCode();
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
-    const [provider, config, pricing, auditLogs] = await Promise.all([
+    const [provider, config, billing, auditLogs] = await Promise.all([
       requestJson<ProviderRecord>(`/api/providers/providers/${code}`, { accessToken }),
       requestJson<ProviderIntegrationConfig>(`/api/providers/providers/${code}/integration-config`, { accessToken }),
-      requestJson<PricingRule>(`/api/billing/pricing/effective/${code}`, { accessToken }),
+      requestJson<BillingOverview>(`/api/billing/providers/${code}/overview`, { accessToken }),
       requestJson<ProviderAuditLog[]>(`/api/providers/providers/${code}/audit-logs`, { accessToken }),
     ]);
-    return { provider, config, pricing, auditLogs };
+    return { provider, config, billing, pricing: billing.effective_pricing, auditLogs };
   }, [accessToken, providerCode]);
 
   return (
@@ -725,24 +839,39 @@ export function ProviderSettingsPage() {
               </dl>
             </DashboardPanel>
             <DashboardPanel title="Effective pricing" description="Pricing currently applied to activity from your provider account.">
-              <dl className="admin-definition-list">
-                <div>
-                  <dt>Rule</dt>
-                  <dd>{state.data.pricing.name}</dd>
+              {state.data.pricing ? (
+                <dl className="admin-definition-list">
+                  <div>
+                    <dt>Rule</dt>
+                    <dd>{state.data.pricing.name}</dd>
+                  </div>
+                  <div>
+                    <dt>Scope</dt>
+                    <dd>{state.data.pricing.provider_code ? `${providerLabel(state.data.pricing.provider_code)} override` : "Global default"}</dd>
+                  </div>
+                  <div>
+                    <dt>Successful reservation</dt>
+                    <dd>{formatMoney(state.data.pricing.reservation_success_fee, state.data.pricing.currency)}</dd>
+                  </div>
+                  <div>
+                    <dt>Failed reservation</dt>
+                    <dd>{formatMoney(state.data.pricing.reservation_failure_fee, state.data.pricing.currency)}</dd>
+                  </div>
+                  <div>
+                    <dt>Point view</dt>
+                    <dd>{state.data.pricing.point_view_fee_enabled ? formatMoney(state.data.pricing.point_view_fee, state.data.pricing.currency) : "Disabled"}</dd>
+                  </div>
+                  <div>
+                    <dt>Last updated</dt>
+                    <dd>{formatDateTime(state.data.pricing.updated_at)}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="pricing-empty-state">
+                  <strong>No active pricing rule</strong>
+                  <span>Ask an operator to configure a global or provider-specific pricing rule.</span>
                 </div>
-                <div>
-                  <dt>Reservation fee</dt>
-                  <dd>{formatMoney(state.data.pricing.reservation_success_fee, state.data.pricing.currency)}</dd>
-                </div>
-                <div>
-                  <dt>Point view fee</dt>
-                  <dd>{state.data.pricing.point_view_fee_enabled ? formatMoney(state.data.pricing.point_view_fee, state.data.pricing.currency) : "Disabled"}</dd>
-                </div>
-                <div>
-                  <dt>Active</dt>
-                  <dd>{state.data.pricing.active ? "Yes" : "No"}</dd>
-                </div>
-              </dl>
+              )}
             </DashboardPanel>
             <DashboardPanel title="Recent account changes" description="Recent updates made to your provider profile and configuration.">
               <DataTable
@@ -898,11 +1027,12 @@ export function OperatorProvidersPage() {
 
 export function OperatorAnalyticsPage() {
   const accessToken = useAccessToken();
+  const [activeTab, setActiveTab] = useState<OperatorAnalyticsTab>("activity");
   const state = useDashboardLoad(async () => {
     const [summary, comparison, trends, freshness] = await Promise.all([
       requestJson<OperatorSummary>("/api/analytics/operator/summary", { accessToken }),
       requestJson<OperatorProviderComparison[]>("/api/analytics/operator/provider-comparison", { accessToken }),
-      requestJson<ProviderDailyTrend[]>("/api/analytics/operator/trends/daily", { accessToken }),
+      requestJson<OperatorDailyTrend[]>("/api/analytics/operator/trends/daily", { accessToken }),
       requestJson("/api/analytics/operator/freshness", { accessToken }),
     ]);
     return { summary, comparison, trends, freshness };
@@ -924,22 +1054,63 @@ export function OperatorAnalyticsPage() {
               <MetricCard label="Status checks" value={formatNumber(summary.total_status_checks)} />
               <MetricCard label="Failures" value={formatNumber(summary.failed_reservations)} />
             </MetricGrid>
-            <DashboardGrid>
-              <DashboardPanel title="Provider reservations" description="Successful reservations by provider.">
-                <BarList
-                  rows={state.data?.comparison ?? []}
-                  getLabel={(row) => providerLabel(row.provider_code)}
-                  getValue={(row) => row.successful_reservations}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Daily activity" description="Daily successful reservations across the platform.">
-                <BarList
-                  rows={state.data?.trends ?? []}
-                  getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
-                  getValue={(row) => row.successful_reservations}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Provider comparison" description="Global metrics by provider.">
+            <DashboardTabs
+              items={[...OPERATOR_ANALYTICS_TABS]}
+              value={activeTab}
+              onValueChange={setActiveTab}
+              label="Operator analytics views"
+              meta={`Updated ${formatDateTime(summary.last_aggregate_computed_at)}`}
+            >
+              {activeTab === "activity" ? (
+                <DashboardPanel title="Platform activity" description="Daily demand and reservation outcomes across all providers.">
+                  <GroupedColumnChart
+                    rows={state.data?.trends ?? []}
+                    getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                    series={[
+                      { label: "Searches", color: "#0ea5e9", getValue: (row) => row.total_searches },
+                      { label: "Point views", color: "#2563eb", getValue: (row) => row.total_point_views },
+                      { label: "Successful reservations", color: "#10b981", getValue: (row) => row.successful_reservations },
+                      { label: "Failed reservations", color: "#ef4444", getValue: (row) => row.failed_reservations },
+                    ]}
+                    label="Platform activity"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "reservations" ? (
+                <DashboardPanel title="Provider reservations" description="Successful reservation volume by provider.">
+                  <ColumnChart
+                    rows={state.data?.comparison ?? []}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.successful_reservations}
+                    valueLabel="Successful reservations"
+                    color="#10b981"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "conversion" ? (
+                <DashboardPanel title="Provider conversion" description="Successful reservations as a share of point views.">
+                  <ColumnChart
+                    rows={state.data?.comparison ?? []}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => (row.reservation_conversion_rate ?? 0) * 100}
+                    valueLabel="Conversion percent"
+                    color="#7c3aed"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "revenue" ? (
+                <DashboardPanel title="Observed revenue" description="Analytics-observed billing amount by provider.">
+                  <ColumnChart
+                    rows={state.data?.comparison ?? []}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.observed_amount}
+                    valueLabel="Observed amount"
+                    color="#f59e0b"
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "comparison" ? (
+                <DashboardPanel title="Provider comparison" description="Global metrics by provider.">
                 <DataTable
                   rows={state.data?.comparison ?? []}
                   getRowKey={(row) => row.provider_code}
@@ -952,7 +1123,8 @@ export function OperatorAnalyticsPage() {
                   ]}
                 />
               </DashboardPanel>
-            </DashboardGrid>
+              ) : null}
+            </DashboardTabs>
           </>
         ) : null}
       </DashboardPage>
@@ -960,23 +1132,86 @@ export function OperatorAnalyticsPage() {
   );
 }
 
-export function OperatorCatalogPage() {
-  const accessToken = useAccessToken();
-  const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
-  const [reloadKey, setReloadKey] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
-  const state = useDashboardLoad(async () => {
-    const params = new URLSearchParams({ includeStale: "true", limit: "75" });
+async function loadOperatorCatalogPoints(
+  accessToken: string,
+  providerCode: "" | ProviderCode,
+  pageSize: OperatorCatalogPageSize,
+  page: number,
+): Promise<CatalogPointListResponse> {
+  const requestPage = (limit: number, offset: number) => {
+    const params = new URLSearchParams({
+      includeStale: "true",
+      limit: String(limit),
+      offset: String(offset),
+    });
     if (providerCode) {
       params.set("providerCode", providerCode);
     }
+    return requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken });
+  };
+
+  if (pageSize !== "all") {
+    return requestPage(pageSize, page * pageSize);
+  }
+
+  const firstPage = await requestPage(500, 0);
+  const offsets: number[] = [];
+  for (let offset = firstPage.limit; offset < firstPage.total; offset += firstPage.limit) {
+    offsets.push(offset);
+  }
+  const remainingPages = await Promise.all(offsets.map((offset) => requestPage(firstPage.limit, offset)));
+  return {
+    ...firstPage,
+    items: [firstPage, ...remainingPages].flatMap((response) => response.items),
+    limit: firstPage.total,
+    offset: 0,
+  };
+}
+
+function PointStatusGuide() {
+  return (
+    <section className="point-status-guide" aria-labelledby="point-status-guide-title">
+      <h3 id="point-status-guide-title">Point status guide</h3>
+      <p><strong>Fresh</strong> means the point was present in the provider's latest catalog import. <strong>Stale</strong> means it disappeared from that latest import, so it is retained for history but excluded from normal EV search and reservation flows.</p>
+      <dl>
+        <div><dt>Available</dt><dd>The charger is currently reported as ready for use.</dd></div>
+        <div><dt>Charging</dt><dd>A charging session is currently in progress.</dd></div>
+        <div><dt>Reserved</dt><dd>The charger is held for an active reservation.</dd></div>
+        <div><dt>Malfunction</dt><dd>The provider reports a technical fault.</dd></div>
+        <div><dt>Offline</dt><dd>The charger is not currently connected or reachable.</dd></div>
+        <div><dt>Unknown</dt><dd>No reliable current operational status is available.</dd></div>
+      </dl>
+    </section>
+  );
+}
+
+export function OperatorCatalogPage() {
+  const accessToken = useAccessToken();
+  const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
+  const [activeTab, setActiveTab] = useState<CatalogTab>("inventory");
+  const [pageSize, setPageSize] = useState<OperatorCatalogPageSize>(25);
+  const [page, setPage] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [message, setMessage] = useState<string | null>(null);
+  const state = useDashboardLoad(async () => {
     const [catalog, freshness, runs] = await Promise.all([
-      requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken }),
+      loadOperatorCatalogPoints(accessToken, providerCode, pageSize, page),
       requestJson<ProviderFreshness[]>("/api/catalog/freshness", { accessToken }),
       requestJson<CatalogImportRun[]>("/api/catalog/imports/runs?limit=20", { accessToken }),
     ]);
     return { catalog, freshness, runs };
-  }, [accessToken, providerCode, reloadKey]);
+  }, [accessToken, providerCode, page, pageSize, reloadKey]);
+  const totalPages = state.data && pageSize !== "all"
+    ? Math.max(1, Math.ceil(state.data.catalog.total / pageSize))
+    : 1;
+  const firstVisiblePoint = state.data?.catalog.items.length ? state.data.catalog.offset + 1 : 0;
+  const lastVisiblePoint = state.data ? state.data.catalog.offset + state.data.catalog.items.length : 0;
+
+  useEffect(() => {
+    if (pageSize !== "all" && page >= totalPages) {
+      setPage(totalPages - 1);
+    }
+  }, [page, pageSize, totalPages]);
 
   async function triggerImport(allProviders: boolean) {
     setMessage(null);
@@ -1009,7 +1244,13 @@ export function OperatorCatalogPage() {
         <section className="admin-toolbar">
           <label>
             Provider
-            <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
+            <select
+              value={providerCode}
+              onChange={(event) => {
+                setProviderCode(event.target.value as "" | ProviderCode);
+                setPage(0);
+              }}
+            >
               <option value="">All providers</option>
               {PROVIDERS.map((provider) => (
                 <option value={provider} key={provider}>{providerLabel(provider)}</option>
@@ -1022,36 +1263,93 @@ export function OperatorCatalogPage() {
         <InlineResult message={message} tone={message?.includes("Started") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
-          <DashboardGrid>
-            <DashboardPanel title="Catalog points" description={`${state.data.catalog.total} charging points match the current filter.`}>
-              <DataTable
-                rows={state.data.catalog.items}
-                getRowKey={(row) => row.id}
-                columns={[
-                  { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "point", label: "Point", render: (row) => row.display_name },
-                  { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
-                  { key: "stale", label: "Stale", render: (row) => (row.is_stale ? "Yes" : "No") },
-                  { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
-                ]}
-              />
-            </DashboardPanel>
-            <DashboardPanel title="Freshness" description="Active and stale charging points by provider.">
-              <DataTable
-                rows={state.data.freshness}
-                getRowKey={(row) => row.provider_code}
-                columns={[
-                  { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "active", label: "Active", render: (row) => formatNumber(row.active_count) },
-                  { key: "stale", label: "Stale", render: (row) => formatNumber(row.stale_count) },
-                  { key: "status", label: "Last status", render: (row) => row.last_import_status ?? "Unknown" },
-                ]}
-              />
-            </DashboardPanel>
-            <DashboardPanel title="Import runs" description="Recent provider import runs.">
+          <DashboardTabs
+            items={[...CATALOG_TABS]}
+            value={activeTab}
+            onValueChange={setActiveTab}
+            label="Catalog health views"
+            meta={`${formatNumber(state.data.catalog.total)} points`}
+          >
+            {activeTab === "inventory" ? (
+              <DashboardPanel
+                title="Catalog points"
+                description={`${state.data.catalog.total} charging points match the current provider filter.`}
+                actions={(
+                  <label className="catalog-page-size">
+                    Results fetched
+                    <select
+                      value={String(pageSize)}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setPageSize(value === "all" ? "all" : Number(value) as OperatorCatalogPageSize);
+                        setPage(0);
+                      }}
+                    >
+                      {OPERATOR_CATALOG_PAGE_SIZES.map((size) => (
+                        <option key={String(size)} value={String(size)}>
+                          {size === "all" ? "All results" : `${size} per page`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              >
+                <DataTable
+                  rows={state.data.catalog.items}
+                  getRowKey={(row) => row.id}
+                  columns={[
+                    { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
+                    { key: "point", label: "Point", render: (row) => row.display_name },
+                    { key: "status", label: "Operational status", render: (row) => <StatusBadge status={row.status} /> },
+                    { key: "freshness", label: "Catalog state", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
+                    { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
+                  ]}
+                />
+                <div className="catalog-pagination" aria-label="Catalog point pagination">
+                  <span>
+                    Showing {formatNumber(firstVisiblePoint)}-{formatNumber(lastVisiblePoint)} of {formatNumber(state.data.catalog.total)}
+                  </span>
+                  {pageSize !== "all" ? (
+                    <div>
+                      <button className="button-secondary" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">
+                        Previous
+                      </button>
+                      <span>Page {page + 1} of {totalPages}</span>
+                      <button className="button-secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} type="button">
+                        Next
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <PointStatusGuide />
+              </DashboardPanel>
+            ) : null}
+            {activeTab === "coverage" ? (
+              <DashboardPanel title="Catalog coverage health" description="Active and stale charging-point records by provider.">
+                <div className="analytics-split-charts">
+                  <ColumnChart
+                    rows={state.data.freshness}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.active_count}
+                    valueLabel="Active points"
+                    color="#10b981"
+                  />
+                  <ColumnChart
+                    rows={state.data.freshness}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.stale_count}
+                    valueLabel="Stale points"
+                    color="#f59e0b"
+                  />
+                </div>
+              </DashboardPanel>
+            ) : null}
+            {activeTab === "runs" ? (
+              <DashboardPanel title="Import runs" description="Recent provider import runs.">
               <ImportRunTable rows={state.data.runs} />
             </DashboardPanel>
-          </DashboardGrid>
+            ) : null}
+          </DashboardTabs>
         ) : null}
       </DashboardPage>
     </AppShell>
@@ -1308,7 +1606,8 @@ export function OperatorPricingPage() {
 
 export function OperatorSyncPage() {
   const accessToken = useAccessToken();
-  const [providerCode, setProviderCode] = useState<ProviderCode>("redPlug");
+  const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
+  const [activeTab, setActiveTab] = useState<SyncTab>("jobs");
   const [message, setMessage] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const schedulerState = useDashboardLoad(async () => {
@@ -1343,7 +1642,8 @@ export function OperatorSyncPage() {
         <section className="admin-toolbar">
           <label>
             Provider
-            <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as ProviderCode)}>
+            <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
+              <option value="">All providers</option>
               {PROVIDERS.map((provider) => (
                 <option key={provider} value={provider}>{providerLabel(provider)}</option>
               ))}
@@ -1354,15 +1654,26 @@ export function OperatorSyncPage() {
             type="button"
             onClick={() => runAction(
               "Maintenance sequence",
-              () => requestJson<SchedulerSequenceRun>("/api/scheduler/jobs/run-maintenance", { method: "POST", accessToken }),
+              () => requestJson<SchedulerSequenceRun>("/api/scheduler/jobs/run-maintenance", {
+                method: "POST",
+                accessToken,
+                bodyJson: { provider_code: providerCode || null },
+              }),
               () => setRefreshKey((value) => value + 1),
             )}
           >
-            Run maintenance sequence
+            Run {providerCode ? providerLabel(providerCode) : "all providers"} sequence
           </button>
         </section>
-        <DashboardGrid>
-          <DashboardPanel title="Scheduler control plane" description="Manage scheduled jobs, manual runs, pause controls, and job intervals.">
+        <DashboardTabs
+          items={[...SYNC_TABS]}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          label="Synchronization views"
+          meta={schedulerState.data ? `${schedulerState.data.jobs.length} jobs` : undefined}
+        >
+          {activeTab === "jobs" ? (
+            <DashboardPanel title="Scheduler control plane" description="Manage scheduled jobs, manual runs, pause controls, and job intervals.">
             <LoadState loading={schedulerState.loading} error={schedulerState.error} />
             {schedulerState.data ? (
               <DataTable
@@ -1412,25 +1723,39 @@ export function OperatorSyncPage() {
               />
             ) : null}
           </DashboardPanel>
-          <DashboardPanel title="Scheduler run history" description="Recent scheduled job activity.">
+          ) : null}
+          {activeTab === "history" ? (
+            <DashboardPanel title="Scheduler run history" description="Recent scheduled job activity and execution duration.">
             <LoadState loading={schedulerState.loading} error={schedulerState.error} />
             {schedulerState.data ? (
-              <DataTable
-                rows={schedulerState.data.runs}
-                getRowKey={(row) => row.id}
-                emptyLabel="No scheduler runs recorded"
-                columns={[
-                  { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
-                  { key: "status", label: "Status", render: (row) => row.status },
-                  { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
-                  { key: "http", label: "HTTP", render: (row) => row.target_http_status ?? "None" },
-                  { key: "duration", label: "Duration", render: (row) => row.duration_ms === null ? "None" : `${row.duration_ms}ms` },
-                  { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
-                ]}
-              />
+              <>
+                <ColumnChart
+                  rows={schedulerState.data.runs.slice().reverse()}
+                  getLabel={(row) => schedulerJobLabel(row.job_key)}
+                  getValue={(row) => row.duration_ms ?? 0}
+                  valueLabel="Run duration milliseconds"
+                  color="#0ea5e9"
+                />
+                <DataTable
+                  rows={schedulerState.data.runs}
+                  getRowKey={(row) => row.id}
+                  emptyLabel="No scheduler runs recorded"
+                  columns={[
+                    { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
+                    { key: "status", label: "Status", render: (row) => row.status },
+                    { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
+                    { key: "http", label: "HTTP", render: (row) => row.target_http_status ?? "None" },
+                    { key: "duration", label: "Duration", render: (row) => row.duration_ms === null ? "None" : `${row.duration_ms}ms` },
+                    { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
+                  ]}
+                />
+              </>
             ) : null}
           </DashboardPanel>
-          <DashboardPanel title="Catalog sync" description="Refresh provider charging-point data.">
+          ) : null}
+          {activeTab === "manual" ? (
+            <DashboardGrid>
+              <DashboardPanel title="Catalog sync" description="Refresh provider charging-point data.">
             <div className="button-row">
               <button className="button-secondary" type="button" onClick={() => runAction("All-provider import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}>Import all providers</button>
               <button className="button-primary" type="button" onClick={() => runAction(`${providerCode} import`, () => requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, { method: "POST", accessToken }))}>Import selected provider</button>
@@ -1451,7 +1776,9 @@ export function OperatorSyncPage() {
           <DashboardPanel title="Reservation updates" description="Publish pending reservation updates after completed reservation attempts.">
             <button className="button-primary" type="button" onClick={() => runAction("Reservation outbox publish", () => requestJson("/api/reservations/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}>Publish reservation outbox</button>
           </DashboardPanel>
-        </DashboardGrid>
+            </DashboardGrid>
+          ) : null}
+        </DashboardTabs>
         <InlineResult message={message} tone={message?.includes("completed") ? "success" : "warning"} />
       </DashboardPage>
     </AppShell>
@@ -1460,6 +1787,7 @@ export function OperatorSyncPage() {
 
 export function OperatorSystemPage() {
   const accessToken = useAccessToken();
+  const [activeTab, setActiveTab] = useState<SystemTab>("services");
   const state = useDashboardLoad(async () => {
     const healthPaths = [
       ["/api/auth/health", "auth-service"],
@@ -1499,8 +1827,15 @@ export function OperatorSystemPage() {
       >
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
-          <DashboardGrid>
-            <DashboardPanel title="Service health" description="Health checks for the deployed platform components.">
+          <DashboardTabs
+            items={[...SYSTEM_TABS]}
+            value={activeTab}
+            onValueChange={setActiveTab}
+            label="System overview views"
+            meta={`${state.data.health.filter((row) => row.ok).length}/${state.data.health.length} healthy`}
+          >
+            {activeTab === "services" ? (
+              <DashboardPanel title="Service health" description="Health checks for the deployed platform components.">
               <div className="health-grid">
                 {state.data.health.map((row) => (
                   <div className="health-card" key={row.label}>
@@ -1511,82 +1846,69 @@ export function OperatorSystemPage() {
                 ))}
               </div>
             </DashboardPanel>
-            <DashboardPanel title="Scheduler health" description="Current scheduled job availability and run posture.">
-              <MetricGrid>
-                <MetricCard label="Jobs" value={formatNumber(state.data.schedulerHealth.total_job_count)} />
-                <MetricCard label="Enabled" value={formatNumber(state.data.schedulerHealth.enabled_job_count)} />
-                <MetricCard label="Running" value={formatNumber(state.data.schedulerHealth.running_job_count)} />
-                <MetricCard label="Last status" value={state.data.schedulerHealth.last_run_status ?? "None"} />
-              </MetricGrid>
-            </DashboardPanel>
-            <DashboardPanel title="Catalog freshness" description="Catalog coverage and update freshness by provider.">
-              <DataTable
-                rows={state.data.catalogFreshness}
-                getRowKey={(row) => row.provider_code}
-                columns={[
-                  { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "active", label: "Active", render: (row) => formatNumber(row.active_count) },
-                  { key: "stale", label: "Stale", render: (row) => formatNumber(row.stale_count) },
-                  { key: "import", label: "Latest import", render: (row) => formatDateTime(row.last_successful_import_at) },
-                ]}
-              />
-            </DashboardPanel>
-            <DashboardPanel title="Availability freshness" description="Current and expired availability checks by provider.">
-              <DataTable
-                rows={state.data.statusFreshness}
-                getRowKey={(row) => row.provider_code}
-                columns={[
-                  { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "valid", label: "Current", render: (row) => formatNumber(row.valid_cache_count) },
-                  { key: "expired", label: "Needs refresh", render: (row) => formatNumber(row.expired_cache_count) },
-                  { key: "checked", label: "Checked", render: (row) => formatDateTime(row.last_checked_at) },
-                ]}
-              />
-            </DashboardPanel>
-            <DashboardPanel title="Import runs" description="Latest catalog refresh activity.">
-              <ImportRunTable rows={state.data.imports} />
-            </DashboardPanel>
-            <DashboardPanel title="Scheduler runs" description="Latest scheduled job activity.">
-              <DataTable
-                rows={state.data.schedulerRuns}
-                getRowKey={(row) => row.id}
-                emptyLabel="No scheduler runs recorded"
-                columns={[
-                  { key: "job", label: "Job", render: (row) => row.job_key },
-                  { key: "status", label: "Status", render: (row) => row.status },
-                  { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
-                  { key: "target", label: "Target", render: (row) => row.target_service },
-                  { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
-                ]}
-              />
-            </DashboardPanel>
-          </DashboardGrid>
+            ) : null}
+            {activeTab === "scheduler" ? (
+              <DashboardPanel title="Scheduler posture" description="Current scheduled job availability and recent execution duration.">
+                <MetricGrid>
+                  <MetricCard label="Jobs" value={formatNumber(state.data.schedulerHealth.total_job_count)} />
+                  <MetricCard label="Enabled" value={formatNumber(state.data.schedulerHealth.enabled_job_count)} />
+                  <MetricCard label="Running" value={formatNumber(state.data.schedulerHealth.running_job_count)} />
+                  <MetricCard label="Last status" value={state.data.schedulerHealth.last_run_status ?? "None"} />
+                </MetricGrid>
+                <ColumnChart
+                  rows={state.data.schedulerRuns.slice().reverse()}
+                  getLabel={(row) => row.job_key.replace(/\./g, " ")}
+                  getValue={(row) => row.duration_ms ?? 0}
+                  valueLabel="Run duration milliseconds"
+                  color="#7c3aed"
+                />
+              </DashboardPanel>
+            ) : null}
+            {activeTab === "freshness" ? (
+              <DashboardPanel title="Data freshness" description="Catalog and availability freshness across providers.">
+                <div className="analytics-split-charts">
+                  <ColumnChart
+                    rows={state.data.catalogFreshness}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.stale_count}
+                    valueLabel="Stale catalog points"
+                    color="#f59e0b"
+                  />
+                  <ColumnChart
+                    rows={state.data.statusFreshness}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.expired_cache_count}
+                    valueLabel="Expired status entries"
+                    color="#ef4444"
+                  />
+                </div>
+              </DashboardPanel>
+            ) : null}
+            {activeTab === "activity" ? (
+              <DashboardGrid>
+                <DashboardPanel title="Import runs" description="Latest catalog refresh activity.">
+                  <ImportRunTable rows={state.data.imports} />
+                </DashboardPanel>
+                <DashboardPanel title="Scheduler runs" description="Latest scheduled job activity.">
+                  <DataTable
+                    rows={state.data.schedulerRuns}
+                    getRowKey={(row) => row.id}
+                    emptyLabel="No scheduler runs recorded"
+                    columns={[
+                      { key: "job", label: "Job", render: (row) => row.job_key },
+                      { key: "status", label: "Status", render: (row) => row.status },
+                      { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
+                      { key: "target", label: "Target", render: (row) => row.target_service },
+                      { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
+                    ]}
+                  />
+                </DashboardPanel>
+              </DashboardGrid>
+            ) : null}
+          </DashboardTabs>
         ) : null}
       </DashboardPage>
     </AppShell>
-  );
-}
-
-function TopPointTable({
-  rows,
-  valueLabel,
-  valueSelector,
-}: {
-  rows: ProviderSummary["top_viewed_points"];
-  valueLabel: string;
-  valueSelector: (row: ProviderSummary["top_viewed_points"][number]) => number;
-}) {
-  return (
-    <DataTable
-      rows={rows}
-      getRowKey={(row, index) => `${row.provider_code}-${row.external_point_id}-${index}`}
-      columns={[
-        { key: "point", label: "Point", render: (row) => row.point_name || row.external_point_id },
-        { key: "views", label: "Views", render: (row) => formatNumber(row.point_views) },
-        { key: "reservations", label: valueLabel, render: (row) => formatNumber(valueSelector(row)) },
-        { key: "checks", label: "Status checks", render: (row) => formatNumber(row.status_checks) },
-      ]}
-    />
   );
 }
 

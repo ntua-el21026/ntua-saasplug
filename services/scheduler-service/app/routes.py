@@ -12,6 +12,7 @@ from app.schemas import (
     JobPatchRequest,
     JobRunResponse,
     JobSequenceRunResponse,
+    MaintenanceSequenceRequest,
     ManualRunRequest,
     ScheduledJobResponse,
     SchedulerHealthResponse,
@@ -103,6 +104,7 @@ def run_job_endpoint(
 
 @router.post("/jobs/run-maintenance", response_model=JobSequenceRunResponse)
 def run_maintenance_jobs(
+    body: MaintenanceSequenceRequest | None = None,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal = Depends(get_current_principal),
@@ -121,6 +123,11 @@ def run_maintenance_jobs(
                 job,
                 "manual_sequence",
                 triggered_by_email=principal.email,
+                request_body_override=(
+                    {"provider_code": body.provider_code}
+                    if job_key == "catalog.import.all" and body and body.provider_code
+                    else None
+                ),
             ),
         )
 

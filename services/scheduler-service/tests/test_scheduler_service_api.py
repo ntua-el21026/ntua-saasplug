@@ -279,6 +279,37 @@ def test_operator_can_run_ordered_maintenance_sequence(test_context, monkeypatch
     ]
 
 
+def test_operator_can_scope_maintenance_catalog_step_to_provider(test_context, monkeypatch) -> None:
+    captured_bodies: list[object] = []
+    real_httpx_client = httpx.Client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_bodies.append(json.loads(request.content) if request.content else None)
+        return httpx.Response(200, json={"status": "completed"}, headers={"Content-Type": "application/json"})
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.client = real_httpx_client(transport=httpx.MockTransport(handler), timeout=timeout)
+
+        def request(self, *args, **kwargs):
+            return self.client.request(*args, **kwargs)
+
+        def close(self) -> None:
+            self.client.close()
+
+    monkeypatch.setattr("app.client.httpx.Client", FakeClient)
+
+    response = test_context.post(
+        "/jobs/run-maintenance",
+        headers=operator_headers(),
+        json={"provider_code": "greenPlug"},
+    )
+
+    assert response.status_code == 200
+    assert captured_bodies[0] == {"provider_code": "greenPlug"}
+    assert captured_bodies[1:] == [None, None, None, None, None]
+
+
 def test_target_http_error_is_persisted(test_context, monkeypatch) -> None:
     real_httpx_client = httpx.Client
 

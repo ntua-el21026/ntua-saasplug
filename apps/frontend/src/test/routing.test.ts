@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCostPerKwh, formatDurationMinutes, formatMoney, formatPrice } from "../lib/formatting";
+import { formatCostPerKwh, formatDurationMinutes, formatMoney, formatPrice, providerAdminLabel } from "../lib/formatting";
 import { ATHENS_DEFAULT_BOUNDS, buildCatalogPointsPath, pointWithinCatalogSearchCircle } from "../lib/routing";
 
 describe("frontend helpers", () => {
@@ -33,8 +33,15 @@ describe("frontend helpers", () => {
     expect(formatCostPerKwh(-0.2)).toBe("Cost/kWh unavailable");
     expect(formatCostPerKwh(0)).toBe("€0.00/kWh");
     expect(formatCostPerKwh(0.59)).toBe("€0.59/kWh");
+    expect(formatMoney("0.50")).toBe("€0.50");
     expect(formatMoney(Number.POSITIVE_INFINITY)).toBe("Not available");
     expect(formatDurationMinutes(0)).toBe("0 min");
+  });
+
+  it("labels every provider-admin workspace by provider color", () => {
+    expect(providerAdminLabel("redPlug")).toBe("Red provider admin");
+    expect(providerAdminLabel("greenPlug")).toBe("Green provider admin");
+    expect(providerAdminLabel("bluePlug")).toBe("Blue provider admin");
   });
 
   it("checks points against the exact catalog search circle", () => {
