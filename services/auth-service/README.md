@@ -146,11 +146,16 @@ OAuth is not configured in local demo mode.
 When configured, `/auth/google/login` builds a standards-compatible Google
 authorization URL and `/auth/google/callback` exchanges the authorization code
 with Google, reads the verified OpenID Connect userinfo response, and signs in
-the matching user. The login and callback endpoints accept an optional
-`redirect_uri` query parameter so the React app can use
-`http://localhost:8080/login/google/callback` as the browser callback route and
-then complete the code exchange through the gateway. The same redirect URI must
-be registered in the Google OAuth client configuration.
+the matching user.
+
+Real Google OAuth uses the backend callback in `GOOGLE_REDIRECT_URI`; that URL
+must be registered in the Google OAuth client configuration. After a successful
+code exchange, the backend redirects the browser to
+`GOOGLE_FRONTEND_CALLBACK_URI` with a session payload in the URL fragment. The
+React callback page stores the session and clears the fragment from the address
+bar. The callback endpoint still accepts `redirect_uri` for
+legacy/manual code-exchange tests, but normal browser login should use the
+backend callback to avoid Google `redirect_uri_mismatch` errors.
 
 Google sign-in is EV-only:
 
@@ -173,8 +178,9 @@ password. It is supported for all local password accounts, including EV users,
 provider admins, and operators. Google-created accounts cannot change a password
 until a password login flow is explicitly added for them.
 
-The frontend currently exposes the password-change form only on the EV profile
-when the current session was not signed in with Google.
+The frontend exposes the password-change form on local-password profiles whose
+current session was not signed in with Google, including EV users, provider
+admins, and operators.
 
 No real Google credentials must be committed.
 
@@ -227,7 +233,8 @@ Relevant variables:
 | `DEMO_USER_PASSWORD` | safe local demo password placeholder |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID placeholder |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret placeholder |
-| `GOOGLE_REDIRECT_URI` | default OAuth callback URL; the frontend can pass `/login/google/callback` through the `redirect_uri` query parameter |
+| `GOOGLE_REDIRECT_URI` | backend OAuth callback URL registered in Google Console |
+| `GOOGLE_FRONTEND_CALLBACK_URI` | browser route that receives the post-exchange frontend handoff |
 
 Do not commit real secrets or `.env`.
 

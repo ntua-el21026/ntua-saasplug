@@ -113,13 +113,13 @@ function responseFor(url: URL, role: Role): unknown {
     return [providerAuditLog()];
   }
   if (pathname === "/api/catalog/imports/runs") {
-    return [];
+    return catalogImportRuns();
   }
   if (pathname === "/api/scheduler/health") {
     return schedulerHealth();
   }
   if (pathname === "/api/scheduler/jobs") {
-    return [schedulerJob()];
+    return [schedulerJob(), invoicePreparationJob()];
   }
   if (pathname === "/api/scheduler/runs") {
     return [schedulerRun()];
@@ -519,6 +519,55 @@ function schedulerJob() {
   };
 }
 
+function invoicePreparationJob() {
+  return {
+    ...schedulerJob(),
+    id: "job-2",
+    job_key: "billing.prepare-invoices",
+    description: "Prepare invoice candidate summaries without issuing invoices.",
+    target_service: "billing-service",
+    target_url_path: "/internal/jobs/invoices/prepare",
+    schedule_type: "cron",
+    interval_seconds: null,
+    cron_expression: "30 2 * * *",
+    timezone: "Europe/Athens",
+    next_run_at: "2026-06-24T02:30:00+03:00",
+  };
+}
+
+function catalogImportRuns() {
+  return [
+    {
+      id: "import-completed",
+      provider_code: "greenPlug",
+      status: "completed",
+      triggered_by: "operator@saasplug.local",
+      started_at: "2026-06-23T14:10:00Z",
+      completed_at: "2026-06-23T14:10:10Z",
+      provider_sync_triggered: true,
+      provider_fetched_count: 509,
+      catalog_upserted_count: 509,
+      catalog_changed_count: 6,
+      catalog_marked_stale_count: 0,
+      error_message: null,
+    },
+    {
+      id: "import-failed",
+      provider_code: "redPlug",
+      status: "failed",
+      triggered_by: "operator@saasplug.local",
+      started_at: "2026-06-23T14:08:00Z",
+      completed_at: "2026-06-23T14:08:05Z",
+      provider_sync_triggered: true,
+      provider_fetched_count: 0,
+      catalog_upserted_count: 0,
+      catalog_changed_count: 0,
+      catalog_marked_stale_count: 0,
+      error_message: "Provider unavailable",
+    },
+  ];
+}
+
 function schedulerRun() {
   return {
     id: "run-1",
@@ -560,7 +609,7 @@ describe("admin role routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /provider command center/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /your network overview/i })).toBeInTheDocument();
     expect(await screen.findByText(/daily successful reservations across your charging network/i)).toBeInTheDocument();
     expect(screen.getByText(/latest invoices and payment status/i)).toBeInTheDocument();
     expect(screen.queryByText(/analytics aggregate cache/i)).not.toBeInTheDocument();
@@ -575,7 +624,7 @@ describe("admin role routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^provider analytics$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^your performance$/i })).toBeInTheDocument();
     expect(await screen.findByText("€0.00")).toBeInTheDocument();
     expect(screen.getByText("Red provider admin")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /provider activity bar chart/i })).toBeInTheDocument();
@@ -592,8 +641,8 @@ describe("admin role routing", () => {
     await userEvent.click(screen.getByRole("tab", { name: /conversion rate/i }));
     expect(await screen.findByRole("img", { name: /reservation conversion bar chart/i })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: /observed revenue/i }));
-    expect(await screen.findByRole("img", { name: /observed amount bar chart/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /tracked revenue/i }));
+    expect(await screen.findByRole("img", { name: /tracked revenue bar chart/i })).toBeInTheDocument();
 
     await waitFor(() => {
       const topPointCalls = vi.mocked(fetch).mock.calls.filter(([input]) => {
@@ -611,18 +660,21 @@ describe("admin role routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^provider points$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^your charging points$/i })).toBeInTheDocument();
     expect(await screen.findByText("Owned redPlug charger")).toBeInTheDocument();
     expect(screen.queryByText("Foreign greenPlug charger")).not.toBeInTheDocument();
     expect(screen.queryByText("greenPlug")).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/entries fetched/i), "40");
     await waitFor(() => {
-      const catalogCall = vi.mocked(fetch).mock.calls.find(([input]) => {
+      const catalogCall = [...vi.mocked(fetch).mock.calls].reverse().find(([input]) => {
         const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         return new URL(raw, "http://app.test").pathname === "/api/catalog/points";
       });
       expect(catalogCall).toBeDefined();
       const raw = String(catalogCall?.[0]);
-      expect(new URL(raw, "http://app.test").searchParams.get("providerCode")).toBe("redPlug");
+      const url = new URL(raw, "http://app.test");
+      expect(url.searchParams.get("providerCode")).toBe("redPlug");
+      expect(url.searchParams.get("limit")).toBe("40");
     });
   });
 
@@ -688,7 +740,7 @@ describe("admin role routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^provider settings$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^your settings$/i })).toBeInTheDocument();
     expect(await screen.findByText("display_name, is_active")).toBeInTheDocument();
     expect(screen.getByText("Default provider pricing")).toBeInTheDocument();
     expect(screen.getByText("redPlug override")).toBeInTheDocument();
@@ -762,6 +814,10 @@ describe("admin role routing", () => {
     expect(await screen.findByRole("heading", { name: /catalog coverage health/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /import runs/i }));
     expect(await screen.findByRole("heading", { name: /import runs/i })).toBeInTheDocument();
+    const completedBadges = screen
+      .getAllByText(/^completed$/i)
+      .filter((element) => element.classList.contains("ui-status-badge"));
+    expect(completedBadges[0]).toHaveClass("ui-tone-success");
   });
 
   it("blocks EV users from provider-admin routes", async () => {
@@ -782,8 +838,13 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /scheduler control plane/i })).toBeInTheDocument();
-    expect((await screen.findAllByText(/catalog import all/i)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/import all provider catalogs/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/fetch the latest charging points/i)).toBeInTheDocument();
+    expect(screen.getByText(/prepare invoice previews/i)).toBeInTheDocument();
+    expect(screen.getByText(/daily at 02:30/i)).toBeInTheDocument();
+    expect(screen.queryByText(/billing prepare-invoices/i)).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("86400")).toBeInTheDocument();
+    expect(screen.getAllByText(/^s$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/every day/i)).toBeInTheDocument();
   });
 
@@ -833,6 +894,8 @@ describe("admin role routing", () => {
         }),
       );
     });
+    expect(await screen.findByText(/finished all providers sequence/i)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: /all providers sequence progress/i })).toHaveAttribute("aria-valuenow", "100");
 
     await userEvent.selectOptions(screen.getByLabelText("Provider"), "greenPlug");
     await userEvent.click(screen.getByRole("button", { name: /run greenplug sequence/i }));
@@ -845,6 +908,7 @@ describe("admin role routing", () => {
         }),
       );
     });
+    expect(await screen.findByText(/finished greenplug sequence/i)).toBeInTheDocument();
   });
 
   it("blocks EV users from operator scheduler controls", async () => {

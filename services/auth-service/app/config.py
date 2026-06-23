@@ -33,6 +33,7 @@ class Settings:
     google_client_id: str
     google_client_secret: str
     google_redirect_uri: str
+    google_frontend_callback_uri: str
 
     @property
     def access_token_expires_in_seconds(self) -> int:
@@ -69,5 +70,9 @@ def get_settings() -> Settings:
         google_redirect_uri=os.getenv(
             "GOOGLE_REDIRECT_URI",
             "http://localhost:8080/api/auth/auth/google/callback",
+        ),
+        google_frontend_callback_uri=os.getenv(
+            "GOOGLE_FRONTEND_CALLBACK_URI",
+            "http://localhost:8080/login/google/callback",
         ),
     )

@@ -60,10 +60,10 @@ Implemented frontend routes:
 | `/dashboard` | Alias to the EV map/list experience |
 | `/points/:providerCode/:externalPointId` | Cached catalog point details and live status lookup; reservation controls are EV-only |
 | `/reservations` | Current user's reservation history, EV reservation summary metrics, cost/kWh, and estimated cost display |
-| `/profile` | User-facing account overview, role-specific workspace links, and EV local-password changes |
+| `/profile` | User-facing account overview, role-specific workspace links, and local-password changes |
 | `/provider/dashboard` | Provider-admin command center with analytics, billing, and catalog posture |
-| `/provider/points` | Provider-scoped catalog points and status-cache freshness |
-| `/provider/analytics` | Provider analytics aggregates, top points, status distribution, and trends |
+| `/provider/points` | Provider-scoped catalog points with provider-selected fetch-size presets |
+| `/provider/analytics` | Provider analytics aggregates, top points, status distribution, trends, and date-range filtering |
 | `/provider/invoices` | Provider invoice list and billing exposure |
 | `/provider/invoices/:invoiceId` | Invoice detail and mock full-invoice payment |
 | `/provider/export` | Provider-scoped usage CSV export |
@@ -113,14 +113,16 @@ Google credentials are placeholders, the login page uses
 Google-verified account: new emails become EV users, existing EV users sign in
 to the same account, and operator/provider-admin emails are rejected. When real
 Google credentials are configured, the same button redirects to Google's
-authorization URL returned by `auth-service`. The frontend uses
-`/login/google/callback` as the browser redirect route and passes that URL to
-`auth-service` for both the authorization URL and token exchange. That URL must
-be allowed in the Google OAuth client configuration.
+authorization URL returned by `auth-service`. Real OAuth uses the backend
+gateway callback configured by `GOOGLE_REDIRECT_URI`; that backend URL must be
+allowed in the Google OAuth client configuration. After the backend exchanges
+the code, it redirects the browser to `/login/google/callback` with a session
+handoff fragment, and the callback page stores the session and clears the
+fragment from the address bar.
 
-The profile page shows password changes only for EV users whose current session
-was not signed in with Google. The backend password endpoint still supports all
-local password accounts.
+The profile page shows password changes for local password accounts whose
+current session was not signed in with Google. Google-only accounts do not show
+the password form.
 
 ## Frontend architecture
 
@@ -164,6 +166,9 @@ The reservations page uses two gateway-backed sources:
 - `/api/reservations/reservations/me` for reservation records;
 - `/api/analytics/ev/reservations/summary` for EV-scoped aggregate summary
   cards.
+
+Reservation history is shown in a scrollable panel with display presets for
+20, 40, 60, 80, 100, or the full list of loaded records.
 
 Reservation cards label the provider energy price as `Cost/kWh`, because the
 stored field is `price_per_kwh_eur`. The `Estimated cost` field is displayed

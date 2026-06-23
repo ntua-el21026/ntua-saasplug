@@ -86,6 +86,11 @@ class DrainResponse(BaseModel):
     invalid_count: int
 
 
+class ProviderBillingRefreshResponse(BaseModel):
+    provider_code: str
+    drained: DrainResponse
+
+
 class OutboxPublishResponse(BaseModel):
     selected_count: int
     published_count: int

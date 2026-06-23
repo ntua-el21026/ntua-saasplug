@@ -8,6 +8,7 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
+from app import routes
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.main import app
@@ -21,7 +22,7 @@ from app.models import (
     ProviderDailyMetric,
     UsageEvent,
 )
-from app.rabbitmq_consumer import drain_analytics_queue
+from app.rabbitmq_consumer import ConsumeResult, drain_analytics_queue
 from saasplug_events.envelope import EventEnvelope
 
 
@@ -317,6 +318,68 @@ def test_aggregate_refresh_computes_provider_totals_and_reservation_metrics(test
     assert payload["reservation_conversion_rate"] == 1.0
 
 
+def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:
+    events = [
+        envelope(
+            "usage.point_viewed",
+            external_point_id="101",
+            occurred_at=datetime(2026, 6, 10, 9, 0, tzinfo=UTC),
+        ),
+        envelope(
+            "status.point_checked",
+            external_point_id="101",
+            payload={"status": "available"},
+            occurred_at=datetime(2026, 6, 10, 9, 5, tzinfo=UTC),
+        ),
+        envelope(
+            "usage.point_viewed",
+            external_point_id="102",
+            occurred_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        ),
+        envelope(
+            "status.point_checked",
+            external_point_id="102",
+            payload={"status": "reserved"},
+            occurred_at=datetime(2026, 6, 12, 10, 5, tzinfo=UTC),
+        ),
+        envelope(
+            "reservation.succeeded",
+            external_point_id="102",
+            payload={"reservation_id": "reservation-2", "status": "succeeded"},
+            occurred_at=datetime(2026, 6, 12, 10, 10, tzinfo=UTC),
+        ),
+    ]
+
+    assert ingest(test_context, events).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    query = "providerCode=redPlug&from=2026-06-12&to=2026-06-12"
+    summary = test_context.get(f"/provider/summary?{query}", headers=operator_headers())
+    trends = test_context.get(f"/provider/trends/daily?{query}", headers=operator_headers())
+    top_points_response = test_context.get(
+        f"/provider/top-points?{query}&metric=views&limit=10",
+        headers=operator_headers(),
+    )
+    status_response = test_context.get(f"/provider/status-distribution?{query}", headers=operator_headers())
+
+    assert summary.status_code == 200
+    summary_payload = summary.json()
+    assert summary_payload["total_point_views"] == 1
+    assert summary_payload["total_status_checks"] == 1
+    assert summary_payload["successful_reservations"] == 1
+    assert summary_payload["status_distribution"] == {"reserved": 1}
+
+    assert trends.status_code == 200
+    assert [row["day_bucket"] for row in trends.json()] == ["2026-06-12"]
+
+    assert top_points_response.status_code == 200
+    top_rows = top_points_response.json()
+    assert [row["external_point_id"] for row in top_rows] == ["102"]
+
+    assert status_response.status_code == 200
+    assert status_response.json()["status_distribution"] == {"reserved": 1}
+
+
 def test_ev_user_reads_own_reservation_cost_summary(test_context) -> None:
     user_id = "user-evuser@saasplug.local"
     events = [
@@ -505,6 +568,34 @@ def test_provider_admin_can_access_only_own_provider_analytics(test_context) -> 
     assert own_response.status_code == 200
     assert own_response.json()["provider_code"] == "redPlug"
     assert other_response.status_code == 403
+
+
+def test_provider_admin_can_refresh_own_analytics_data(test_context, monkeypatch) -> None:
+    captured: dict[str, int] = {}
+
+    def fake_consume_analytics_events(settings, db, limit):
+        captured["limit"] = limit
+        return ConsumeResult(
+            requested_limit=limit,
+            received_count=1,
+            ack_count=1,
+            created_count=1,
+        )
+
+    monkeypatch.setattr(routes, "consume_analytics_events", fake_consume_analytics_events)
+
+    response = test_context.post("/provider/refresh?limit=100", headers=red_admin_headers())
+    other_provider_response = test_context.post("/provider/refresh?providerCode=greenPlug", headers=red_admin_headers())
+    ev_response = test_context.post("/provider/refresh", headers=ev_headers())
+
+    assert response.status_code == 200
+    assert captured["limit"] == 50
+    payload = response.json()
+    assert payload["provider_code"] == "redPlug"
+    assert payload["consumed"]["ack_count"] == 1
+    assert payload["aggregates"]["usage_event_count"] == 0
+    assert other_provider_response.status_code == 403
+    assert ev_response.status_code == 403
 
 
 def test_provider_admin_cannot_export_another_provider(test_context) -> None:

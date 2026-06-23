@@ -13,7 +13,7 @@ from app.event_publisher import publish_pending_outbox
 from app.main import app
 from app.models import BillingEvent, BillingEventOutbox, ChargeRecord, Invoice, Payment
 from app.pricing import seed_default_pricing
-from app.rabbitmq_consumer import drain_billing_queue
+from app.rabbitmq_consumer import DrainResult, drain_billing_queue
 from saasplug_events.envelope import EventEnvelope
 
 
@@ -443,6 +443,34 @@ def test_operator_and_provider_billing_overviews_return_expected_totals(test_con
     assert provider_response.json()["provider_code"] == "redPlug"
     assert provider_response.json()["paid_charge_count"] == 1
     assert provider_response.json()["effective_pricing"]["currency"] == "EUR"
+
+
+def test_provider_admin_can_refresh_own_billing_data(test_context, monkeypatch) -> None:
+    captured: dict[str, int] = {}
+
+    def fake_consume_billing_events(settings, db, limit):
+        captured["limit"] = limit
+        return DrainResult(
+            requested_limit=limit,
+            received_count=1,
+            ack_count=1,
+            charged_count=1,
+        )
+
+    monkeypatch.setattr(routes, "consume_billing_events", fake_consume_billing_events)
+
+    response = test_context.post("/providers/redPlug/refresh?limit=100", headers=red_admin_headers())
+    other_provider_response = test_context.post("/providers/greenPlug/refresh", headers=red_admin_headers())
+    ev_response = test_context.post("/providers/redPlug/refresh", headers=ev_headers())
+
+    assert response.status_code == 200
+    assert captured["limit"] == 50
+    payload = response.json()
+    assert payload["provider_code"] == "redPlug"
+    assert payload["drained"]["ack_count"] == 1
+    assert payload["drained"]["charged_count"] == 1
+    assert other_provider_response.status_code == 403
+    assert ev_response.status_code == 403
 
 
 def test_outbox_publish_success_and_failure_are_deterministic(test_context) -> None:

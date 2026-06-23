@@ -1,3 +1,6 @@
+import base64
+import json
+
 import jwt
 import pytest
 from fastapi.testclient import TestClient
@@ -214,11 +217,12 @@ def test_google_oauth_hooks_fail_safely_in_local_placeholder_mode(client: TestCl
     assert callback_response.json()["configured"] is False
 
 
-def test_google_login_uses_frontend_redirect_uri_when_configured(client: TestClient, monkeypatch) -> None:
+def test_google_login_uses_backend_redirect_uri_when_configured(client: TestClient, monkeypatch) -> None:
     frontend_redirect_uri = "http://localhost:8080/login/google/callback"
+    backend_redirect_uri = "http://localhost:8080/api/auth/auth/google/callback"
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
-    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", backend_redirect_uri)
 
     response = client.get(
         "/auth/google/login",
@@ -229,7 +233,8 @@ def test_google_login_uses_frontend_redirect_uri_when_configured(client: TestCli
     payload = response.json()
     assert payload["configured"] is True
     assert "authorization_url" in payload
-    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Fgoogle%2Fcallback" in payload["authorization_url"]
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fauth%2Fgoogle%2Fcallback" in payload["authorization_url"]
+    assert frontend_redirect_uri not in payload["authorization_url"]
 
 
 def test_google_callback_uses_frontend_redirect_uri_and_registers_ev_user(client: TestClient, monkeypatch) -> None:
@@ -259,6 +264,40 @@ def test_google_callback_uses_frontend_redirect_uri_and_registers_ev_user(client
     assert user["auth_provider"] == "google"
     assert user["last_login_method"] == "google"
     assert user["password_change_supported"] is False
+
+
+def test_google_backend_callback_redirects_to_frontend_with_ev_session(client: TestClient, monkeypatch) -> None:
+    captured: dict[str, str | None] = {}
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+    monkeypatch.setenv("GOOGLE_FRONTEND_CALLBACK_URI", "http://localhost:8080/login/google/callback")
+
+    def fake_fetch_google_identity(code, settings, redirect_uri=None):
+        captured["code"] = code
+        captured["redirect_uri"] = redirect_uri
+        return {"email": "backend-google@example.com", "sub": "google-subject-2"}
+
+    monkeypatch.setattr("app.routes.fetch_google_identity", fake_fetch_google_identity)
+
+    response = client.get(
+        "/auth/google/callback",
+        params={"code": "google-code"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert captured == {"code": "google-code", "redirect_uri": None}
+    location = response.headers["location"]
+    assert location.startswith("http://localhost:8080/login/google/callback#payload=")
+    encoded_payload = location.split("#payload=", 1)[1]
+    padding = "=" * ((4 - len(encoded_payload) % 4) % 4)
+    payload = json.loads(base64.urlsafe_b64decode(f"{encoded_payload}{padding}").decode("utf-8"))
+    assert payload["access_token"]
+    assert payload["refresh_token"]
+    assert payload["user"]["email"] == "backend-google@example.com"
+    assert payload["user"]["roles"] == ["EV_USER"]
+    assert payload["user"]["auth_provider"] == "google"
 
 
 def test_local_google_sign_in_registers_new_ev_user_and_reuses_account(client: TestClient) -> None:

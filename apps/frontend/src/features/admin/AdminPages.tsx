@@ -31,6 +31,8 @@ import type {
   OperatorSummary,
   PointMetric,
   PricingRule,
+  ProviderAnalyticsRefreshResponse,
+  ProviderBillingRefreshResponse,
   ProviderAuditLog,
   ProviderCode,
   ProviderDailyTrend,
@@ -74,14 +76,14 @@ const ANALYTICS_TABS = [
   { value: "views", label: "Top viewed points" },
   { value: "reservations", label: "Top reserved points" },
   { value: "conversion", label: "Conversion rate" },
-  { value: "revenue", label: "Observed revenue" },
+  { value: "revenue", label: "Tracked revenue" },
 ] as const;
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number]["value"];
 const OPERATOR_ANALYTICS_TABS = [
   { value: "activity", label: "Platform activity" },
   { value: "reservations", label: "Provider reservations" },
   { value: "conversion", label: "Provider conversion" },
-  { value: "revenue", label: "Observed revenue" },
+  { value: "revenue", label: "Tracked revenue" },
   { value: "comparison", label: "Comparison table" },
 ] as const;
 type OperatorAnalyticsTab = (typeof OPERATOR_ANALYTICS_TABS)[number]["value"];
@@ -94,6 +96,8 @@ const CATALOG_TABS = [
 type CatalogTab = (typeof CATALOG_TABS)[number]["value"];
 const OPERATOR_CATALOG_PAGE_SIZES = [25, 50, 100, "all"] as const;
 type OperatorCatalogPageSize = (typeof OPERATOR_CATALOG_PAGE_SIZES)[number];
+const PROVIDER_POINT_FETCH_SIZES = [20, 40, 60, 80, 100, "all"] as const;
+type ProviderPointFetchSize = (typeof PROVIDER_POINT_FETCH_SIZES)[number];
 
 const SYNC_TABS = [
   { value: "jobs", label: "Scheduled jobs" },
@@ -118,6 +122,195 @@ const STATUS_COLORS: Record<string, string> = {
   offline: "#64748b",
   unknown: "#94a3b8",
 };
+
+type SchedulerJobCopy = {
+  title: string;
+  description: string;
+};
+
+type SyncOperationState = {
+  label: string;
+  status: "running" | "success" | "error";
+  detail: string;
+};
+
+const SCHEDULER_JOB_COPY: Record<string, SchedulerJobCopy> = {
+  "catalog.import.all": {
+    title: "Import all provider catalogs",
+    description: "Fetch the latest charging points from every enabled provider and refresh the aggregated catalog.",
+  },
+  "catalog.import.red": {
+    title: "Import redPlug catalog",
+    description: "Refresh redPlug charging-point records in the aggregated catalog.",
+  },
+  "catalog.import.green": {
+    title: "Import greenPlug catalog",
+    description: "Refresh greenPlug charging-point records in the aggregated catalog.",
+  },
+  "catalog.import.blue": {
+    title: "Import bluePlug catalog",
+    description: "Refresh bluePlug charging-point records in the aggregated catalog.",
+  },
+  "analytics.consume-events": {
+    title: "Process analytics events",
+    description: "Move waiting activity events into analytics storage so dashboards can use them.",
+  },
+  "analytics.refresh-aggregates": {
+    title: "Refresh analytics summaries",
+    description: "Rebuild provider, operator, point, status, and EV summary metrics from stored events.",
+  },
+  "analytics.refresh-aggregates.manual": {
+    title: "Refresh analytics summaries",
+    description: "Rebuild dashboard metrics immediately from already-ingested activity.",
+  },
+  "billing.drain-events": {
+    title: "Process billing events",
+    description: "Read recent billable activity and prepare billing-owned charge records.",
+  },
+  "billing.drain-events.manual": {
+    title: "Process billing events",
+    description: "Read waiting billing activity immediately and prepare charge records.",
+  },
+  "billing.publish-outbox": {
+    title: "Publish billing updates",
+    description: "Send pending billing, invoice, and payment updates after billing has stored them.",
+  },
+  "billing.prepare-invoices": {
+    title: "Prepare invoice previews",
+    description: "Create invoice-ready summaries for operator review without issuing invoices.",
+  },
+  "reservation.publish-outbox": {
+    title: "Publish reservation updates",
+    description: "Send pending reservation outcome updates after reservation attempts are stored.",
+  },
+};
+
+function titleFromJobKey(jobKey: string): string {
+  return jobKey
+    .split(".")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, " "))
+    .join(" ");
+}
+
+function schedulerJobCopy(job: SchedulerJob | SchedulerRun | string): SchedulerJobCopy {
+  const jobKey = typeof job === "string" ? job : job.job_key;
+  const fallbackDescription = typeof job === "string" ? "" : "description" in job ? job.description : "";
+  return SCHEDULER_JOB_COPY[jobKey] ?? {
+    title: titleFromJobKey(jobKey),
+    description: fallbackDescription || "Runs a scheduled maintenance task for the selected service.",
+  };
+}
+
+function serviceDisplayName(service: string): string {
+  const labels: Record<string, string> = {
+    "analytics-service": "Analytics",
+    "billing-service": "Billing",
+    "catalog-service": "Catalog",
+    "reservation-service": "Reservations",
+    "scheduler-service": "Scheduler",
+  };
+  return labels[service] ?? titleFromJobKey(service.replace(/-service$/, ""));
+}
+
+function formatCronSchedule(job: SchedulerJob): string {
+  if (!job.cron_expression) {
+    return "Cron schedule not set";
+  }
+  if (job.job_key === "billing.prepare-invoices" && job.cron_expression === "30 2 * * *") {
+    return `Daily at 02:30 (${job.timezone})`;
+  }
+  return `${job.cron_expression} (${job.timezone})`;
+}
+
+function describeOperationResult(response: unknown): string {
+  if (isSchedulerSequenceRun(response)) {
+    return `${formatNumber(response.runs.length)} scheduled ${response.runs.length === 1 ? "job" : "jobs"} finished with ${statusLabel(response.status)} status.`;
+  }
+  if (isSchedulerRun(response)) {
+    return `The job finished with ${statusLabel(response.status)} status.`;
+  }
+  if (isCatalogImportAllResponse(response)) {
+    return `Catalog import finished for ${formatNumber(response.providers.length)} ${response.providers.length === 1 ? "provider" : "providers"}.`;
+  }
+  if (isCatalogImportSummary(response)) {
+    return `${providerLabel(response.provider_code)} import finished: ${formatNumber(response.provider_fetched_count)} fetched, ${formatNumber(response.catalog_changed_count)} changed.`;
+  }
+  if (isQueueDrainResponse(response)) {
+    return `${formatNumber(response.received_count)} events received, ${formatNumber(response.ack_count)} acknowledged.`;
+  }
+  if (isAggregateRefreshResponse(response)) {
+    return `${formatNumber(response.usage_event_count)} usage events summarized at ${formatDateTime(response.refreshed_at)}.`;
+  }
+  if (isSchedulerJob(response)) {
+    return `Job automation is now ${response.enabled ? "enabled" : "paused"}.`;
+  }
+  return "The operation finished successfully.";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function isSchedulerSequenceRun(value: unknown): value is SchedulerSequenceRun {
+  return isRecord(value) && Array.isArray(value.runs) && typeof value.status === "string";
+}
+
+function isSchedulerRun(value: unknown): value is SchedulerRun {
+  return isRecord(value) && typeof value.job_key === "string" && typeof value.status === "string" && "duration_ms" in value;
+}
+
+function isSchedulerJob(value: unknown): value is SchedulerJob {
+  return isRecord(value) && typeof value.job_key === "string" && typeof value.enabled === "boolean" && "schedule_type" in value;
+}
+
+function isCatalogImportAllResponse(value: unknown): value is CatalogImportAllResponse {
+  return isRecord(value) && Array.isArray(value.providers);
+}
+
+function isCatalogImportSummary(value: unknown): value is CatalogImportSummary {
+  return isRecord(value) && typeof value.provider_code === "string" && "provider_fetched_count" in value;
+}
+
+function isQueueDrainResponse(value: unknown): value is QueueDrainResponse {
+  return isRecord(value) && typeof value.received_count === "number" && typeof value.ack_count === "number";
+}
+
+function isAggregateRefreshResponse(value: unknown): value is AggregateRefreshResponse {
+  return isRecord(value) && typeof value.usage_event_count === "number" && typeof value.refreshed_at === "string";
+}
+
+function SyncOperationProgress({ operation }: { operation: SyncOperationState | null }) {
+  if (!operation) {
+    return null;
+  }
+
+  const isRunning = operation.status === "running";
+  const title = isRunning
+    ? `Running ${operation.label}`
+    : operation.status === "success"
+      ? `Finished ${operation.label}`
+      : `${operation.label} did not finish`;
+
+  return (
+    <div className={`sync-operation-progress sync-operation-${operation.status}`} aria-live="polite">
+      <div>
+        <strong>{title}</strong>
+        <span>{operation.detail}</span>
+      </div>
+      <div
+        className="sync-progress-track"
+        role="progressbar"
+        aria-label={`${operation.label} progress`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={isRunning ? undefined : 100}
+      >
+        <span />
+      </div>
+    </div>
+  );
+}
 
 function useDashboardLoad<T>(load: () => Promise<T>, deps: unknown[]): AsyncState<T> {
   const [state, setState] = useState<AsyncState<T>>({ data: null, error: null, loading: true });
@@ -273,17 +466,20 @@ function SchedulerScheduleEditor({
   return (
     <form className="scheduler-schedule-form" onSubmit={saveSchedule}>
       <label>
-        <span className="sr-only">{job.schedule_type === "interval" ? "Interval seconds" : "Cron expression"}</span>
-        <input
-          aria-label={`${job.job_key} ${job.schedule_type === "interval" ? "interval seconds" : "cron expression"}`}
-          min={job.schedule_type === "interval" ? 30 : undefined}
-          step={job.schedule_type === "interval" ? 60 : undefined}
-          type={job.schedule_type === "interval" ? "number" : "text"}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-        />
+        <span>{job.schedule_type === "interval" ? "Interval" : "Schedule"}</span>
+        <span className="scheduler-input-with-unit">
+          <input
+            aria-label={`${job.job_key} ${job.schedule_type === "interval" ? "interval seconds" : "cron expression"}`}
+            min={job.schedule_type === "interval" ? 30 : undefined}
+            step={job.schedule_type === "interval" ? 60 : undefined}
+            type={job.schedule_type === "interval" ? "number" : "text"}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
+          <small>{job.schedule_type === "interval" ? "s" : "cron"}</small>
+        </span>
       </label>
-      <span className="muted">{formatSchedule(job)}</span>
+      <span className="muted">{job.schedule_type === "cron" ? formatCronSchedule(job) : formatSchedule(job)}</span>
       <button className="button-secondary" type="submit" disabled={saving}>
         {saving ? "Saving..." : "Save"}
       </button>
@@ -300,11 +496,8 @@ function requireProvider(providerCode: ProviderCode | null) {
 
 function scopeCatalogToProvider(catalog: CatalogPointListResponse, providerCode: ProviderCode): CatalogPointListResponse {
   const items = catalog.items.filter((point) => point.provider_code === providerCode);
-  return { ...catalog, items, total: items.length };
-}
-
-function scopeStatusFreshnessToProvider(rows: StatusProviderFreshness[], providerCode: ProviderCode): StatusProviderFreshness[] {
-  return rows.filter((row) => row.provider_code === providerCode);
+  const alreadyProviderScoped = catalog.items.every((point) => point.provider_code === providerCode);
+  return { ...catalog, items, total: alreadyProviderScoped ? catalog.total : items.length };
 }
 
 async function loadProviderSummary(accessToken: string, providerCode: ProviderCode) {
@@ -321,6 +514,47 @@ async function loadProviderSummary(accessToken: string, providerCode: ProviderCo
   return { summary, trends, topPoints, invoices, billing, catalog: scopeCatalogToProvider(catalog, providerCode), freshness };
 }
 
+async function loadProviderCatalogPoints(
+  accessToken: string,
+  providerCode: ProviderCode,
+  fetchSize: ProviderPointFetchSize,
+  includeStale: boolean,
+  query: string,
+): Promise<CatalogPointListResponse> {
+  const requestPage = (limit: number, offset: number) => {
+    const params = new URLSearchParams({
+      providerCode,
+      includeStale: String(includeStale),
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (query.trim()) {
+      params.set("q", query.trim());
+    }
+    return requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken });
+  };
+
+  if (fetchSize !== "all") {
+    return scopeCatalogToProvider(await requestPage(fetchSize, 0), providerCode);
+  }
+
+  const firstPage = await requestPage(500, 0);
+  const offsets: number[] = [];
+  for (let offset = firstPage.limit; offset < firstPage.total; offset += firstPage.limit) {
+    offsets.push(offset);
+  }
+  const remainingPages = await Promise.all(offsets.map((offset) => requestPage(firstPage.limit, offset)));
+  return scopeCatalogToProvider(
+    {
+      ...firstPage,
+      items: [firstPage, ...remainingPages].flatMap((response) => response.items),
+      limit: firstPage.total,
+      offset: 0,
+    },
+    providerCode,
+  );
+}
+
 export function ProviderDashboardPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
@@ -335,8 +569,8 @@ export function ProviderDashboardPage() {
   return (
     <AppShell>
       <DashboardPage
-        title="Provider command center"
-        description="Track your charging network, reservation performance, billing status, and recent catalog updates."
+        title="Your network overview"
+        description="Monitor demand, reservations, catalog health, and billing at a glance."
       >
         <LoadState loading={state.loading} error={state.error} />
         {data ? (
@@ -382,7 +616,7 @@ export function ProviderDashboardPage() {
                   getValue={(row) => row.point_views}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Recent invoices" description="Latest invoices and payment status for your provider account.">
+              <DashboardPanel title="Recent invoices" description="Latest invoices and payment status for your account.">
                 <InvoiceTable invoices={data.invoices.slice(0, 6)} showProvider={false} />
               </DashboardPanel>
             </DashboardGrid>
@@ -398,36 +632,39 @@ export function ProviderPointsPage() {
   const providerCode = useProviderCode();
   const [query, setQuery] = useState("");
   const [includeStale, setIncludeStale] = useState(true);
+  const [fetchSize, setFetchSize] = useState<ProviderPointFetchSize>(20);
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
-    const params = new URLSearchParams({
-      providerCode: code,
-      includeStale: String(includeStale),
-      limit: String(DEFAULT_LIMIT),
-    });
-    if (query.trim()) {
-      params.set("q", query.trim());
-    }
-    const [catalog, statusFreshness] = await Promise.all([
-      requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken }),
-      requestJson<StatusProviderFreshness[]>("/api/status/freshness", { accessToken }),
-    ]);
-    return {
-      catalog: scopeCatalogToProvider(catalog, code),
-      statusFreshness: scopeStatusFreshnessToProvider(statusFreshness, code),
-    };
-  }, [accessToken, providerCode, query, includeStale]);
+    const catalog = await loadProviderCatalogPoints(accessToken, code, fetchSize, includeStale, query);
+    return { catalog };
+  }, [accessToken, providerCode, query, includeStale, fetchSize]);
 
   return (
     <AppShell>
       <DashboardPage
-        title="Provider points"
-        description="Review your charging-point inventory, availability state, and latest catalog updates."
+        title="Your charging points"
+        description="Review the charging points currently available to drivers."
       >
         <section className="admin-toolbar">
           <label>
             Search points
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, address, external ID" />
+          </label>
+          <label className="catalog-page-size">
+            Entries fetched
+            <select
+              value={String(fetchSize)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setFetchSize(value === "all" ? "all" : (Number(value) as ProviderPointFetchSize));
+              }}
+            >
+              {PROVIDER_POINT_FETCH_SIZES.map((size) => (
+                <option key={String(size)} value={String(size)}>
+                  {size === "all" ? "Full list" : `${size} entries`}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="checkbox-label">
             <input type="checkbox" checked={includeStale} onChange={(event) => setIncludeStale(event.target.checked)} />
@@ -436,34 +673,22 @@ export function ProviderPointsPage() {
         </section>
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
-          <DashboardGrid>
-            <DashboardPanel title="Point inventory" description={`${state.data.catalog.total} charging points match the current filter.`}>
-              <DataTable
-                rows={state.data.catalog.items}
-                getRowKey={(row) => row.id}
-                columns={[
-                  { key: "name", label: "Point", render: (row) => <Link className="text-link" to={`/points/${row.provider_code}/${row.external_point_id}`}>{row.display_name}</Link> },
-                  { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
-                  { key: "connector", label: "Connector", render: (row) => row.connector ?? "Unknown" },
-                  { key: "stale", label: "Freshness", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
-                  { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
-                ]}
-              />
-            </DashboardPanel>
-            <DashboardPanel title="Availability checks" description="Recent availability coverage for your provider points.">
-              <DataTable
-                rows={state.data.statusFreshness}
-                getRowKey={(row) => row.provider_code}
-                columns={[
-                  { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "cached", label: "Known points", render: (row) => formatNumber(row.cached_count) },
-                  { key: "valid", label: "Current", render: (row) => formatNumber(row.valid_cache_count) },
-                  { key: "expired", label: "Needs refresh", render: (row) => formatNumber(row.expired_cache_count) },
-                  { key: "checked", label: "Last checked", render: (row) => formatDateTime(row.last_checked_at) },
-                ]}
-              />
-            </DashboardPanel>
-          </DashboardGrid>
+          <DashboardPanel
+            title="Charging point inventory"
+            description={`${state.data.catalog.items.length} shown from ${state.data.catalog.total} matching charging points.`}
+          >
+            <DataTable
+              rows={state.data.catalog.items}
+              getRowKey={(row) => row.id}
+              columns={[
+                { key: "name", label: "Point", render: (row) => <Link className="text-link" to={`/points/${row.provider_code}/${row.external_point_id}`}>{row.display_name}</Link> },
+                { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+                { key: "connector", label: "Connector", render: (row) => row.connector ?? "Unknown" },
+                { key: "stale", label: "Freshness", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
+                { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
+              ]}
+            />
+          </DashboardPanel>
         ) : null}
       </DashboardPage>
     </AppShell>
@@ -474,9 +699,15 @@ export function ProviderAnalyticsPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("activity");
+  const [fromDate, setFromDate] = useState(firstDayOfMonth());
+  const [toDate, setToDate] = useState(todayDate());
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
-    const query = `providerCode=${encodeURIComponent(code)}`;
+    const params = new URLSearchParams({ providerCode: code, from: fromDate, to: toDate });
+    const query = params.toString();
     const [summary, trends, topViews, topReservations, freshness] = await Promise.all([
       requestJson<ProviderSummary>(`/api/analytics/provider/summary?${query}`, { accessToken }),
       requestJson<ProviderDailyTrend[]>(`/api/analytics/provider/trends/daily?${query}`, { accessToken }),
@@ -485,17 +716,55 @@ export function ProviderAnalyticsPage() {
       requestJson<ProviderSummary["data_freshness"]>(`/api/analytics/provider/freshness?${query}`, { accessToken }),
     ]);
     return { summary, trends, topViews, topReservations, freshness };
-  }, [accessToken, providerCode]);
+  }, [accessToken, providerCode, refreshKey, fromDate, toDate]);
   const summary = state.data?.summary ?? null;
   const currency = summary?.currency ?? "EUR";
   const statusDistribution = summary?.status_distribution ?? {};
 
+  const refreshAnalytics = async () => {
+    const code = requireProvider(providerCode);
+    setRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      const payload = await requestJson<ProviderAnalyticsRefreshResponse>(
+        `/api/analytics/provider/refresh?providerCode=${encodeURIComponent(code)}&limit=${DEFAULT_LIMIT}`,
+        { method: "POST", accessToken },
+      );
+      setRefreshMessage(
+        `Analytics updated. ${formatNumber(payload.consumed.ack_count)} recent activity updates applied; dashboard updated ${formatDateTime(payload.aggregates.refreshed_at)}.`,
+      );
+      setRefreshKey((current) => current + 1);
+    } catch (error) {
+      setRefreshMessage(messageFromUnknownError(error));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <AppShell>
       <DashboardPage
-        title="Provider analytics"
-        description="Review demand, reservations, status checks, and revenue signals for your charging network."
+        title="Your performance"
+        description="Review demand, reservations, availability checks, and revenue signals for your charging network."
       >
+        <section className="admin-toolbar">
+          <div className="admin-toolbar-copy">
+            <strong>Update your performance data</strong>
+            <span className="muted">Bring the latest charging activity into this dashboard.</span>
+          </div>
+          <label className="catalog-page-size">
+            From
+            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+          </label>
+          <label className="catalog-page-size">
+            To
+            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+          </label>
+          <button className="button-primary" type="button" onClick={refreshAnalytics} disabled={refreshing || !providerCode}>
+            {refreshing ? "Updating" : "Update analytics"}
+          </button>
+        </section>
+        <InlineResult message={refreshMessage} tone={refreshMessage?.startsWith("Analytics updated") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {summary ? (
           <>
@@ -503,7 +772,7 @@ export function ProviderAnalyticsPage() {
               <MetricCard label="Searches" value={formatNumber(summary.total_searches)} />
               <MetricCard label="Status checks" value={formatNumber(summary.total_status_checks)} />
               <MetricCard label="Failed reservations" value={formatNumber(summary.failed_reservations)} />
-              <MetricCard label="Observed amount" value={formatMoney(summary.observed_amount, currency)} />
+              <MetricCard label="Tracked revenue" value={formatMoney(summary.observed_amount, currency)} />
             </MetricGrid>
             <DashboardTabs
               items={[...ANALYTICS_TABS]}
@@ -513,7 +782,7 @@ export function ProviderAnalyticsPage() {
               meta={`Updated ${formatDateTime(state.data?.freshness?.last_aggregate_computed_at)}`}
             >
               {activeTab === "activity" ? (
-                <DashboardPanel title="Activity trend" description="Daily demand and reservation outcomes from analytics aggregates.">
+                <DashboardPanel title="Activity trend" description="Daily demand and reservation outcomes for the selected period.">
                   <GroupedColumnChart
                     rows={state.data?.trends ?? []}
                     getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
@@ -528,7 +797,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "status" ? (
-                <DashboardPanel title="Status distribution" description="Latest availability mix across observed charging points.">
+                <DashboardPanel title="Status distribution" description="Availability mix from your charging-point checks in the selected period.">
                   <DistributionChart
                     rows={Object.entries(statusDistribution).map(([status, value]) => ({
                       label: statusLabel(status),
@@ -539,7 +808,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "views" ? (
-                <DashboardPanel title="Top viewed points" description="Charging points receiving the most customer attention.">
+                <DashboardPanel title="Top viewed points" description="Charging points receiving the most driver attention.">
                   <ColumnChart
                     rows={state.data?.topViews ?? []}
                     getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
@@ -550,7 +819,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "reservations" ? (
-                <DashboardPanel title="Top reserved points" description="Charging points leading successful reservation activity.">
+                <DashboardPanel title="Top reserved points" description="Charging points leading reservation activity.">
                   <ColumnChart
                     rows={state.data?.topReservations ?? []}
                     getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
@@ -573,12 +842,12 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "revenue" ? (
-                <DashboardPanel title="Observed revenue" description="Daily billing amounts observed by the analytics service.">
+                <DashboardPanel title="Tracked revenue" description="Daily revenue signals from completed billable activity.">
                   <ColumnChart
                     rows={state.data?.trends ?? []}
                     getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
                     getValue={(row) => row.observed_amount}
-                    valueLabel="Observed amount"
+                    valueLabel="Tracked revenue"
                     color="#f59e0b"
                   />
                 </DashboardPanel>
@@ -594,22 +863,54 @@ export function ProviderAnalyticsPage() {
 export function ProviderInvoicesPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const state = useDashboardLoad(async () => {
-    const query = providerQuery(requireProvider(providerCode));
+    const code = requireProvider(providerCode);
+    const query = providerQuery(code);
     const [invoices, overview] = await Promise.all([
       requestJson<Invoice[]>(`/api/billing/invoices${query}`, { accessToken }),
-      requestJson<BillingOverview>(`/api/billing/providers/${providerCode}/overview`, { accessToken }),
+      requestJson<BillingOverview>(`/api/billing/providers/${code}/overview`, { accessToken }),
     ]);
     return { invoices, overview };
-  }, [accessToken, providerCode]);
+  }, [accessToken, providerCode, refreshKey]);
   const currency = effectiveCurrency(state.data?.overview ?? null);
+
+  const refreshBilling = async () => {
+    const code = requireProvider(providerCode);
+    setRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      const payload = await requestJson<ProviderBillingRefreshResponse>(
+        `/api/billing/providers/${encodeURIComponent(code)}/refresh?limit=${DEFAULT_LIMIT}`,
+        { method: "POST", accessToken },
+      );
+      setRefreshMessage(`Billing updated. ${formatNumber(payload.drained.ack_count)} recent billing updates applied.`);
+      setRefreshKey((current) => current + 1);
+    } catch (error) {
+      setRefreshMessage(messageFromUnknownError(error));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <AppShell>
       <DashboardPage
-        title="Provider invoices"
-        description="View issued invoices, record payments, and monitor outstanding balances."
+        title="Your invoices"
+        description="Review issued invoices, payment status, and outstanding balances."
       >
+        <section className="admin-toolbar">
+          <div className="admin-toolbar-copy">
+            <strong>Update your billing view</strong>
+            <span className="muted">Bring recent charges into your invoice balances.</span>
+          </div>
+          <button className="button-primary" type="button" onClick={refreshBilling} disabled={refreshing || !providerCode}>
+            {refreshing ? "Updating" : "Update billing"}
+          </button>
+        </section>
+        <InlineResult message={refreshMessage} tone={refreshMessage?.startsWith("Billing updated") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <>
@@ -619,7 +920,7 @@ export function ProviderInvoicesPage() {
               <MetricCard label="Unbilled" value={formatMoney(state.data.overview.unbilled_amount, currency)} />
               <MetricCard label="Issued invoices" value={formatNumber(state.data.overview.issued_invoice_count)} />
             </MetricGrid>
-            <DashboardPanel title="Invoices" description="Open an invoice to inspect charges and record a full payment.">
+            <DashboardPanel title="Invoices" description="Open an invoice to review charges and record a full payment.">
               <InvoiceTable invoices={state.data.invoices} showProvider={false} />
             </DashboardPanel>
           </>
@@ -664,13 +965,13 @@ export function ProviderInvoiceDetailPage() {
   return (
     <AppShell>
       <DashboardPage
-        title={invoice ? invoice.invoice_number : "Invoice detail"}
-        description="Inspect invoice charges and record a full payment when the invoice is issued."
+        title={invoice ? invoice.invoice_number : "Your invoice"}
+        description="Review the invoice charges and record payment when the invoice is issued."
       >
         <LoadState loading={state.loading} error={state.error} />
         {invoice ? (
           <DashboardGrid>
-            <DashboardPanel title="Invoice summary" description={`Period ${formatDateTime(invoice.period_start)} to ${formatDateTime(invoice.period_end)}.`}>
+            <DashboardPanel title="Invoice summary" description={`Billing period ${formatDateTime(invoice.period_start)} to ${formatDateTime(invoice.period_end)}.`}>
               <dl className="admin-definition-list">
                 <div>
                   <dt>Status</dt>
@@ -753,10 +1054,10 @@ export function ProviderExportPage() {
   return (
     <AppShell>
       <DashboardPage
-        title="Usage export"
-        description="Download a CSV report of your provider activity for the selected period."
+        title="Your usage export"
+        description="Download a CSV report of your account activity for the selected period."
       >
-        <DashboardPanel title="CSV export" description="Exports are scoped to your provider account.">
+        <DashboardPanel title="Download your report" description="Exports include only activity from your account.">
           <form className="admin-form" onSubmit={exportUsage}>
             <label>
               From
@@ -792,13 +1093,13 @@ export function ProviderSettingsPage() {
   return (
     <AppShell>
       <DashboardPage
-        title="Provider settings"
-        description="Review your provider profile, connection settings, pricing, and recent account changes."
+        title="Your settings"
+        description="Review your company details, connection information, pricing, and recent account changes."
       >
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardGrid>
-            <DashboardPanel title="Provider profile" description="Business details used to identify your provider workspace.">
+            <DashboardPanel title="Your profile" description="Business details shown for your charging network.">
               <dl className="admin-definition-list">
                 <div>
                   <dt>Provider</dt>
@@ -818,7 +1119,7 @@ export function ProviderSettingsPage() {
                 </div>
               </dl>
             </DashboardPanel>
-            <DashboardPanel title="Connection settings" description="Configuration used to connect your provider account to saasPlug.">
+            <DashboardPanel title="Connection details" description="How your charging network is connected to saasPlug.">
               <dl className="admin-definition-list">
                 <div>
                   <dt>Base URL</dt>
@@ -838,7 +1139,7 @@ export function ProviderSettingsPage() {
                 </div>
               </dl>
             </DashboardPanel>
-            <DashboardPanel title="Effective pricing" description="Pricing currently applied to activity from your provider account.">
+            <DashboardPanel title="Your pricing" description="Pricing currently applied to activity from your account.">
               {state.data.pricing ? (
                 <dl className="admin-definition-list">
                   <div>
@@ -869,11 +1170,11 @@ export function ProviderSettingsPage() {
               ) : (
                 <div className="pricing-empty-state">
                   <strong>No active pricing rule</strong>
-                  <span>Ask an operator to configure a global or provider-specific pricing rule.</span>
+                  <span>Ask an operator to configure pricing for your account.</span>
                 </div>
               )}
             </DashboardPanel>
-            <DashboardPanel title="Recent account changes" description="Recent updates made to your provider profile and configuration.">
+            <DashboardPanel title="Recent changes" description="Recent updates made to your profile and connection details.">
               <DataTable
                 rows={state.data.auditLogs.slice(0, 8)}
                 getRowKey={(row) => row.id}
@@ -1099,12 +1400,12 @@ export function OperatorAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "revenue" ? (
-                <DashboardPanel title="Observed revenue" description="Analytics-observed billing amount by provider.">
+                <DashboardPanel title="Tracked revenue" description="Revenue signals from completed billable activity by provider.">
                   <ColumnChart
                     rows={state.data?.comparison ?? []}
                     getLabel={(row) => providerLabel(row.provider_code)}
                     getValue={(row) => row.observed_amount}
-                    valueLabel="Observed amount"
+                    valueLabel="Tracked revenue"
                     color="#f59e0b"
                   />
                 </DashboardPanel>
@@ -1119,7 +1420,7 @@ export function OperatorAnalyticsPage() {
                     { key: "views", label: "Views", render: (row) => formatNumber(row.total_point_views) },
                     { key: "status", label: "Status checks", render: (row) => formatNumber(row.total_status_checks) },
                     { key: "conversion", label: "Conversion", render: (row) => formatPercent(row.reservation_conversion_rate) },
-                    { key: "amount", label: "Observed", render: (row) => formatMoney(row.observed_amount) },
+                    { key: "amount", label: "Tracked revenue", render: (row) => formatMoney(row.observed_amount) },
                   ]}
                 />
               </DashboardPanel>
@@ -1206,6 +1507,7 @@ export function OperatorCatalogPage() {
     : 1;
   const firstVisiblePoint = state.data?.catalog.items.length ? state.data.catalog.offset + 1 : 0;
   const lastVisiblePoint = state.data ? state.data.catalog.offset + state.data.catalog.items.length : 0;
+  const initialCatalogLoad = state.loading && !state.data;
 
   useEffect(() => {
     if (pageSize !== "all" && page >= totalPages) {
@@ -1261,19 +1563,20 @@ export function OperatorCatalogPage() {
           <button className="button-primary" type="button" disabled={!providerCode} onClick={() => triggerImport(false)}>Import selected</button>
         </section>
         <InlineResult message={message} tone={message?.includes("Started") ? "success" : "warning"} />
-        <LoadState loading={state.loading} error={state.error} />
+        <LoadState loading={initialCatalogLoad} error={state.error} />
         {state.data ? (
           <DashboardTabs
             items={[...CATALOG_TABS]}
             value={activeTab}
             onValueChange={setActiveTab}
             label="Catalog health views"
-            meta={`${formatNumber(state.data.catalog.total)} points`}
+            meta={state.loading ? "Updating..." : `${formatNumber(state.data.catalog.total)} points`}
           >
             {activeTab === "inventory" ? (
               <DashboardPanel
                 title="Catalog points"
                 description={`${state.data.catalog.total} charging points match the current provider filter.`}
+                className="catalog-stable-panel"
                 actions={(
                   <label className="catalog-page-size">
                     Results fetched
@@ -1325,7 +1628,7 @@ export function OperatorCatalogPage() {
               </DashboardPanel>
             ) : null}
             {activeTab === "coverage" ? (
-              <DashboardPanel title="Catalog coverage health" description="Active and stale charging-point records by provider.">
+              <DashboardPanel title="Catalog coverage health" description="Active and stale charging-point records by provider." className="catalog-stable-panel">
                 <div className="analytics-split-charts">
                   <ColumnChart
                     rows={state.data.freshness}
@@ -1345,7 +1648,7 @@ export function OperatorCatalogPage() {
               </DashboardPanel>
             ) : null}
             {activeTab === "runs" ? (
-              <DashboardPanel title="Import runs" description="Recent provider import runs.">
+              <DashboardPanel title="Import runs" description="Recent provider import runs." className="catalog-stable-panel">
               <ImportRunTable rows={state.data.runs} />
             </DashboardPanel>
             ) : null}
@@ -1609,6 +1912,7 @@ export function OperatorSyncPage() {
   const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
   const [activeTab, setActiveTab] = useState<SyncTab>("jobs");
   const [message, setMessage] = useState<string | null>(null);
+  const [operation, setOperation] = useState<SyncOperationState | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const schedulerState = useDashboardLoad(async () => {
     const [jobs, runs] = await Promise.all([
@@ -1617,20 +1921,30 @@ export function OperatorSyncPage() {
     ]);
     return { jobs, runs };
   }, [accessToken, refreshKey]);
+  const operationRunning = operation?.status === "running";
 
   async function runAction(label: string, action: () => Promise<unknown>, after?: () => void) {
     setMessage(null);
+    setOperation({
+      label,
+      status: "running",
+      detail: "This operation is running now. The page will update when it finishes.",
+    });
     try {
       const response = await action();
-      setMessage(`${label} completed: ${JSON.stringify(response)}`);
+      setOperation({
+        label,
+        status: "success",
+        detail: describeOperationResult(response),
+      });
       after?.();
     } catch (caught) {
-      setMessage(messageFromUnknownError(caught));
+      setOperation({
+        label,
+        status: "error",
+        detail: messageFromUnknownError(caught),
+      });
     }
-  }
-
-  function schedulerJobLabel(jobKey: string): string {
-    return jobKey.replace(/\./g, " ");
   }
 
   return (
@@ -1639,7 +1953,7 @@ export function OperatorSyncPage() {
         title="Sync controls"
         description="Run scheduled maintenance jobs, pause automation, and adjust refresh cadence."
       >
-        <section className="admin-toolbar">
+        <section className="admin-toolbar sync-toolbar">
           <label>
             Provider
             <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
@@ -1652,8 +1966,9 @@ export function OperatorSyncPage() {
           <button
             className="button-primary"
             type="button"
+            disabled={operationRunning}
             onClick={() => runAction(
-              "Maintenance sequence",
+              `${providerCode ? providerLabel(providerCode) : "all providers"} sequence`,
               () => requestJson<SchedulerSequenceRun>("/api/scheduler/jobs/run-maintenance", {
                 method: "POST",
                 accessToken,
@@ -1665,6 +1980,7 @@ export function OperatorSyncPage() {
             Run {providerCode ? providerLabel(providerCode) : "all providers"} sequence
           </button>
         </section>
+        <SyncOperationProgress operation={operation} />
         <DashboardTabs
           items={[...SYNC_TABS]}
           value={activeTab}
@@ -1674,112 +1990,197 @@ export function OperatorSyncPage() {
         >
           {activeTab === "jobs" ? (
             <DashboardPanel title="Scheduler control plane" description="Manage scheduled jobs, manual runs, pause controls, and job intervals.">
-            <LoadState loading={schedulerState.loading} error={schedulerState.error} />
-            {schedulerState.data ? (
-              <DataTable
-                rows={schedulerState.data.jobs}
-                getRowKey={(row) => row.job_key}
-                columns={[
-                  { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
-                  { key: "target", label: "Destination", render: (row) => row.target_service },
-                  {
-                    key: "schedule",
-                    label: "Schedule",
-                    render: (row) => (
-                      <SchedulerScheduleEditor
-                        accessToken={accessToken}
-                        job={row}
-                        onSaved={() => setRefreshKey((value) => value + 1)}
-                        onMessage={setMessage}
-                      />
-                    ),
-                  },
-                  { key: "enabled", label: "Enabled", render: (row) => (row.enabled ? "Yes" : "No") },
-                  { key: "last", label: "Last run", render: (row) => row.last_run_status ?? "None" },
-                  { key: "next", label: "Next run", render: (row) => formatDateTime(row.next_run_at) },
-                  {
-                    key: "actions",
-                    label: "Actions",
-                    render: (row) => (
-                      <div className="button-row">
-                        <button
-                          className="button-primary"
-                          type="button"
-                          onClick={() => runAction(`Scheduler run ${row.job_key}`, () => requestJson<SchedulerRun>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/run`, { method: "POST", accessToken }), () => setRefreshKey((value) => value + 1))}
-                        >
-                          Run
-                        </button>
-                        <button
-                          className="button-secondary"
-                          type="button"
-                          onClick={() => runAction(row.enabled ? `Pause ${row.job_key}` : `Resume ${row.job_key}`, () => requestJson<SchedulerJob>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/${row.enabled ? "pause" : "resume"}`, { method: "POST", accessToken }), () => setRefreshKey((value) => value + 1))}
-                        >
-                          {row.enabled ? "Pause" : "Resume"}
-                        </button>
-                      </div>
-                    ),
-                  },
-                ]}
-              />
-            ) : null}
-          </DashboardPanel>
+              <LoadState loading={schedulerState.loading} error={schedulerState.error} />
+              {schedulerState.data ? (
+                <DataTable
+                  className="scheduler-table"
+                  rows={schedulerState.data.jobs}
+                  getRowKey={(row) => row.job_key}
+                  columns={[
+                    {
+                      key: "job",
+                      label: "Job",
+                      render: (row) => {
+                        const copy = schedulerJobCopy(row);
+                        return (
+                          <span className="scheduler-job-cell">
+                            <strong>{copy.title}</strong>
+                            <small>{copy.description}</small>
+                          </span>
+                        );
+                      },
+                    },
+                    {
+                      key: "target",
+                      label: "Runs in",
+                      render: (row) => <span className="scheduler-target-service">{serviceDisplayName(row.target_service)}</span>,
+                    },
+                    {
+                      key: "schedule",
+                      label: "Schedule",
+                      render: (row) => (
+                        <SchedulerScheduleEditor
+                          accessToken={accessToken}
+                          job={row}
+                          onSaved={() => setRefreshKey((value) => value + 1)}
+                          onMessage={setMessage}
+                        />
+                      ),
+                    },
+                    { key: "enabled", label: "Enabled", render: (row) => <SyncRunStatusBadge status={row.enabled ? "active" : "paused"} /> },
+                    { key: "last", label: "Last run", render: (row) => <SyncRunStatusBadge status={row.last_run_status ?? "unknown"} /> },
+                    { key: "next", label: "Next run", render: (row) => formatDateTime(row.next_run_at) },
+                    {
+                      key: "actions",
+                      label: "Actions",
+                      render: (row) => {
+                        const copy = schedulerJobCopy(row);
+                        return (
+                          <div className="button-row">
+                            <button
+                              className="button-primary"
+                              type="button"
+                              disabled={operationRunning}
+                              onClick={() => runAction(
+                                copy.title.toLowerCase(),
+                                () => requestJson<SchedulerRun>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/run`, { method: "POST", accessToken }),
+                                () => setRefreshKey((value) => value + 1),
+                              )}
+                            >
+                              Run
+                            </button>
+                            <button
+                              className="button-secondary"
+                              type="button"
+                              disabled={operationRunning}
+                              onClick={() => runAction(
+                                `${row.enabled ? "pause" : "resume"} ${copy.title.toLowerCase()}`,
+                                () => requestJson<SchedulerJob>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/${row.enabled ? "pause" : "resume"}`, { method: "POST", accessToken }),
+                                () => setRefreshKey((value) => value + 1),
+                              )}
+                            >
+                              {row.enabled ? "Pause" : "Resume"}
+                            </button>
+                          </div>
+                        );
+                      },
+                    },
+                  ]}
+                />
+              ) : null}
+            </DashboardPanel>
           ) : null}
           {activeTab === "history" ? (
             <DashboardPanel title="Scheduler run history" description="Recent scheduled job activity and execution duration.">
-            <LoadState loading={schedulerState.loading} error={schedulerState.error} />
-            {schedulerState.data ? (
-              <>
-                <ColumnChart
-                  rows={schedulerState.data.runs.slice().reverse()}
-                  getLabel={(row) => schedulerJobLabel(row.job_key)}
-                  getValue={(row) => row.duration_ms ?? 0}
-                  valueLabel="Run duration milliseconds"
-                  color="#0ea5e9"
-                />
-                <DataTable
-                  rows={schedulerState.data.runs}
-                  getRowKey={(row) => row.id}
-                  emptyLabel="No scheduler runs recorded"
-                  columns={[
-                    { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
-                    { key: "status", label: "Status", render: (row) => row.status },
-                    { key: "trigger", label: "Trigger", render: (row) => row.trigger_type },
-                    { key: "http", label: "HTTP", render: (row) => row.target_http_status ?? "None" },
-                    { key: "duration", label: "Duration", render: (row) => row.duration_ms === null ? "None" : `${row.duration_ms}ms` },
-                    { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
-                  ]}
-                />
-              </>
-            ) : null}
-          </DashboardPanel>
+              <LoadState loading={schedulerState.loading} error={schedulerState.error} />
+              {schedulerState.data ? (
+                <>
+                  <ColumnChart
+                    rows={schedulerState.data.runs.slice().reverse()}
+                    getLabel={(row) => schedulerJobCopy(row).title}
+                    getValue={(row) => row.duration_ms ?? 0}
+                    valueLabel="Run duration (ms)"
+                    color="#0ea5e9"
+                  />
+                  <DataTable
+                    className="scheduler-history-table"
+                    rows={schedulerState.data.runs}
+                    getRowKey={(row) => row.id}
+                    emptyLabel="No scheduler runs recorded"
+                    columns={[
+                      { key: "job", label: "Job", render: (row) => schedulerJobCopy(row).title },
+                      { key: "status", label: "Status", render: (row) => <SyncRunStatusBadge status={row.status} /> },
+                      { key: "trigger", label: "Trigger", render: (row) => statusLabel(row.trigger_type) },
+                      { key: "http", label: "HTTP", render: (row) => row.target_http_status ?? "None" },
+                      { key: "duration", label: "Duration", render: (row) => row.duration_ms === null ? "None" : `${row.duration_ms} ms` },
+                      { key: "finished", label: "Finished", render: (row) => formatDateTime(row.finished_at) },
+                    ]}
+                  />
+                </>
+              ) : null}
+            </DashboardPanel>
           ) : null}
           {activeTab === "manual" ? (
-            <DashboardGrid>
+            <DashboardGrid className="manual-operations-grid">
               <DashboardPanel title="Catalog sync" description="Refresh provider charging-point data.">
-            <div className="button-row">
-              <button className="button-secondary" type="button" onClick={() => runAction("All-provider import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}>Import all providers</button>
-              <button className="button-primary" type="button" onClick={() => runAction(`${providerCode} import`, () => requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, { method: "POST", accessToken }))}>Import selected provider</button>
-            </div>
-          </DashboardPanel>
-          <DashboardPanel title="Analytics refresh" description="Process recent analytics activity and update provider, operator, point, status, and EV summaries.">
-            <div className="button-row">
-              <button className="button-secondary" type="button" onClick={() => runAction("Analytics queue drain", () => requestJson<QueueDrainResponse>("/api/analytics/events/consume?limit=100", { method: "POST", accessToken }))}>Drain analytics queue</button>
-              <button className="button-primary" type="button" onClick={() => runAction("Analytics refresh", () => requestJson<AggregateRefreshResponse>("/api/analytics/aggregates/refresh", { method: "POST", accessToken }))}>Refresh analytics summaries</button>
-            </div>
-          </DashboardPanel>
-          <DashboardPanel title="Billing refresh" description="Process recent billing activity and publish pending billing updates.">
-            <div className="button-row">
-              <button className="button-secondary" type="button" onClick={() => runAction("Billing queue drain", () => requestJson<QueueDrainResponse>("/api/billing/events/drain?limit=100", { method: "POST", accessToken }))}>Drain billing queue</button>
-              <button className="button-primary" type="button" onClick={() => runAction("Billing outbox publish", () => requestJson("/api/billing/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}>Publish billing outbox</button>
-            </div>
-          </DashboardPanel>
-          <DashboardPanel title="Reservation updates" description="Publish pending reservation updates after completed reservation attempts.">
-            <button className="button-primary" type="button" onClick={() => runAction("Reservation outbox publish", () => requestJson("/api/reservations/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}>Publish reservation outbox</button>
-          </DashboardPanel>
+                <div className="button-row manual-operation-actions">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("all provider catalog import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}
+                  >
+                    Import all providers
+                  </button>
+                  <button
+                    className="button-primary"
+                    type="button"
+                    disabled={!providerCode || operationRunning}
+                    onClick={() => runAction(
+                      `${providerCode ? providerLabel(providerCode) : "selected provider"} catalog import`,
+                      () => requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, { method: "POST", accessToken }),
+                    )}
+                  >
+                    Import selected provider
+                  </button>
+                </div>
+              </DashboardPanel>
+              <DashboardPanel title="Analytics refresh" description="Process recent analytics activity and update provider, operator, point, status, and EV summaries.">
+                <div className="button-row manual-operation-actions">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("analytics queue drain", () => requestJson<QueueDrainResponse>("/api/analytics/events/consume?limit=100", { method: "POST", accessToken }))}
+                  >
+                    Drain analytics queue
+                  </button>
+                  <button
+                    className="button-primary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("analytics summary refresh", () => requestJson<AggregateRefreshResponse>("/api/analytics/aggregates/refresh", { method: "POST", accessToken }))}
+                  >
+                    Refresh analytics summaries
+                  </button>
+                </div>
+              </DashboardPanel>
+              <DashboardPanel title="Billing refresh" description="Process recent billing activity and publish pending billing updates.">
+                <div className="button-row manual-operation-actions">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("billing queue drain", () => requestJson<QueueDrainResponse>("/api/billing/events/drain?limit=100", { method: "POST", accessToken }))}
+                  >
+                    Drain billing queue
+                  </button>
+                  <button
+                    className="button-primary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("billing update publish", () => requestJson("/api/billing/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}
+                  >
+                    Publish billing outbox
+                  </button>
+                </div>
+              </DashboardPanel>
+              <DashboardPanel title="Reservation updates" description="Publish pending reservation updates after completed reservation attempts.">
+                <div className="button-row manual-operation-actions">
+                  <button
+                    className="button-primary"
+                    type="button"
+                    disabled={operationRunning}
+                    onClick={() => runAction("reservation update publish", () => requestJson("/api/reservations/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}
+                  >
+                    Publish reservation outbox
+                  </button>
+                </div>
+              </DashboardPanel>
             </DashboardGrid>
           ) : null}
         </DashboardTabs>
-        <InlineResult message={message} tone={message?.includes("completed") ? "success" : "warning"} />
+        <InlineResult message={message} tone={message?.includes("updated") ? "success" : "warning"} />
       </DashboardPage>
     </AppShell>
   );
@@ -1942,6 +2343,7 @@ function InvoiceTable({
 function ImportRunTable({ rows }: { rows: CatalogImportRun[] }) {
   return (
     <DataTable
+      className="import-runs-table"
       rows={rows}
       getRowKey={(row) => row.id}
       columns={[

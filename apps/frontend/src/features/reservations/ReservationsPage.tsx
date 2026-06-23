@@ -4,14 +4,18 @@ import { ReservationCard } from "../../components/domain/ev";
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
 import { useAuth } from "../auth/AuthContext";
 import { requestJson, messageFromUnknownError } from "../../lib/api";
-import { MetricCard, PageHeader } from "../../components/ui";
+import { MetricCard, PageHeader, Select } from "../../components/ui";
 import { formatDurationMinutes, formatMoney, formatNumber } from "../../lib/formatting";
 import type { EvReservationSummary, Reservation } from "../../lib/types";
+
+const RESERVATION_LIMIT_OPTIONS = [20, 40, 60, 80, 100, "all"] as const;
+type ReservationLimit = (typeof RESERVATION_LIMIT_OPTIONS)[number];
 
 export function ReservationsPage() {
   const { session } = useAuth();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [summary, setSummary] = useState<EvReservationSummary | null>(null);
+  const [displayLimit, setDisplayLimit] = useState<ReservationLimit>(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -60,9 +64,12 @@ export function ReservationsPage() {
     };
   }, [session?.accessToken]);
 
+  const visibleReservations = displayLimit === "all" ? reservations : reservations.slice(0, displayLimit);
+  const shownCount = visibleReservations.length;
+
   return (
     <AppShell>
-      <main className="page page-narrow">
+      <main className="page page-narrow reservation-page">
         <PageHeader
           title="Reservations"
           description="Track charger reservation attempts and provider responses from your account."
@@ -86,11 +93,39 @@ export function ReservationsPage() {
           </EmptyState>
         ) : null}
 
-        <section className="reservation-list" aria-label="Reservations">
-          {reservations.map((reservation) => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
-          ))}
-        </section>
+        {!loading && !error && reservations.length > 0 ? (
+          <section className="reservation-history-panel" aria-label="Reservation history">
+            <div className="reservation-list-toolbar">
+              <div>
+                <strong>Reservation history</strong>
+                <span className="muted">
+                  Showing {formatNumber(shownCount)} of {formatNumber(reservations.length)}
+                </span>
+              </div>
+              <label className="reservation-limit-control">
+                <span>Show</span>
+                <Select
+                  value={String(displayLimit)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDisplayLimit(value === "all" ? "all" : Number(value) as ReservationLimit);
+                  }}
+                >
+                  {RESERVATION_LIMIT_OPTIONS.map((option) => (
+                    <option key={option} value={String(option)}>
+                      {option === "all" ? "Full list" : `${option} entries`}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            </div>
+            <div className="reservation-list" role="list" aria-label="Reservations">
+              {visibleReservations.map((reservation) => (
+                <ReservationCard key={reservation.id} reservation={reservation} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </main>
     </AppShell>
   );

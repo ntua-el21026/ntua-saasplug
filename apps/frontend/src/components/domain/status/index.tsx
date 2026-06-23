@@ -5,6 +5,7 @@ export function statusToneFor(value: string | null | undefined): Tone {
   switch (value) {
     case "available":
     case "succeeded":
+    case "completed":
     case "paid":
     case "healthy":
     case "active":

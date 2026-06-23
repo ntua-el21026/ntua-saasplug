@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
 import { Card, DataTable as UiDataTable, MetricCard as UiMetricCard, PageHeader, SectionHeader, Tabs } from "../../components/ui";
 import { formatNumber } from "../../lib/formatting";
+import { cx } from "../../lib/utils/classNames";
 
 export function DashboardPage({
   title,
@@ -66,23 +67,25 @@ export function MetricCard({
   return <UiMetricCard label={label} value={value} hint={hint} />;
 }
 
-export function DashboardGrid({ children }: { children: ReactNode }) {
-  return <section className="admin-grid">{children}</section>;
+export function DashboardGrid({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cx("admin-grid", className)}>{children}</section>;
 }
 
 export function DashboardPanel({
   title,
   description,
   actions,
+  className,
   children,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <Card className="admin-panel">
+    <Card className={cx("admin-panel", className)}>
       <SectionHeader title={title} description={description} actions={actions ? <div className="admin-panel-actions">{actions}</div> : null} />
       {children}
     </Card>
@@ -124,17 +127,19 @@ export function DataTable<T>({
   rows,
   getRowKey,
   emptyLabel = "No rows available",
+  className,
 }: {
   columns: Array<{ key: string; label: string; render: (row: T) => ReactNode }>;
   rows: T[];
   getRowKey: (row: T, index: number) => string;
   emptyLabel?: string;
+  className?: string;
 }) {
   if (rows.length === 0) {
     return <EmptyState title={emptyLabel}>New rows will appear here when matching activity is available.</EmptyState>;
   }
 
-  return <UiDataTable columns={columns} rows={rows} getRowKey={getRowKey} emptyLabel={emptyLabel} />;
+  return <UiDataTable columns={columns} rows={rows} getRowKey={getRowKey} emptyLabel={emptyLabel} className={className} />;
 }
 
 export function BarList<T>({

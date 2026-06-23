@@ -279,18 +279,20 @@ export function DataTable<T>({
   rows,
   getRowKey,
   emptyLabel = "No rows available",
+  className,
 }: {
   columns: Array<{ key: string; label: string; render: (row: T) => ReactNode }>;
   rows: T[];
   getRowKey: (row: T, index: number) => string;
   emptyLabel?: string;
+  className?: string;
 }) {
   if (rows.length === 0) {
     return <EmptyState title={emptyLabel}>This table will update when matching records are available.</EmptyState>;
   }
 
   return (
-    <div className="ui-table-wrap">
+    <div className={cx("ui-table-wrap", className)}>
       <table className="ui-table">
         <thead>
           <tr>
