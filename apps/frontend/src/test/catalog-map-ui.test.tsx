@@ -40,6 +40,8 @@ describe("catalog map UI", () => {
     render(<App />);
 
     expect(await screen.findByLabelText("Charging point filters and results")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Filters" })).toBeInTheDocument();
+    expect(screen.queryByText("More filters")).not.toBeInTheDocument();
     expect(await screen.findByText("Zoom 15 out of 17")).toBeInTheDocument();
     expect(await screen.findByText("3 results")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show Outside Hub 99 on map" })).not.toBeInTheDocument();
@@ -80,7 +82,9 @@ describe("catalog map UI", () => {
     expect(within(popup).getAllByText("redPlug").length).toBeGreaterThan(0);
     expect(within(popup).getByRole("link", { name: "Reserve charger" })).toHaveAttribute("href", "/points/redPlug/r-1");
 
-    await userEvent.click(screen.getByText("More filters"));
+    const chargerTypeSelect = screen.getByLabelText("Charger type");
+    await userEvent.selectOptions(chargerTypeSelect, "7");
+    expect(chargerTypeSelect).toHaveValue("7");
     const resultLimitSelect = screen.getByLabelText("Results to show");
     await userEvent.selectOptions(resultLimitSelect, "40");
 

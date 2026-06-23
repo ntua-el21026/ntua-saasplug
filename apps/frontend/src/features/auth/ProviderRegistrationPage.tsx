@@ -13,7 +13,7 @@ export function ProviderRegistrationPage() {
         <div>
           <h2>Integration requirements</h2>
         </div>
-        <span className="auth-status-pill">API metadata</span>
+        <span className="auth-status-pill">Connection details</span>
       </div>
       <div className="provider-registration-list">
         <div>
@@ -22,7 +22,7 @@ export function ProviderRegistrationPage() {
         </div>
         <div>
           <strong>API base URL</strong>
-          <span>Provider endpoints are configured through provider-registry and never called directly by the browser.</span>
+          <span>Provider endpoints are stored securely and are never called directly by the browser.</span>
         </div>
         <div>
           <strong>Secret handling</strong>

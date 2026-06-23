@@ -133,6 +133,9 @@ def test_public_register_creates_ev_user_only(client: TestClient) -> None:
     assert user["roles"] == ["EV_USER"]
     assert user["provider_id"] is None
     assert user["provider_code"] is None
+    assert user["auth_provider"] == "local"
+    assert user["last_login_method"] == "local"
+    assert user["password_change_supported"] is True
 
 
 def test_register_rejects_duplicate_email_case_insensitively(client: TestClient) -> None:
@@ -209,3 +212,146 @@ def test_google_oauth_hooks_fail_safely_in_local_placeholder_mode(client: TestCl
     assert login_response.json()["status"] == "google_oauth_not_configured"
     assert callback_response.status_code == 200
     assert callback_response.json()["configured"] is False
+
+
+def test_google_login_uses_frontend_redirect_uri_when_configured(client: TestClient, monkeypatch) -> None:
+    frontend_redirect_uri = "http://localhost:8080/login/google/callback"
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+
+    response = client.get(
+        "/auth/google/login",
+        params={"redirect_uri": frontend_redirect_uri},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["configured"] is True
+    assert "authorization_url" in payload
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Fgoogle%2Fcallback" in payload["authorization_url"]
+
+
+def test_google_callback_uses_frontend_redirect_uri_and_registers_ev_user(client: TestClient, monkeypatch) -> None:
+    frontend_redirect_uri = "http://localhost:8080/login/google/callback"
+    captured: dict[str, str | None] = {}
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+
+    def fake_fetch_google_identity(code, settings, redirect_uri=None):
+        captured["code"] = code
+        captured["redirect_uri"] = redirect_uri
+        return {"email": "configured-google@example.com", "sub": "google-subject-1"}
+
+    monkeypatch.setattr("app.routes.fetch_google_identity", fake_fetch_google_identity)
+
+    response = client.get(
+        "/auth/google/callback",
+        params={"code": "google-code", "redirect_uri": frontend_redirect_uri},
+    )
+
+    assert response.status_code == 200
+    assert captured == {"code": "google-code", "redirect_uri": frontend_redirect_uri}
+    user = response.json()["user"]
+    assert user["email"] == "configured-google@example.com"
+    assert user["roles"] == ["EV_USER"]
+    assert user["auth_provider"] == "google"
+    assert user["last_login_method"] == "google"
+    assert user["password_change_supported"] is False
+
+
+def test_local_google_sign_in_registers_new_ev_user_and_reuses_account(client: TestClient) -> None:
+    first_response = client.post(
+        "/auth/google/local-sign-in",
+        json={"email": "new-google-user@example.com"},
+    )
+    second_response = client.post(
+        "/auth/google/local-sign-in",
+        json={"email": "NEW-GOOGLE-USER@example.com"},
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    first_user = first_response.json()["user"]
+    second_user = second_response.json()["user"]
+    assert first_user["id"] == second_user["id"]
+    assert first_user["email"] == "new-google-user@example.com"
+    assert first_user["roles"] == ["EV_USER"]
+    assert first_user["provider_id"] is None
+    assert first_user["provider_code"] is None
+    assert first_user["auth_provider"] == "google"
+    assert first_user["last_login_method"] == "google"
+    assert first_user["password_change_supported"] is False
+
+
+def test_google_sign_in_rejects_operator_and_provider_accounts(client: TestClient) -> None:
+    operator_response = client.post(
+        "/auth/google/local-sign-in",
+        json={"email": "operator@saasplug.local"},
+    )
+    provider_response = client.post(
+        "/auth/google/local-sign-in",
+        json={"email": "red-admin@saasplug.local"},
+    )
+
+    assert operator_response.status_code == 403
+    assert provider_response.status_code == 403
+    assert operator_response.json()["detail"] == "Google sign-in is available only for EV user accounts."
+
+
+@pytest.mark.parametrize(
+    "email",
+    [
+        "evuser@saasplug.local",
+        "operator@saasplug.local",
+        "red-admin@saasplug.local",
+    ],
+)
+def test_local_password_users_can_change_password(client: TestClient, email: str) -> None:
+    login_payload = login(client, email)
+
+    change_response = client.post(
+        "/auth/password",
+        headers={"Authorization": f"Bearer {login_payload['access_token']}"},
+        json={
+            "current_password": DEMO_PASSWORD,
+            "new_password": "new-safe-demo-password",
+        },
+    )
+    old_login_response = client.post(
+        "/auth/login",
+        json={"email": email, "password": DEMO_PASSWORD},
+    )
+    new_login_response = client.post(
+        "/auth/login",
+        json={"email": email, "password": "new-safe-demo-password"},
+    )
+
+    assert change_response.status_code == 200
+    assert change_response.json() == {"status": "password_changed"}
+    assert old_login_response.status_code == 401
+    assert new_login_response.status_code == 200
+
+
+def test_google_created_user_cannot_change_password_or_login_locally(client: TestClient) -> None:
+    google_payload = client.post(
+        "/auth/google/local-sign-in",
+        json={"email": "google-only@example.com"},
+    ).json()
+
+    change_response = client.post(
+        "/auth/password",
+        headers={"Authorization": f"Bearer {google_payload['access_token']}"},
+        json={
+            "current_password": "anything-safe",
+            "new_password": "new-safe-demo-password",
+        },
+    )
+    local_login_response = client.post(
+        "/auth/login",
+        json={"email": "google-only@example.com", "password": "new-safe-demo-password"},
+    )
+
+    assert change_response.status_code == 403
+    assert local_login_response.status_code == 401

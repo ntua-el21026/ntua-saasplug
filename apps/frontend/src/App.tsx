@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { AccessDenied } from "./components/AccessDenied";
 import { AuthProvider, useAuth } from "./features/auth/AuthContext";
+import { GoogleCallbackPage } from "./features/auth/GoogleCallbackPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { LogoutPage } from "./features/auth/LogoutPage";
 import { ProfilePage } from "./features/auth/ProfilePage";
@@ -101,6 +102,7 @@ export default function App() {
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/auth" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/google/callback" element={<GoogleCallbackPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/provider-register"
@@ -137,9 +139,9 @@ export default function App() {
             path="/points/:providerCode/:externalPointId"
             element={
               <ProtectedRoute>
-                <EvOnlyRoute>
+                <RoleRoute allowedRoles={["EV_USER", "PROVIDER_ADMIN", "OPERATOR"]}>
                   <PointDetailPage />
-                </EvOnlyRoute>
+                </RoleRoute>
               </ProtectedRoute>
             }
           />

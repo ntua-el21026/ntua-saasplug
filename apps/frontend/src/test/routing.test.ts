@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPrice } from "../lib/formatting";
+import { formatCostPerKwh, formatDurationMinutes, formatMoney, formatPrice } from "../lib/formatting";
 import { ATHENS_DEFAULT_BOUNDS, buildCatalogPointsPath, pointWithinCatalogSearchCircle } from "../lib/routing";
 
 describe("frontend helpers", () => {
@@ -22,11 +22,19 @@ describe("frontend helpers", () => {
     expect(path).not.toContain("zoom=");
     expect(path).toContain("providerCode=redPlug");
     expect(path).toContain("status=available");
+    expect(path).toContain("connector=CCS");
     expect(path).not.toContain("includeStale=true");
   });
 
   it("formats missing prices for EV users", () => {
     expect(formatPrice(null)).toBe("Price unavailable");
+    expect(formatCostPerKwh(null)).toBe("Cost/kWh unavailable");
+    expect(formatCostPerKwh(Number.NaN)).toBe("Cost/kWh unavailable");
+    expect(formatCostPerKwh(-0.2)).toBe("Cost/kWh unavailable");
+    expect(formatCostPerKwh(0)).toBe("€0.00/kWh");
+    expect(formatCostPerKwh(0.59)).toBe("€0.59/kWh");
+    expect(formatMoney(Number.POSITIVE_INFINITY)).toBe("Not available");
+    expect(formatDurationMinutes(0)).toBe("0 min");
   });
 
   it("checks points against the exact catalog search circle", () => {

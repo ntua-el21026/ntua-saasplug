@@ -2,13 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { ApiError, requestJson } from "../../lib/api";
 import { clearStoredSession, readStoredSession, type StoredSession, writeStoredSession } from "../../lib/storage";
-import type { AuthTokenResponse, GoogleOAuthStatus, User } from "../../lib/types";
+import type { AuthTokenResponse, ChangePasswordResponse, GoogleOAuthStatus, User } from "../../lib/types";
 
 interface AuthContextValue {
   session: StoredSession | null;
   bootstrapping: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  googleSignIn: (email: string) => Promise<GoogleOAuthStatus | null>;
+  completeGoogleSignIn: (code: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResponse>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<StoredSession | null>;
   googleStatus: () => Promise<GoogleOAuthStatus>;
@@ -118,6 +121,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistTokenResponse],
   );
 
+  const googleRedirectUri = useCallback(() => `${window.location.origin}/login/google/callback`, []);
+
+  const googleStatus = useCallback(() => {
+    const query = new URLSearchParams({ redirect_uri: googleRedirectUri() });
+    return requestJson<GoogleOAuthStatus>(`/api/auth/auth/google/login?${query.toString()}`);
+  }, [googleRedirectUri]);
+
+  const googleSignIn = useCallback(
+    async (email: string): Promise<GoogleOAuthStatus | null> => {
+      const status = await googleStatus();
+      if (status.configured && status.authorization_url) {
+        window.location.assign(status.authorization_url);
+        return status;
+      }
+      const payload = await requestJson<AuthTokenResponse>("/api/auth/auth/google/local-sign-in", {
+        method: "POST",
+        bodyJson: { email },
+      });
+      persistTokenResponse(payload);
+      return null;
+    },
+    [googleStatus, persistTokenResponse],
+  );
+
+  const completeGoogleSignIn = useCallback(
+    async (code: string): Promise<void> => {
+      const query = new URLSearchParams({
+        code,
+        redirect_uri: googleRedirectUri(),
+      });
+      const payload = await requestJson<AuthTokenResponse>(`/api/auth/auth/google/callback?${query.toString()}`);
+      persistTokenResponse(payload);
+    },
+    [googleRedirectUri, persistTokenResponse],
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string): Promise<ChangePasswordResponse> => {
+      const current = readStoredSession();
+      return requestJson<ChangePasswordResponse>("/api/auth/auth/password", {
+        method: "POST",
+        accessToken: current?.accessToken,
+        bodyJson: {
+          current_password: currentPassword,
+          new_password: newPassword,
+        },
+      });
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     const current = readStoredSession();
     clearSession();
@@ -134,19 +188,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession]);
 
-  const googleStatus = useCallback(() => requestJson<GoogleOAuthStatus>("/api/auth/auth/google/login"), []);
-
   const value = useMemo(
     () => ({
       session,
       bootstrapping,
       signIn,
       register,
+      googleSignIn,
+      completeGoogleSignIn,
+      changePassword,
       signOut,
       refreshSession,
       googleStatus,
     }),
-    [bootstrapping, googleStatus, refreshSession, register, session, signIn, signOut],
+    [
+      bootstrapping,
+      changePassword,
+      completeGoogleSignIn,
+      googleSignIn,
+      googleStatus,
+      refreshSession,
+      register,
+      session,
+      signIn,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

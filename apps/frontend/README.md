@@ -52,14 +52,15 @@ Implemented frontend routes:
 
 | Route | Purpose |
 |---|---|
-| `/login` | Email/password login with seeded demo account shortcuts and Google OAuth hook status |
+| `/login` | Email/password login with seeded demo account shortcuts and EV-only Google sign-in |
+| `/login/google/callback` | Google OAuth browser callback that completes the backend code exchange and stores the session |
 | `/register` | Local EV account registration |
 | `/logout` | Session revocation and local session cleanup |
 | `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, and bounds-based catalog queries |
 | `/dashboard` | Alias to the EV map/list experience |
-| `/points/:providerCode/:externalPointId` | Cached catalog point details, live status lookup, and reservation creation |
-| `/reservations` | Current user's reservation history |
-| `/profile` | Current session, role, and provider-scope information |
+| `/points/:providerCode/:externalPointId` | Cached catalog point details and live status lookup; reservation controls are EV-only |
+| `/reservations` | Current user's reservation history, EV reservation summary metrics, cost/kWh, and estimated cost display |
+| `/profile` | User-facing account overview, role-specific workspace links, and EV local-password changes |
 | `/provider/dashboard` | Provider-admin command center with analytics, billing, and catalog posture |
 | `/provider/points` | Provider-scoped catalog points and status-cache freshness |
 | `/provider/analytics` | Provider analytics aggregates, top points, status distribution, and trends |
@@ -97,10 +98,29 @@ The login page exposes quick-fill buttons for:
 | `evuser@saasplug.local` | `EV_USER` |
 | `operator@saasplug.local` | `OPERATOR` |
 | `red-admin@saasplug.local` | `PROVIDER_ADMIN` |
+| `green-admin@saasplug.local` | `PROVIDER_ADMIN` |
+| `blue-admin@saasplug.local` | `PROVIDER_ADMIN` |
 
-Only the EV user can access the EV map, point details, and reservations pages.
-Provider administrators are scoped to their own provider. Operators can access
-global management and control pages.
+Only the EV user can access the EV map and reservations pages. Point details
+are readable by EV users, provider administrators for their own provider, and
+operators; reservation creation remains EV-only. Provider administrators are
+scoped to their own provider. Operators can access global management and
+control pages.
+
+Google sign-in is available only for EV accounts. In local demo mode, where
+Google credentials are placeholders, the login page uses
+`/api/auth/auth/google/local-sign-in` with the typed email address to simulate a
+Google-verified account: new emails become EV users, existing EV users sign in
+to the same account, and operator/provider-admin emails are rejected. When real
+Google credentials are configured, the same button redirects to Google's
+authorization URL returned by `auth-service`. The frontend uses
+`/login/google/callback` as the browser redirect route and passes that URL to
+`auth-service` for both the authorization URL and token exchange. That URL must
+be allowed in the Google OAuth client configuration.
+
+The profile page shows password changes only for EV users whose current session
+was not signed in with Google. The backend password endpoint still supports all
+local password accounts.
 
 ## Frontend architecture
 
@@ -136,6 +156,25 @@ that committed response circle when points are displayed. As a fail-closed
 guard, the frontend applies the same Haversine circle check before rendering
 cards or markers, so broad or stale responses cannot place points outside the
 blue circle.
+
+## EV reservation cost display
+
+The reservations page uses two gateway-backed sources:
+
+- `/api/reservations/reservations/me` for reservation records;
+- `/api/analytics/ev/reservations/summary` for EV-scoped aggregate summary
+  cards.
+
+Reservation cards label the provider energy price as `Cost/kWh`, because the
+stored field is `price_per_kwh_eur`. The `Estimated cost` field is displayed
+only when the backend has all required inputs: cost/kWh, charger capacity in
+kW, and requested duration. Missing, negative, or non-finite inputs render as
+unavailable rather than `0` or a malformed currency value.
+
+The top summary metrics prioritize average estimated cost per point. That
+metric is backed by analytics-service aggregates and uses only points with at
+least one valid estimate, so missing cost/kWh or capacity fields do not depress
+the average.
 
 ## Commands
 

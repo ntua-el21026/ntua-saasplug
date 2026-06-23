@@ -325,6 +325,42 @@ wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- nod
 
 Result: passed.
 
+## Continuation Update - 2026-06-22 UI Text Polish
+
+Additional signed-in UI polish was implemented:
+
+- Sidebar navigation text now renders black for inactive, hover, and active signed-in menu links.
+- EV reservation cards no longer show duplicated provider/external identifiers; cards now show a concise provider charger title and point ID subtitle.
+- Reservation metadata labels such as `Created`, `Duration`, `Provider status`, and `Price` now use black label text.
+- Detail-page definition labels such as `Provider point ID`, `Connector`, and `Capacity` now use black label text.
+- The point detail reservation helper sentence was changed from backend/service language to user-facing copy.
+
+Validation commands run:
+
+```text
+node node_modules/typescript/bin/tsc --noEmit
+```
+
+Result: passed.
+
+```text
+node node_modules/vitest/vitest.mjs run
+```
+
+Result: passed. 4 test files, 25 tests.
+
+```text
+node node_modules/vite/bin/vite.js build
+```
+
+Result: passed. Vite emitted the existing large MapLibre chunk warning.
+
+```text
+git diff --check
+```
+
+Result: passed.
+
 ```text
 wsl.exe -d Ubuntu-24.04 --cd /home/peppasmich/NTUA-saasPlug/apps/frontend -- node node_modules/vitest/vitest.mjs run
 ```

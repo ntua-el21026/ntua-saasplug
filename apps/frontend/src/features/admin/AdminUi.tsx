@@ -26,7 +26,7 @@ export function LoadState({
   error,
   empty,
   emptyTitle = "No records found",
-  emptyMessage = "This view will populate after the relevant service has data.",
+  emptyMessage = "This view will update when matching activity is available.",
 }: {
   loading?: boolean;
   error?: string | null;
@@ -101,7 +101,7 @@ export function DataTable<T>({
   emptyLabel?: string;
 }) {
   if (rows.length === 0) {
-    return <EmptyState title={emptyLabel}>Try again after sync, aggregation, or invoice issuance has run.</EmptyState>;
+    return <EmptyState title={emptyLabel}>New rows will appear here when matching activity is available.</EmptyState>;
   }
 
   return <UiDataTable columns={columns} rows={rows} getRowKey={getRowKey} emptyLabel={emptyLabel} />;
@@ -119,7 +119,7 @@ export function BarList<T>({
   emptyLabel?: string;
 }) {
   if (rows.length === 0) {
-    return <EmptyState title={emptyLabel}>Aggregates will appear here after analytics refresh completes.</EmptyState>;
+    return <EmptyState title={emptyLabel}>Performance history will appear here when activity is available.</EmptyState>;
   }
 
   const max = Math.max(1, ...rows.map(getValue));

@@ -2,6 +2,7 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -57,6 +58,30 @@ def get_session_factory() -> sessionmaker[Session]:
 
 def init_db() -> None:
     Base.metadata.create_all(bind=get_engine())
+    migrate_auth_schema()
+
+
+def migrate_auth_schema() -> None:
+    engine = get_engine()
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    statements = []
+    if "auth_provider" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(32) NOT NULL DEFAULT 'local'")
+    if "google_subject" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN google_subject VARCHAR(255)")
+    if "last_login_method" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN last_login_method VARCHAR(32) NOT NULL DEFAULT 'local'")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
 
 
 def get_db() -> Generator[Session, None, None]:

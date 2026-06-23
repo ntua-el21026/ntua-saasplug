@@ -198,10 +198,12 @@ export function Drawer({
 export function Modal({
   title,
   open,
+  onClose,
   children,
 }: {
   title: string;
   open: boolean;
+  onClose?: () => void;
   children: ReactNode;
 }) {
   if (!open) {
@@ -212,6 +214,11 @@ export function Modal({
       <section aria-modal="true" className="ui-modal" role="dialog" aria-label={title}>
         <div className="ui-modal-header">
           <h2>{title}</h2>
+          {onClose ? (
+            <button className="ui-message-close" type="button" aria-label={`Close ${title}`} onClick={onClose}>
+              x
+            </button>
+          ) : null}
         </div>
         {children}
       </section>

@@ -2,11 +2,25 @@ import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { Button, Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
-import { formatCapacity, formatDateTime, formatPrice, providerLabel } from "../../../lib/formatting";
+import { formatCapacity, formatCostPerKwh, formatDateTime, formatMoney, providerLabel } from "../../../lib/formatting";
 import { pointPath, type CatalogResultLimit } from "../../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPoint, ProviderCode, Reservation, StatusValue } from "../../../lib/types";
 import { ProviderBadge } from "../provider";
 import { ChargingPointStatusBadge } from "../status";
+
+const CHARGER_TYPE_OPTIONS = [
+  { value: "", label: "Any charger type" },
+  { value: "7", label: "Type 2 / Connector 7" },
+  { value: "Type 2", label: "Type 2" },
+  { value: "CCS", label: "CCS" },
+  { value: "CHAdeMO", label: "CHAdeMO" },
+  { value: "Schuko", label: "Schuko" },
+  { value: "Tesla", label: "Tesla" },
+] as const;
+
+function chargerTypeLabel(value: string): string {
+  return CHARGER_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
 
 export function ChargingPointCard({
   point,
@@ -35,7 +49,7 @@ export function ChargingPointCard({
         </span>
         <span className="point-card-side">
           <ChargingPointStatusBadge status={point.status} />
-          <small>{formatPrice(point.price_per_kwh_eur)}</small>
+          <small>{formatCostPerKwh(point.price_per_kwh_eur)}</small>
         </span>
       </button>
       <Link className="charging-point-card-link" to={pointPath(point.provider_code, point.external_point_id)}>
@@ -55,7 +69,7 @@ export function ChargingPointDrawer({
   if (!point) {
     return (
       <Drawer title="Charging point detail">
-        <EmptyState title="No charging point selected">Select a point from the result list to inspect provider, price, power, status, and reservation context.</EmptyState>
+        <EmptyState title="No charging point selected">Select a point from the result list to inspect provider, cost, power, status, and reservation context.</EmptyState>
       </Drawer>
     );
   }
@@ -76,8 +90,8 @@ export function ChargingPointDrawer({
             <dd>{formatDateTime(point.last_catalog_sync_at)}</dd>
           </div>
           <div>
-            <dt>Price</dt>
-            <dd>{formatPrice(point.price_per_kwh_eur)}</dd>
+            <dt>Cost/kWh</dt>
+            <dd>{formatCostPerKwh(point.price_per_kwh_eur)}</dd>
           </div>
           <div>
             <dt>Power</dt>
@@ -119,11 +133,12 @@ export function ChargingPointMarker({
 }
 
 export function ReservationCard({ reservation }: { reservation: Reservation }) {
+  const hasEstimatedCost = typeof reservation.estimated_cost_eur === "number" && Number.isFinite(reservation.estimated_cost_eur) && reservation.estimated_cost_eur >= 0;
   return (
     <article className="reservation-card">
       <div>
-        <strong>{providerLabel(reservation.provider_code)} point {reservation.external_point_id}</strong>
-        <small>{reservation.normalized_point_id}</small>
+        <strong>{providerLabel(reservation.provider_code)} charger</strong>
+        <small>Point {reservation.external_point_id}</small>
       </div>
       <ChargingPointStatusBadge status={reservation.status} />
       <dl className="reservation-meta">
@@ -140,8 +155,12 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
           <dd>{reservation.provider_status ?? "unknown"}</dd>
         </div>
         <div>
-          <dt>Price</dt>
-          <dd>{formatPrice(reservation.price_per_kwh_eur)}</dd>
+          <dt>Cost/kWh</dt>
+          <dd>{formatCostPerKwh(reservation.price_per_kwh_eur)}</dd>
+        </div>
+        <div>
+          <dt>Estimated cost</dt>
+          <dd>{hasEstimatedCost ? formatMoney(reservation.estimated_cost_eur, reservation.estimated_cost_currency ?? "EUR") : "Estimate unavailable"}</dd>
         </div>
       </dl>
       {reservation.failure_reason ? <p className="muted">{reservation.failure_reason}</p> : null}
@@ -155,13 +174,15 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
 export function ReservationModal({
   open,
   title,
+  onClose,
   children,
 }: {
   open: boolean;
   title: string;
+  onClose?: () => void;
   children: ReactNode;
 }) {
-  return <Modal open={open} title={title}>{children}</Modal>;
+  return <Modal open={open} title={title} onClose={onClose}>{children}</Modal>;
 }
 
 export function MapFilterPanel({
@@ -183,7 +204,11 @@ export function MapFilterPanel({
 }) {
   return (
     <Card className="map-filter-panel">
-      <label>
+      <div className="filter-panel-header">
+        <h2>Filters</h2>
+        <p>Narrow nearby chargers by location, provider, availability, and charger type.</p>
+      </div>
+      <label className="filter-field filter-field-wide">
         Search
         <SearchInput
           value={filters.q}
@@ -191,21 +216,23 @@ export function MapFilterPanel({
           placeholder="Station, address, connector"
         />
       </label>
-      <div className="compact-filter-row">
-        {statuses.slice(0, 3).map((status) => (
-          <button
-            className={`compact-filter ${filters.status === status ? "is-selected" : ""}`}
-            key={status}
-            onClick={() => onChange({ ...filters, status: filters.status === status ? "" : status })}
-            type="button"
-          >
-            {status}
-          </button>
-        ))}
-      </div>
-      <details className="more-filters">
-        <summary>More filters</summary>
-        <label>
+      <fieldset className="filter-fieldset">
+        <legend>Availability</legend>
+        <div className="compact-filter-row">
+          {statuses.slice(0, 3).map((status) => (
+            <button
+              className={`compact-filter ${filters.status === status ? "is-selected" : ""}`}
+              key={status}
+              onClick={() => onChange({ ...filters, status: filters.status === status ? "" : status })}
+              type="button"
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <div className="filter-grid">
+        <label className="filter-field">
           Provider
           <Select value={filters.providerCode} onChange={(event) => onChange({ ...filters, providerCode: event.target.value as CatalogFilters["providerCode"] })}>
             <option value="">All providers</option>
@@ -214,7 +241,7 @@ export function MapFilterPanel({
             ))}
           </Select>
         </label>
-        <label>
+        <label className="filter-field">
           Status
           <Select value={filters.status} onChange={(event) => onChange({ ...filters, status: event.target.value as CatalogFilters["status"] })}>
             <option value="">Any status</option>
@@ -223,16 +250,20 @@ export function MapFilterPanel({
             ))}
           </Select>
         </label>
-        <label>
-          Connector
-          <input
-            className="ui-input"
+        <label className="filter-field">
+          Charger type
+          <Select
             value={filters.connector}
             onChange={(event) => onChange({ ...filters, connector: event.target.value })}
-            placeholder="CCS, Type 2"
-          />
+          >
+            {CHARGER_TYPE_OPTIONS.map((option) => (
+              <option key={option.label} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </label>
-        <label>
+        <label className="filter-field">
           Results to show
           <Select
             value={String(resultLimit)}
@@ -248,6 +279,8 @@ export function MapFilterPanel({
             ))}
           </Select>
         </label>
+      </div>
+      <div className="filter-footer">
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -256,7 +289,7 @@ export function MapFilterPanel({
           />
           Include stale
         </label>
-      </details>
+      </div>
     </Card>
   );
 }
@@ -310,7 +343,7 @@ export function SelectedFiltersBar({
     chips.push(<FilterChip key="status" selected onRemove={() => onChange({ ...filters, status: "" })}>{filters.status}</FilterChip>);
   }
   if (filters.connector) {
-    chips.push(<FilterChip key="connector" selected onRemove={() => onChange({ ...filters, connector: "" })}>{filters.connector}</FilterChip>);
+    chips.push(<FilterChip key="connector" selected onRemove={() => onChange({ ...filters, connector: "" })}>{chargerTypeLabel(filters.connector)}</FilterChip>);
   }
   if (filters.includeStale) {
     chips.push(<FilterChip key="stale" selected onRemove={() => onChange({ ...filters, includeStale: false })}>include stale</FilterChip>);

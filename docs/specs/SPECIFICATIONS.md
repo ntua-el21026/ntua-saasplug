@@ -168,10 +168,14 @@ The EV User must be able to:
 | Refresh/check point status | Supported through `status-service` with 5-minute cache. |
 | Reserve charging point | Supported through synchronous `reservation-service` call to the appropriate provider service. |
 | View own reservations | Supported in EV user UI. |
+| View own reservation summary | Supported through `analytics-service` projections scoped to the authenticated EV user. |
 | Cancel reservation | Out of scope unless provider APIs clearly support it and implementation remains simple. |
 | Pay for charging | Out of scope. saasPlug does not charge EV users. |
 
-The EV User never calls provider APIs directly.
+The EV User never calls provider APIs directly. EV cost displays are estimates
+only: `price_per_kwh_eur` is presented as `Cost/kWh`, and estimated cost is
+computed from `Cost/kWh * charger kW * requested duration` only when all inputs
+are available.
 
 ## SPEC-1.4 Provider Admin scope
 
@@ -625,6 +629,8 @@ It does not own catalog details or reservations.
 - point/provider resolution through catalog,
 - synchronous provider reservation call,
 - reservation records,
+- EV-facing cost/kWh, charger-power, estimated-energy, and estimated-cost
+  snapshots for reservation display and analytics events,
 - successful/failed reservation attempts,
 - reservation events for analytics/billing.
 
@@ -637,8 +643,10 @@ It does not generate invoices or dashboards.
 - raw usage event ingestion,
 - idempotent event storage,
 - hourly/daily aggregate tables,
+- EV reservation summary projections,
 - provider analytics API,
 - operator analytics API,
+- EV reservation analytics API,
 - CSV usage log export,
 - data freshness indicators.
 
@@ -880,7 +888,9 @@ usage_events
 provider_hourly_metrics
 provider_daily_metrics
 point_daily_metrics
+provider_status_daily_metrics
 operator_daily_metrics
+ev_reservation_daily_metrics
 catalog_health_snapshots
 billing_summary_snapshots
 export_jobs
@@ -1148,12 +1158,14 @@ Accepted.
 
 ## SPEC-6.2 Analytics architecture
 
-`analytics-service` consumes RabbitMQ events, stores raw events idempotently, computes aggregate tables, and serves provider/operator dashboards.
+`analytics-service` consumes RabbitMQ events, stores raw events idempotently,
+computes aggregate tables, and serves provider, operator, and EV reservation
+dashboard data.
 
 Data flow:
 
 ```text
-RabbitMQ events -> analytics.usage_events -> hourly/daily aggregation jobs -> aggregate tables -> dashboards
+RabbitMQ events -> analytics.usage_events -> aggregation jobs -> aggregate tables -> dashboards
 ```
 
 ## SPEC-6.3 Event sources
@@ -1234,18 +1246,39 @@ Operator dashboard includes:
 - catalog health,
 - manual aggregate refresh.
 
-## SPEC-6.7 Aggregate tables
+## SPEC-6.7 EV reservation summary
+
+The EV reservation summary is scoped to the authenticated EV user and includes:
+
+- total reservation records from reservation events,
+- successful and failed reservation counts,
+- successful reserved duration,
+- distinct charging points,
+- total estimated energy,
+- total estimated cost,
+- average estimated cost per point,
+- missing-estimate count,
+- freshness metadata.
+
+Estimated cost is a projection, not an EV payment flow. It is computed only when
+the reservation event has valid cost/kWh, charger kW, and requested duration.
+Missing values remain unavailable and are excluded from cost totals and
+averages.
+
+## SPEC-6.8 Aggregate tables
 
 Required aggregate/cache tables include:
 
 - `provider_hourly_metrics`,
 - `provider_daily_metrics`,
 - `point_daily_metrics`,
+- `provider_status_daily_metrics`,
 - `operator_daily_metrics`,
+- `ev_reservation_daily_metrics`,
 - `catalog_health_snapshots`,
 - `billing_summary_snapshots`.
 
-## SPEC-6.8 Aggregation frequency
+## SPEC-6.9 Aggregation frequency
 
 | Aggregate | Frequency |
 |---|---|
@@ -1254,9 +1287,13 @@ Required aggregate/cache tables include:
 | Provider daily metrics | daily + manual refresh |
 | Operator daily metrics | daily + manual refresh |
 | Point daily metrics | daily + manual refresh |
+| EV reservation daily metrics | daily + manual refresh |
 | Billing summary snapshots | hourly or on billing events |
 
-## SPEC-6.9 CSV export
+Manual analytics aggregate refresh must rebuild all aggregate/cache tables,
+including EV reservation daily metrics.
+
+## SPEC-6.10 CSV export
 
 `analytics-service` provides CSV export of provider usage logs.
 
@@ -1268,7 +1305,7 @@ CSV columns should include:
 occurred_at,event_type,provider_code,internal_point_id,external_point_id,point_name,user_id,reservation_id,status,amount,currency,details
 ```
 
-## SPEC-6.10 Data freshness indicators
+## SPEC-6.11 Data freshness indicators
 
 Dashboards must show:
 
@@ -1277,7 +1314,7 @@ Dashboards must show:
 - last catalog sync time,
 - analytics delay notice.
 
-## SPEC-6.11 Out of scope
+## SPEC-6.12 Out of scope
 
 Out of scope:
 
@@ -1488,6 +1525,20 @@ Supported login methods:
 
 Google login is required especially for EV users. Email/password exists for EV users, provider admins, operator, and deterministic demo.
 
+Initial Google sign-in is EV-only. A Google-authenticated email with no existing
+account creates an `EV_USER`; later Google sign-ins with the same email return
+the same account. Google sign-in must not create or authenticate `OPERATOR` or
+`PROVIDER_ADMIN` accounts.
+
+The React frontend may use its own browser callback route for Google OAuth and
+then complete the authorization-code exchange through `auth-service`. The
+redirect URI used for the authorization request and token exchange must match a
+registered Google OAuth redirect URI.
+
+Password changes are supported by `auth-service` for local password accounts.
+The frontend exposes password changes initially only on EV profiles whose
+current session was not signed in with Google.
+
 ## SPEC-8.4 Roles
 
 Roles:
@@ -1606,6 +1657,11 @@ Required pages:
 - `/points/:id`,
 - `/reservations`,
 - `/profile`.
+
+The `/reservations` page displays reservation cards and EV-scoped aggregate
+summary cards. The current cost-per-energy field is labeled `Cost/kWh`; the
+estimated cost field is labeled `Estimated cost` and must clearly remain an
+estimate when shown.
 
 ## SPEC-9.5 Map behavior
 

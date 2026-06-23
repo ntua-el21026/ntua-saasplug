@@ -35,7 +35,7 @@ function mockFetch(role: Role) {
     vi.fn(async (input: RequestInfo | URL) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const url = new URL(raw, "http://app.test");
-      const body = responseFor(url.pathname, role);
+      const body = responseFor(url, role);
       return new Response(JSON.stringify(body), {
         headers: { "Content-Type": "application/json" },
         status: 200,
@@ -44,7 +44,8 @@ function mockFetch(role: Role) {
   );
 }
 
-function responseFor(pathname: string, role: Role): unknown {
+function responseFor(url: URL, role: Role): unknown {
+  const pathname = url.pathname;
   if (pathname === "/api/auth/auth/me") {
     return userFor(role);
   }
@@ -67,13 +68,22 @@ function responseFor(pathname: string, role: Role): unknown {
     return [];
   }
   if (pathname === "/api/catalog/points") {
-    return { items: [], total: 0, limit: 25, offset: 0, bounds_applied: false, missing_coordinates_count: 0 };
+    return catalogPointList(Number(url.searchParams.get("limit") ?? "25"));
+  }
+  if (pathname === "/api/catalog/points/redPlug/1515489") {
+    return catalogPointDetail();
+  }
+  if (pathname === "/api/status/points/redPlug/1515489/status") {
+    return statusLookup();
+  }
+  if (pathname === "/api/reservations/points/redPlug/1515489/reservations") {
+    return reservationResponse();
   }
   if (pathname === "/api/catalog/freshness") {
     return [];
   }
   if (pathname === "/api/status/freshness") {
-    return [];
+    return statusFreshnessRows();
   }
   if (pathname === "/api/analytics/operator/summary") {
     return operatorSummary();
@@ -218,6 +228,122 @@ function providerAuditLog() {
   };
 }
 
+function catalogPointDetail() {
+  return {
+    id: "catalog-red-1515489",
+    normalized_point_id: "redPlug:1515489",
+    provider_code: "redPlug",
+    external_point_id: "1515489",
+    display_name: "Owned redPlug charger",
+    location_name: "Provider point",
+    address: "Provider Street 1",
+    latitude: 37.985,
+    longitude: 23.78,
+    coordinate_source: "demo_synthetic",
+    status: "available",
+    reservation_ends_at: null,
+    price_per_kwh_eur: 0.31,
+    capacity: 22,
+    connector: "7",
+    is_active: true,
+    is_stale: false,
+    last_provider_seen_at: "2026-06-13T00:00:00Z",
+    last_catalog_sync_at: "2026-06-13T00:00:00Z",
+    raw_provider_payload: {},
+  };
+}
+
+function catalogPointList(limit: number) {
+  const items = [
+    catalogPointDetail(),
+    {
+      ...catalogPointDetail(),
+      id: "catalog-green-201",
+      normalized_point_id: "greenPlug:201",
+      provider_code: "greenPlug",
+      external_point_id: "201",
+      display_name: "Foreign greenPlug charger",
+      location_name: "Foreign provider point",
+      address: "Green Street 1",
+    },
+  ];
+  return {
+    items: items.slice(0, limit),
+    total: items.length,
+    limit,
+    offset: 0,
+    bounds_applied: false,
+    missing_coordinates_count: 0,
+    search_circle: null,
+  };
+}
+
+function statusLookup() {
+  return {
+    provider_code: "redPlug",
+    external_point_id: "1515489",
+    normalized_point_id: "redPlug:1515489",
+    status: "available",
+    reservation_ends_at: null,
+    checked_at: "2026-06-13T00:00:00Z",
+    expires_at: "2026-06-13T00:05:00Z",
+    cache_hit: true,
+    provider_called: false,
+    returned_stale: false,
+    source: "cache",
+    warning: null,
+  };
+}
+
+function reservationResponse() {
+  return {
+    id: "reservation-1",
+    user_id: "ev-user-id",
+    user_email: "evuser@saasplug.local",
+    provider_code: "redPlug",
+    external_point_id: "1515489",
+    normalized_point_id: "redPlug:1515489",
+    catalog_point_id: "catalog-red-1515489",
+    requested_duration_minutes: 35,
+    status: "succeeded",
+    provider_status: "reserved",
+    provider_reservation_id: "provider-reservation-1",
+    reservation_ends_at: "2026-06-13T00:35:00Z",
+    price_per_kwh_eur: 0.31,
+    charger_capacity_kw: 22,
+    estimated_energy_kwh: 12.83,
+    estimated_cost_eur: 3.98,
+    estimated_cost_currency: "EUR",
+    estimate_basis: "cost_per_kwh_x_duration_x_capacity",
+    failure_reason: null,
+    created_at: "2026-06-13T00:00:00Z",
+    updated_at: "2026-06-13T00:00:00Z",
+  };
+}
+
+function statusFreshnessRows() {
+  return [
+    {
+      provider_code: "redPlug",
+      cached_count: 2,
+      valid_cache_count: 1,
+      expired_cache_count: 1,
+      last_checked_at: "2026-06-13T00:00:00Z",
+      last_log_status: "succeeded",
+      last_error_type: null,
+    },
+    {
+      provider_code: "greenPlug",
+      cached_count: 1,
+      valid_cache_count: 1,
+      expired_cache_count: 0,
+      last_checked_at: "2026-06-13T00:00:00Z",
+      last_log_status: "succeeded",
+      last_error_type: null,
+    },
+  ];
+}
+
 function billingOverview() {
   return {
     provider_code: null,
@@ -335,6 +461,10 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /provider command center/i })).toBeInTheDocument();
+    expect(await screen.findByText(/daily successful reservations across your charging network/i)).toBeInTheDocument();
+    expect(screen.getByText(/latest invoices and payment status/i)).toBeInTheDocument();
+    expect(screen.queryByText(/analytics aggregate cache/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/billing-service/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/provider workspace/i)).not.toBeInTheDocument();
   });
 
@@ -347,6 +477,83 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /^provider analytics$/i })).toBeInTheDocument();
     expect(await screen.findByText("€0.00")).toBeInTheDocument();
+  });
+
+  it("scopes provider point inventory to the signed-in provider", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/provider/points");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^provider points$/i })).toBeInTheDocument();
+    expect(await screen.findByText("Owned redPlug charger")).toBeInTheDocument();
+    expect(screen.queryByText("Foreign greenPlug charger")).not.toBeInTheDocument();
+    expect(screen.queryByText("greenPlug")).not.toBeInTheDocument();
+    await waitFor(() => {
+      const catalogCall = vi.mocked(fetch).mock.calls.find(([input]) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        return new URL(raw, "http://app.test").pathname === "/api/catalog/points";
+      });
+      expect(catalogCall).toBeDefined();
+      const raw = String(catalogCall?.[0]);
+      expect(new URL(raw, "http://app.test").searchParams.get("providerCode")).toBe("redPlug");
+    });
+  });
+
+  it("allows provider admins to open their own point details without reservation controls", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /charging point details/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /reservation availability/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create reservation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /access denied/i })).not.toBeInTheDocument();
+  });
+
+  it("lets EV users replace reservation duration and close the reservation result", async () => {
+    storeSession("EV_USER");
+    mockFetch("EV_USER");
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    const durationInput = screen.getByLabelText(/duration in minutes/i);
+    await userEvent.clear(durationInput);
+    expect(durationInput).toHaveValue(null);
+    await userEvent.type(durationInput, "35");
+    expect(durationInput).toHaveValue(35);
+
+    await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
+
+    expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+    await waitFor(() => {
+      const reservationCall = vi.mocked(fetch).mock.calls.find(([input, options]) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        return new URL(raw, "http://app.test").pathname === "/api/reservations/points/redPlug/1515489/reservations"
+          && options?.method === "POST";
+      });
+      expect(reservationCall).toBeDefined();
+      expect(JSON.parse(String(reservationCall?.[1]?.body))).toEqual({ duration_minutes: 35 });
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /close reservation status/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /reservation status/i })).not.toBeInTheDocument());
+  });
+
+  it("blocks provider admins from opening another provider point detail", async () => {
+    storeSession("PROVIDER_ADMIN");
+    mockFetch("PROVIDER_ADMIN");
+    window.history.pushState({}, "", "/points/greenPlug/1515489");
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /access denied/i })).toBeInTheDocument());
   });
 
   it("renders provider settings audit fields returned as a backend object", async () => {
@@ -414,8 +621,7 @@ describe("admin role routing", () => {
     render(<App />);
 
     const intervalInput = await screen.findByLabelText(/catalog\.import\.all interval seconds/i);
-    await userEvent.clear(intervalInput);
-    await userEvent.type(intervalInput, "172800");
+    fireEvent.change(intervalInput, { target: { value: "172800" } });
     const form = intervalInput.closest("form");
     expect(form).not.toBeNull();
     fireEvent.submit(form as HTMLFormElement);
@@ -426,9 +632,10 @@ describe("admin role routing", () => {
         expect.objectContaining({ method: "PATCH" }),
       );
     });
-    const patchCall = vi.mocked(fetch).mock.calls.find(([input, options]) => (
+    const patchCalls = vi.mocked(fetch).mock.calls.filter(([input, options]) => (
       input === "/api/scheduler/jobs/catalog.import.all" && options?.method === "PATCH"
     ));
+    const patchCall = patchCalls[patchCalls.length - 1];
     expect(patchCall).toBeDefined();
     expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({ interval_seconds: 172800 });
   });

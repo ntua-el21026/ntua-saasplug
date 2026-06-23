@@ -1,6 +1,7 @@
 from datetime import timedelta
 from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from app.dependencies import get_current_user, require_provider_admin_scope, req
 from app.models import RefreshToken, User, utcnow
 from app.schemas import (
     AuthTokenResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+    GoogleLocalSignInRequest,
     GoogleOAuthStatus,
     LoginRequest,
     LogoutRequest,
@@ -39,10 +43,15 @@ def user_response(user: User) -> UserResponse:
         roles=user.roles,
         provider_id=user.provider_id,
         provider_code=user.provider_code,
+        auth_provider=user.auth_provider,
+        last_login_method=user.last_login_method,
+        password_change_supported=user.auth_provider == "local",
     )
 
 
-def issue_tokens(db: Session, user: User, settings: Settings) -> AuthTokenResponse:
+def issue_tokens(db: Session, user: User, settings: Settings, login_method: str | None = None) -> AuthTokenResponse:
+    if login_method:
+        user.last_login_method = login_method
     refresh_token = generate_refresh_token()
     db.add(
         RefreshToken(
@@ -85,6 +94,9 @@ def register(
     user = User(
         email=email,
         password_hash=hash_password(request.password),
+        auth_provider="local",
+        google_subject=None,
+        last_login_method="local",
         roles=[Role.EV_USER.value],
         provider_id=None,
         provider_code=None,
@@ -93,7 +105,7 @@ def register(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return issue_tokens(db, user, settings)
+    return issue_tokens(db, user, settings, login_method="local")
 
 
 @router.post("/login", response_model=AuthTokenResponse)
@@ -106,9 +118,11 @@ def login(
     user = db.scalar(select(User).where(User.email == email))
     if user is None or not user.is_active:
         raise invalid_credentials()
+    if user.auth_provider == "google":
+        raise invalid_credentials()
     if not verify_password(request.password, user.password_hash):
         raise invalid_credentials()
-    return issue_tokens(db, user, settings)
+    return issue_tokens(db, user, settings, login_method="local")
 
 
 @router.post("/refresh", response_model=AuthTokenResponse)
@@ -152,6 +166,29 @@ def logout(request: LogoutRequest, db: Session = Depends(get_db)) -> LogoutRespo
     return LogoutResponse(status="logged_out")
 
 
+@router.post("/password", response_model=ChangePasswordResponse)
+def change_password(
+    request: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChangePasswordResponse:
+    if current_user.auth_provider != "local":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password changes are available only for password sign-in accounts.",
+        )
+    if not verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    current_user.password_hash = hash_password(request.new_password)
+    current_user.last_login_method = "local"
+    db.commit()
+    return ChangePasswordResponse(status="password_changed")
+
+
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return user_response(current_user)
@@ -172,7 +209,10 @@ def require_provider_admin(
 
 
 @router.get("/google/login", response_model=GoogleOAuthStatus)
-def google_login(settings: Settings = Depends(get_settings)) -> GoogleOAuthStatus:
+def google_login(
+    redirect_uri: str | None = None,
+    settings: Settings = Depends(get_settings),
+) -> GoogleOAuthStatus:
     if not settings.google_oauth_configured:
         return GoogleOAuthStatus(
             status="google_oauth_not_configured",
@@ -180,10 +220,11 @@ def google_login(settings: Settings = Depends(get_settings)) -> GoogleOAuthStatu
             message="Google OAuth credentials are placeholders or missing in local demo mode.",
         )
 
+    oauth_redirect_uri = redirect_uri or settings.google_redirect_uri
     query = urlencode(
         {
             "client_id": settings.google_client_id,
-            "redirect_uri": settings.google_redirect_uri,
+            "redirect_uri": oauth_redirect_uri,
             "response_type": "code",
             "scope": "openid email profile",
             "access_type": "offline",
@@ -193,16 +234,37 @@ def google_login(settings: Settings = Depends(get_settings)) -> GoogleOAuthStatu
     return GoogleOAuthStatus(
         status="authorization_url_ready",
         configured=True,
-        message="Google OAuth authorization URL is ready. Token exchange is deferred.",
+        message="Google OAuth authorization URL is ready.",
         authorization_url=f"https://accounts.google.com/o/oauth2/v2/auth?{query}",
     )
 
 
-@router.get("/google/callback", response_model=GoogleOAuthStatus)
+@router.post("/google/local-sign-in", response_model=AuthTokenResponse)
+def google_local_sign_in(
+    request: GoogleLocalSignInRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AuthTokenResponse:
+    if settings.google_oauth_configured:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Local Google sign-in is disabled when real Google OAuth credentials are configured.",
+        )
+    return issue_google_sign_in(
+        db=db,
+        settings=settings,
+        email=request.email,
+        google_subject=f"local-demo:{normalize_email(request.email)}",
+    )
+
+
+@router.get("/google/callback")
 def google_callback(
     code: str | None = None,
+    redirect_uri: str | None = None,
+    db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> GoogleOAuthStatus:
+):
     if not settings.google_oauth_configured:
         return GoogleOAuthStatus(
             status="google_oauth_not_configured",
@@ -214,9 +276,80 @@ def google_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing Google OAuth authorization code",
         )
-    return GoogleOAuthStatus(
-        status="token_exchange_not_implemented",
-        configured=True,
-        message="Authorization code received. Google token exchange is intentionally deferred.",
-        code_received=True,
+
+    identity = fetch_google_identity(code, settings, redirect_uri=redirect_uri)
+    return issue_google_sign_in(
+        db=db,
+        settings=settings,
+        email=identity["email"],
+        google_subject=identity["sub"],
     )
+
+
+def issue_google_sign_in(db: Session, settings: Settings, email: str, google_subject: str) -> AuthTokenResponse:
+    normalized_email = normalize_email(email)
+    user = db.scalar(select(User).where(User.email == normalized_email))
+
+    if user is not None:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google sign-in is not available")
+        if user.roles != [Role.EV_USER.value]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Google sign-in is available only for EV user accounts.",
+            )
+        if user.google_subject and user.google_subject != google_subject:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This Google account is already linked to a different identity.",
+            )
+        user.google_subject = google_subject
+        return issue_tokens(db, user, settings, login_method="google")
+
+    user = User(
+        email=normalized_email,
+        password_hash=hash_password(generate_refresh_token()),
+        auth_provider="google",
+        google_subject=google_subject,
+        last_login_method="google",
+        roles=[Role.EV_USER.value],
+        provider_id=None,
+        provider_code=None,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return issue_tokens(db, user, settings, login_method="google")
+
+
+def fetch_google_identity(code: str, settings: Settings, redirect_uri: str | None = None) -> dict[str, str]:
+    token_payload = {
+        "code": code,
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "redirect_uri": redirect_uri or settings.google_redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    try:
+        with httpx.Client(timeout=10) as client:
+            token_response = client.post("https://oauth2.googleapis.com/token", data=token_payload)
+            token_response.raise_for_status()
+            access_token = token_response.json().get("access_token")
+            if not access_token:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google did not return an access token")
+            userinfo_response = client.get(
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            userinfo_response.raise_for_status()
+            userinfo = userinfo_response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google OAuth token exchange failed") from exc
+
+    email = userinfo.get("email")
+    subject = userinfo.get("sub")
+    email_verified = userinfo.get("email_verified")
+    if not email or not subject or email_verified is False:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google account email could not be verified")
+    return {"email": str(email), "sub": str(subject)}

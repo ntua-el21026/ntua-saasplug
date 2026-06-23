@@ -29,12 +29,24 @@ const DEMO_ACCOUNTS = [
     description: "Review provider activity",
     password: import.meta.env.VITE_DEMO_RED_ADMIN_PASSWORD ?? DEMO_PASSWORD,
   },
+  {
+    label: "greenPlug admin",
+    email: "green-admin@saasplug.local",
+    description: "Review provider activity",
+    password: import.meta.env.VITE_DEMO_GREEN_ADMIN_PASSWORD ?? DEMO_PASSWORD,
+  },
+  {
+    label: "bluePlug admin",
+    email: "blue-admin@saasplug.local",
+    description: "Review provider activity",
+    password: import.meta.env.VITE_DEMO_BLUE_ADMIN_PASSWORD ?? DEMO_PASSWORD,
+  },
 ];
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, googleStatus } = useAuth();
+  const { signIn, googleSignIn } = useAuth();
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -65,12 +77,18 @@ export function LoginPage() {
     setError(null);
     setMessage(null);
     try {
-      const status = await googleStatus();
-      if (status.configured && status.authorization_url) {
-        window.location.assign(status.authorization_url);
+      const status = await googleSignIn(email);
+      if (status?.configured && status.authorization_url) {
         return;
       }
-      setMessage(status.message);
+      if (status?.message) {
+        setMessage(status.message);
+        return;
+      }
+      const redirect = typeof location.state === "object" && location.state && "from" in location.state
+        ? String(location.state.from)
+        : "/";
+      navigate(redirect, { replace: true });
     } catch (caught) {
       setError(messageFromUnknownError(caught));
     } finally {

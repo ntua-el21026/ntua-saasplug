@@ -11,7 +11,7 @@ export function BrandLockup({ compact = false }: { compact?: boolean }) {
       <img className="brand-mark" src={markUrl} alt="" />
       <span>
         <strong>saasPlug</strong>
-        <small>Charging infrastructure cockpit</small>
+        <small>Electric mobility, orchestrated</small>
       </span>
     </Link>
   );

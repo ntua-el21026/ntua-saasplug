@@ -5,7 +5,7 @@ import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { AvailabilityLegend } from "../../components/domain/ev";
 import { ProviderBadge } from "../../components/domain/provider";
 import { ChargingPointStatusBadge } from "../../components/domain/status";
-import { formatCapacity, formatDateTime, formatPrice, providerLabel } from "../../lib/formatting";
+import { formatCapacity, formatCostPerKwh, formatDateTime, providerLabel } from "../../lib/formatting";
 import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, boundsCenter, boundsFromCenter, catalogQueryRadiusKm, pointPath } from "../../lib/routing";
 import type { Bounds, CatalogPoint } from "../../lib/types";
 
@@ -274,8 +274,8 @@ function ChargingPointMapPanel({
           <dd>{formatDateTime(point.last_catalog_sync_at)}</dd>
         </div>
         <div>
-          <dt>Price</dt>
-          <dd>{formatPrice(point.price_per_kwh_eur)}</dd>
+          <dt>Cost/kWh</dt>
+          <dd>{formatCostPerKwh(point.price_per_kwh_eur)}</dd>
         </div>
         <div>
           <dt>Power</dt>

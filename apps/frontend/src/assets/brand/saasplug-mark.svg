@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
   <title id="title">saasPlug mark</title>
-  <rect width="48" height="48" rx="10" fill="#2563EB"/>
-  <path d="M15 29h9c4.4 0 8-3.6 8-8v-2h-4v2c0 2.2-1.8 4-4 4h-9v4Z" fill="#FFFFFF"/>
-  <path d="M17 18h4v8h-4v-8Zm8-4h4v7h-4v-7Z" fill="#DBEAFE"/>
-  <path d="M29 29h4v5h-4v-5Zm-8 0h4v5h-4v-5Z" fill="#FFFFFF"/>
+  <rect width="48" height="48" rx="12" fill="#0F172A"/>
+  <path d="M13 30.5h8.2c2.6 0 4.8-2.1 4.8-4.8V13h5v12.7c0 5.4-4.4 9.8-9.8 9.8H13v-5Z" fill="#38BDF8"/>
+  <path d="M18 13h5v12h-5V13Zm12 22h5v-8h-5v8Z" fill="#FFFFFF"/>
+  <path d="M31 13h4.8L31 22.2h4l-6.8 12.3 1.5-9.1h-3.8L31 13Z" fill="#10B981"/>
+  <circle cx="35" cy="13" r="3" fill="#DBEAFE"/>
+  <circle cx="13" cy="33" r="3" fill="#DBEAFE"/>
 </svg>

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { EmptyState as UiEmptyState, ErrorState, Toast } from "./ui";
 
@@ -11,7 +11,27 @@ export function Alert({
   title?: string;
   children: ReactNode;
 }) {
-  return <Toast tone={tone === "success" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "info"}>{title ? <strong>{title}</strong> : null}<div>{children}</div></Toast>;
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+  }, [tone, title, children]);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Toast tone={tone === "success" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "info"}>
+      <div className="ui-toast-content">
+        {title ? <strong>{title}</strong> : null}
+        <div>{children}</div>
+      </div>
+      <button className="ui-message-close" type="button" aria-label={title ? `Close ${title}` : "Close message"} onClick={() => setVisible(false)}>
+        x
+      </button>
+    </Toast>
+  );
 }
 
 export function LoadingBlock({ label = "Loading" }: { label?: string }) {

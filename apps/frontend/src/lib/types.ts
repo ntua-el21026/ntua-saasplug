@@ -6,6 +6,9 @@ export interface User {
   roles: Role[];
   provider_id: string | null;
   provider_code: string | null;
+  auth_provider?: "local" | "google" | string;
+  last_login_method?: "local" | "google" | string;
+  password_change_supported?: boolean;
 }
 
 export interface AuthTokenResponse {
@@ -22,6 +25,10 @@ export interface GoogleOAuthStatus {
   message: string;
   authorization_url?: string | null;
   code_received?: boolean | null;
+}
+
+export interface ChangePasswordResponse {
+  status: string;
 }
 
 export interface CatalogPoint {
@@ -116,6 +123,11 @@ export interface Reservation {
   provider_reservation_id: string | null;
   reservation_ends_at: string | null;
   price_per_kwh_eur: number | null;
+  charger_capacity_kw: number | null;
+  estimated_energy_kwh: number | null;
+  estimated_cost_eur: number | null;
+  estimated_cost_currency: string | null;
+  estimate_basis: string | null;
   failure_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -253,6 +265,26 @@ export interface AnalyticsFreshness {
   analytics_delay_notice: string | null;
 }
 
+export interface EvReservationSummary {
+  user_id: string;
+  total_reservations: number;
+  successful_reservations: number;
+  failed_reservations: number;
+  total_duration_minutes: number;
+  distinct_points: number;
+  estimated_reservations: number;
+  missing_estimate_count: number;
+  total_estimated_energy_kwh: number | null;
+  total_estimated_cost_eur: number | null;
+  average_estimated_cost_per_point_eur: number | null;
+  average_estimated_cost_per_reservation_eur: number | null;
+  currency: string | null;
+  estimate_basis: string;
+  last_event_ingested_at: string | null;
+  last_aggregate_computed_at: string | null;
+  analytics_delay_notice: string | null;
+}
+
 export interface ProviderDailyTrend {
   provider_code: ProviderCode;
   day_bucket: string;
@@ -327,6 +359,7 @@ export interface AggregateRefreshResponse {
   point_daily_rows: number;
   provider_status_daily_rows: number;
   operator_daily_rows: number;
+  ev_reservation_daily_rows: number;
   refreshed_at: string;
 }
 
