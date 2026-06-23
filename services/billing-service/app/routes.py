@@ -32,6 +32,7 @@ from app.schemas import (
     InvoiceResponse,
     MockPaymentRequest,
     OutboxPublishResponse,
+    ProviderBillingRefreshResponse,
     PaymentResponse,
     PricingRuleCreate,
     PricingRulePatch,
@@ -361,6 +362,25 @@ def provider_billing_overview(
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
     assert resolved_provider_code is not None
     return overview_response(db, settings, resolved_provider_code, include_provider_rows=False)
+
+
+@router.post("/providers/{provider_code}/refresh", response_model=ProviderBillingRefreshResponse)
+def refresh_provider_billing_endpoint(
+    provider_code: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> ProviderBillingRefreshResponse:
+    ensure_provider_admin_or_operator(principal)
+    resolved_provider_code = resolve_provider_scope(principal, provider_code)
+    assert resolved_provider_code is not None
+    effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
+    result = consume_billing_events(settings, db, effective_limit)
+    return ProviderBillingRefreshResponse(
+        provider_code=resolved_provider_code,
+        drained=DrainResponse(**result.__dict__),
+    )
 
 
 def ingest_response(results: list[BillingIngestResult]) -> IngestResponse:

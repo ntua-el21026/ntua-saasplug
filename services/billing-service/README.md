@@ -124,10 +124,17 @@ GET  /invoices/{invoice_id}
 POST /invoices/{invoice_id}/pay
 GET  /overview
 GET  /providers/{provider_code}/overview
+POST /providers/{provider_code}/refresh
 POST /events/ingest
 POST /events/drain
 POST /events/outbox/publish-pending
 ```
+
+`POST /providers/{provider_code}/refresh` is available to operators and to the
+matching provider admin. It performs a bounded billing queue drain so the
+provider invoices page can reflect newly ingested reservation/point-view
+charges. It does not issue invoices, publish the billing outbox, or expose
+another provider's invoice data.
 
 ## RabbitMQ
 

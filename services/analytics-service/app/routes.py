@@ -34,6 +34,7 @@ from app.schemas import (
     IngestResultResponse,
     OperatorSummaryResponse,
     PointMetricResponse,
+    ProviderAnalyticsRefreshResponse,
     ProviderDailyTrendResponse,
     ProviderSummaryResponse,
     StatusDistributionResponse,
@@ -98,15 +99,28 @@ def refresh_aggregates_endpoint(
 ) -> AggregateRefreshResponse:
     ensure_operator(principal)
     result = refresh_aggregates(db)
-    return AggregateRefreshResponse(
-        usage_event_count=result.usage_event_count,
-        provider_hourly_rows=result.provider_hourly_rows,
-        provider_daily_rows=result.provider_daily_rows,
-        point_daily_rows=result.point_daily_rows,
-        provider_status_daily_rows=result.provider_status_daily_rows,
-        operator_daily_rows=result.operator_daily_rows,
-        ev_reservation_daily_rows=result.ev_reservation_daily_rows,
-        refreshed_at=result.refreshed_at.isoformat(),
+    return aggregate_refresh_response(result)
+
+
+@router.post("/provider/refresh", response_model=ProviderAnalyticsRefreshResponse)
+def refresh_provider_analytics_endpoint(
+    provider_code: str | None = Query(default=None, alias="providerCode"),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> ProviderAnalyticsRefreshResponse:
+    ensure_provider_admin_or_operator(principal)
+    resolved_provider_code = resolve_provider_scope(principal, provider_code)
+    if resolved_provider_code is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provider code is required")
+    effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
+    consume_result = consume_analytics_events(settings, db, effective_limit)
+    aggregate_result = refresh_aggregates(db)
+    return ProviderAnalyticsRefreshResponse(
+        provider_code=resolved_provider_code,
+        consumed=ConsumeResponse(**consume_result.__dict__),
+        aggregates=aggregate_refresh_response(aggregate_result),
     )
 
 
@@ -128,6 +142,10 @@ def refresh_aggregates_from_scheduler(
     _: str = Depends(require_scheduler_job),
 ) -> AggregateRefreshResponse:
     result = refresh_aggregates(db)
+    return aggregate_refresh_response(result)
+
+
+def aggregate_refresh_response(result) -> AggregateRefreshResponse:
     return AggregateRefreshResponse(
         usage_event_count=result.usage_event_count,
         provider_hourly_rows=result.provider_hourly_rows,
@@ -151,15 +169,17 @@ def read_internal_freshness(
 @router.get("/provider/summary", response_model=ProviderSummaryResponse)
 def provider_summary(
     provider_code: str | None = Query(default=None, alias="providerCode"),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> ProviderSummaryResponse:
     ensure_provider_admin_or_operator(principal)
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
-    metrics = provider_daily_metrics(db, resolved_provider_code)
-    status_distribution = provider_status_distribution(db, resolved_provider_code)
-    top_viewed = top_points(db, resolved_provider_code, metric="views")
-    top_reserved = top_points(db, resolved_provider_code, metric="reservations")
+    metrics = provider_daily_metrics(db, resolved_provider_code, from_date, to_date)
+    status_distribution = provider_status_distribution(db, resolved_provider_code, from_date, to_date)
+    top_viewed = top_points(db, resolved_provider_code, metric="views", from_date=from_date, to_date=to_date)
+    top_reserved = top_points(db, resolved_provider_code, metric="reservations", from_date=from_date, to_date=to_date)
     totals = provider_totals(metrics)
     freshness = freshness_response(db, resolved_provider_code)
     return ProviderSummaryResponse(
@@ -187,12 +207,14 @@ def provider_summary(
 @router.get("/provider/trends/daily", response_model=list[ProviderDailyTrendResponse])
 def provider_daily_trends(
     provider_code: str | None = Query(default=None, alias="providerCode"),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> list[ProviderDailyTrendResponse]:
     ensure_provider_admin_or_operator(principal)
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
-    metrics = provider_daily_metrics(db, resolved_provider_code)
+    metrics = provider_daily_metrics(db, resolved_provider_code, from_date, to_date)
     return [
         ProviderDailyTrendResponse(
             provider_code=metric.provider_code,
@@ -216,6 +238,8 @@ def provider_daily_trends(
 @router.get("/provider/top-points", response_model=list[PointMetricResponse])
 def provider_top_points(
     provider_code: str | None = Query(default=None, alias="providerCode"),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     metric: str = Query(default="views", pattern="^(views|reservations)$"),
     limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
@@ -223,12 +247,14 @@ def provider_top_points(
 ) -> list[PointMetricResponse]:
     ensure_provider_admin_or_operator(principal)
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
-    return top_points(db, resolved_provider_code, metric=metric, limit=limit)
+    return top_points(db, resolved_provider_code, metric=metric, limit=limit, from_date=from_date, to_date=to_date)
 
 
 @router.get("/provider/status-distribution", response_model=StatusDistributionResponse)
 def provider_status_distribution_endpoint(
     provider_code: str | None = Query(default=None, alias="providerCode"),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> StatusDistributionResponse:
@@ -236,7 +262,7 @@ def provider_status_distribution_endpoint(
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
     return StatusDistributionResponse(
         provider_code=resolved_provider_code or "all",
-        status_distribution=provider_status_distribution(db, resolved_provider_code),
+        status_distribution=provider_status_distribution(db, resolved_provider_code, from_date, to_date),
     )
 
 
@@ -411,10 +437,24 @@ def ingest_response(results: list[IngestResult]) -> IngestResponse:
     )
 
 
-def provider_daily_metrics(db: Session, provider_code: str | None) -> list[ProviderDailyMetric]:
+def apply_day_range(query, column, from_date: date | None, to_date: date | None):
+    if from_date:
+        query = query.where(column >= from_date)
+    if to_date:
+        query = query.where(column <= to_date)
+    return query
+
+
+def provider_daily_metrics(
+    db: Session,
+    provider_code: str | None,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> list[ProviderDailyMetric]:
     query = select(ProviderDailyMetric)
     if provider_code:
         query = query.where(ProviderDailyMetric.provider_code == provider_code)
+    query = apply_day_range(query, ProviderDailyMetric.day_bucket, from_date, to_date)
     return db.scalars(query.order_by(ProviderDailyMetric.day_bucket.asc())).all()
 
 
@@ -512,10 +552,13 @@ def top_points(
     provider_code: str | None,
     metric: str,
     limit: int = 10,
+    from_date: date | None = None,
+    to_date: date | None = None,
 ) -> list[PointMetricResponse]:
     query = select(PointDailyMetric)
     if provider_code:
         query = query.where(PointDailyMetric.provider_code == provider_code)
+    query = apply_day_range(query, PointDailyMetric.day_bucket, from_date, to_date)
     rows = db.scalars(query).all()
     grouped: dict[tuple[str, str | None, str | None], dict] = {}
     for row in rows:
@@ -544,10 +587,16 @@ def top_points(
     return [PointMetricResponse(**bucket) for bucket in ordered[:limit]]
 
 
-def provider_status_distribution(db: Session, provider_code: str | None) -> dict[str, int]:
+def provider_status_distribution(
+    db: Session,
+    provider_code: str | None,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> dict[str, int]:
     query = select(ProviderStatusDailyMetric)
     if provider_code:
         query = query.where(ProviderStatusDailyMetric.provider_code == provider_code)
+    query = apply_day_range(query, ProviderStatusDailyMetric.day_bucket, from_date, to_date)
     rows = db.scalars(query).all()
     distribution: dict[str, int] = {}
     for row in rows:

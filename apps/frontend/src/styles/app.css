@@ -245,14 +245,19 @@
 .landing-copy h1,
 .auth-hero h1 {
   margin: 0;
-  color: var(--color-text-primary);
   letter-spacing: 0;
 }
 
 .ui-page-header h1 {
+  color: var(--color-title-accent);
   font-size: 30px;
   font-weight: 750;
   line-height: 38px;
+}
+
+.landing-copy h1,
+.auth-hero h1 {
+  color: var(--color-text-primary);
 }
 
 .ui-page-header p,
@@ -314,7 +319,7 @@
 .surface-header h2,
 .profile-grid h2 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-title-accent);
   font-size: 18px;
   font-weight: 700;
   line-height: 26px;
@@ -658,7 +663,7 @@ textarea:hover,
 .ui-drawer-header h2,
 .ui-modal-header h2 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-title-accent);
   font-size: 18px;
   font-weight: 700;
   line-height: 26px;
@@ -693,6 +698,11 @@ textarea:hover,
   background: var(--color-surface);
   box-shadow: var(--shadow-modal);
   padding: var(--space-6);
+}
+
+.logout-confirmation-actions {
+  justify-content: center;
+  margin-top: var(--space-5);
 }
 
 .ui-toast {
@@ -782,9 +792,13 @@ textarea:hover,
 .ui-table-wrap,
 .admin-table-wrap {
   width: 100%;
+  max-width: 100%;
   max-height: min(620px, calc(100vh - 320px));
   overflow: auto;
   overscroll-behavior: contain;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
 }
 
 .ui-table,
@@ -809,6 +823,10 @@ textarea:hover,
 
 .ui-table th,
 .admin-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-muted);
   color: var(--color-text-primary);
   font-size: 12px;
   font-weight: 700;
@@ -820,6 +838,11 @@ textarea:hover,
 .admin-table td {
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+.ui-table tbody tr:hover td,
+.admin-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-primary-soft) 38%, transparent);
 }
 
 .sr-only {
@@ -836,13 +859,48 @@ textarea:hover,
 
 .scheduler-schedule-form {
   display: grid;
-  min-width: 220px;
+  min-width: 0;
   gap: var(--space-2);
+}
+
+.scheduler-schedule-form label,
+.scheduler-input-with-unit {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.scheduler-schedule-form label > span:first-child {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.scheduler-input-with-unit {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
 }
 
 .scheduler-schedule-form input {
   width: 100%;
   min-height: 38px;
+}
+
+.scheduler-input-with-unit small {
+  display: grid;
+  min-width: 44px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.scheduler-input-with-unit input {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 
 .scheduler-schedule-form .button-secondary {
@@ -1223,7 +1281,7 @@ textarea:hover,
 
 .auth-panel-header h2 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-title-accent);
   font-size: 22px;
   font-weight: 700;
   line-height: 30px;
@@ -1399,8 +1457,15 @@ textarea:hover,
 }
 
 .ui-metric-card span,
+.admin-metric-card span {
+  color: var(--color-title-accent);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 26px;
+  overflow-wrap: anywhere;
+}
+
 .ui-metric-card small,
-.admin-metric-card span,
 .admin-metric-card small {
   color: var(--color-text-secondary);
   font-size: 13px;
@@ -1410,9 +1475,9 @@ textarea:hover,
 .ui-metric-card strong,
 .admin-metric-card strong {
   color: var(--color-text-primary);
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 30px;
+  line-height: 26px;
   overflow-wrap: anywhere;
 }
 
@@ -1492,7 +1557,7 @@ textarea:hover,
 
 .filter-panel-header h2 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-title-accent);
   font-size: 18px;
   font-weight: 700;
   line-height: 24px;
@@ -2154,10 +2219,65 @@ dd {
   max-width: 260px;
 }
 
+.reservation-page {
+  display: grid;
+  height: calc(100vh - 65px);
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--space-3);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.reservation-page .ui-page-header,
+.reservation-page .ev-reservation-summary {
+  margin-bottom: 0;
+}
+
+.reservation-history-panel {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.reservation-list-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.reservation-list-toolbar > div {
+  display: grid;
+  gap: 2px;
+}
+
+.reservation-list-toolbar strong {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.reservation-limit-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.reservation-limit-control .ui-input {
+  min-width: 150px;
+}
+
 .reservation-list {
   display: grid;
+  min-height: 0;
   gap: var(--space-3);
-  max-height: min(620px, calc(100vh - 280px));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: var(--space-1);
@@ -2301,6 +2421,8 @@ dd {
 
 .admin-page {
   display: grid;
+  max-width: 100%;
+  min-width: 0;
   gap: var(--space-5);
 }
 
@@ -2312,6 +2434,7 @@ dd {
 }
 
 .admin-panel {
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -2325,7 +2448,228 @@ dd {
 
 .admin-toolbar {
   grid-template-columns: minmax(220px, 1fr) repeat(3, auto);
+  max-width: 100%;
+  min-width: 0;
   margin-bottom: var(--space-1);
+}
+
+.admin-toolbar > label,
+.admin-toolbar select {
+  min-width: 0;
+}
+
+.sync-toolbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, max-content);
+}
+
+.sync-toolbar .button-primary {
+  min-width: 0;
+  white-space: normal;
+}
+
+.sync-operation-progress {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.sync-operation-progress > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sync-operation-progress strong {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.sync-operation-progress span {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.sync-operation-success {
+  border-color: color-mix(in srgb, var(--color-energy) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-energy-soft) 62%, var(--color-surface));
+}
+
+.sync-operation-error {
+  border-color: color-mix(in srgb, var(--color-danger) 38%, var(--color-border));
+  background: var(--color-danger-soft);
+}
+
+.sync-progress-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.sync-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+}
+
+.sync-operation-running .sync-progress-track > span {
+  width: 42%;
+  animation: sync-progress-slide 1.1s ease-in-out infinite;
+}
+
+.sync-operation-success .sync-progress-track > span {
+  width: 100%;
+  background: var(--color-energy);
+}
+
+.sync-operation-error .sync-progress-track > span {
+  width: 100%;
+  background: var(--color-danger);
+}
+
+@keyframes sync-progress-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.scheduler-table .ui-table {
+  min-width: 1060px;
+  table-layout: fixed;
+}
+
+.scheduler-table .ui-table th:nth-child(1),
+.scheduler-table .ui-table td:nth-child(1) {
+  width: 25%;
+}
+
+.scheduler-table .ui-table th:nth-child(2),
+.scheduler-table .ui-table td:nth-child(2) {
+  width: 10%;
+}
+
+.scheduler-table .ui-table th:nth-child(3),
+.scheduler-table .ui-table td:nth-child(3) {
+  width: 22%;
+}
+
+.scheduler-table .ui-table th:nth-child(4),
+.scheduler-table .ui-table td:nth-child(4) {
+  width: 9%;
+}
+
+.scheduler-table .ui-table th:nth-child(5),
+.scheduler-table .ui-table td:nth-child(5) {
+  width: 10%;
+}
+
+.scheduler-table .ui-table th:nth-child(6),
+.scheduler-table .ui-table td:nth-child(6) {
+  width: 14%;
+}
+
+.scheduler-table .ui-table th:nth-child(7),
+.scheduler-table .ui-table td:nth-child(7) {
+  width: 10%;
+}
+
+.scheduler-job-cell,
+.scheduler-target-service {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.scheduler-job-cell strong {
+  color: var(--color-text-primary);
+  font-weight: 750;
+  line-height: 20px;
+}
+
+.scheduler-job-cell small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.scheduler-target-service {
+  display: inline-grid;
+  width: max-content;
+  max-width: 100%;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+  padding: 5px 9px;
+}
+
+.scheduler-table .button-row {
+  align-items: stretch;
+}
+
+.scheduler-table .button-row button {
+  min-height: 44px;
+}
+
+.scheduler-history-table .ui-table,
+.import-runs-table .ui-table {
+  min-width: 820px;
+}
+
+.manual-operations-grid .admin-panel {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+}
+
+.manual-operation-actions {
+  justify-content: center;
+  align-items: stretch;
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+.manual-operation-actions button {
+  min-height: 48px;
+}
+
+.catalog-stable-panel {
+  min-height: min(520px, calc(100vh - 360px));
+}
+
+.catalog-stable-panel .ui-table-wrap {
+  min-height: min(360px, calc(100vh - 460px));
+}
+
+.admin-toolbar-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  align-content: center;
+}
+
+.admin-toolbar-copy strong {
+  color: var(--color-title-accent);
+}
+
+.admin-toolbar-copy .muted {
+  display: block;
 }
 
 .admin-form {
@@ -2864,6 +3208,20 @@ dd {
 }
 
 @media (max-width: 900px) {
+  .reservation-page {
+    height: auto;
+    min-height: calc(100vh - 65px);
+    overflow: visible;
+  }
+
+  .reservation-history-panel {
+    min-height: 420px;
+  }
+
+  .reservation-list {
+    max-height: min(560px, calc(100vh - 180px));
+  }
+
   .map-page {
     height: auto;
     overflow: visible;
@@ -2885,6 +3243,18 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .sync-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-toolbar .button-primary {
+    width: 100%;
+  }
+
+  .scheduler-table .ui-table {
+    min-width: 920px;
+  }
+
   .map-workspace {
     grid-template-columns: 1fr;
     height: auto;
@@ -2903,6 +3273,15 @@ dd {
     box-shadow: var(--shadow-card);
     padding: var(--space-3);
     backdrop-filter: none;
+  }
+
+  .reservation-list-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reservation-limit-control {
+    justify-content: space-between;
   }
 
   .point-list {

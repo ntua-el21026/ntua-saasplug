@@ -69,6 +69,11 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 041 | 2026-06-23 | Direct UI polish and bugfix prompt | N/A | Provider filter card polish, user-facing admin copy, and provider-owned point access | `completed_with_warnings` | `docs/ai/codex-runs/041-provider-filter-and-point-access-polish.md` |
 | 042 | 2026-06-23 | Direct corrective implementation prompt | N/A | Provider catalog point list scope enforcement | `completed_with_warnings` | `docs/ai/codex-runs/042-provider-catalog-scope-enforcement.md` |
 | 043 | 2026-06-23 | Direct UI bugfix and polish prompt | N/A | Login shortcuts, EV point-list visibility, reservation duration editing, and dismissible messages | `completed_with_warnings` | `docs/ai/codex-runs/043-login-map-reservation-message-polish.md` |
+| 044 | 2026-06-23 | Direct GitHub project and UI polish prompt | N/A | UI Final Polish project setup, logout confirmation, provider refresh controls, and Google OAuth callback fix | `completed` | `docs/ai/codex-runs/044-ui-final-polish-pass-1.md` |
+| 045 | 2026-06-23 | Direct UI polish prompt | N/A | UI Final Polish pass 2 logout modal and reservation history scrolling/presets | `completed` | `docs/ai/codex-runs/045-ui-final-polish-pass-2.md` |
+| 046 | 2026-06-23 | Direct UI polish prompt | N/A | UI Final Polish pass 3 provider pages, analytics date ranges, and title styling | `completed` | `docs/ai/codex-runs/046-ui-final-polish-pass-3.md` |
+| 047 | 2026-06-23 | Direct UI polish prompt | N/A | UI Final Polish pass 4 metric-card typography alignment | `completed` | `docs/ai/codex-runs/047-ui-final-polish-pass-4.md` |
+| 048 | 2026-06-23 | Direct UI polish prompt | N/A | Operator sync and catalog health polish | `completed_with_warnings` | `docs/ai/codex-runs/048-operator-sync-catalog-health-polish.md` |
 
 ---
 

@@ -380,9 +380,23 @@ export interface QueueDrainResponse {
   reject_count: number;
   requeue_count: number;
   created_count?: number;
+  charged_count?: number;
+  skipped_count?: number;
   duplicate_count?: number;
   unsupported_count?: number;
+  failed_count?: number;
   invalid_count?: number;
+}
+
+export interface ProviderAnalyticsRefreshResponse {
+  provider_code: ProviderCode;
+  consumed: QueueDrainResponse;
+  aggregates: AggregateRefreshResponse;
+}
+
+export interface ProviderBillingRefreshResponse {
+  provider_code: ProviderCode;
+  drained: QueueDrainResponse;
 }
 
 export interface SchedulerJob {

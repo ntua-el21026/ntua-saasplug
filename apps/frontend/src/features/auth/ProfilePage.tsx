@@ -15,9 +15,10 @@ export function ProfilePage() {
   const workspaceLink = getWorkspaceLink(primaryRole);
   const workspaceLabel = getWorkspaceLabel(primaryRole);
   const profileCopy = getProfileCopy(primaryRole);
-  const canChangePassword = primaryRole === "EV_USER"
+  const isGooglePasswordAccount = user?.auth_provider === "google" || user?.last_login_method === "google";
+  const canChangePassword = Boolean(user)
     && user?.password_change_supported !== false
-    && user?.last_login_method !== "google";
+    && !isGooglePasswordAccount;
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

@@ -181,10 +181,25 @@ GET /provider/trends/daily
 GET /provider/top-points
 GET /provider/status-distribution
 GET /provider/freshness
+POST /provider/refresh
 GET /exports/usage.csv?providerCode=redPlug&from=2026-06-01&to=2026-06-30
 ```
 
 Provider admins cannot request another provider's analytics or export.
+
+The dashboard endpoints `GET /provider/summary`,
+`GET /provider/trends/daily`, `GET /provider/top-points`, and
+`GET /provider/status-distribution` accept optional `from` and `to` date query
+parameters in `YYYY-MM-DD` format. The date range is inclusive and filters the
+precomputed provider, point, and status daily aggregate rows returned to the
+frontend.
+
+`POST /provider/refresh` is a provider-scoped manual refresh trigger used by
+the provider analytics page. It drains a bounded batch from the shared
+analytics queue, rebuilds analytics-owned aggregate tables, and then the
+frontend reloads the provider summary/trend endpoints. The queue is
+service-level, so the drain may ingest events for multiple providers, but the
+caller receives and can read only data allowed by its provider scope.
 
 ## Operator analytics endpoints
 

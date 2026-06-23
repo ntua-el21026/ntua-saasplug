@@ -1,8 +1,11 @@
+import base64
+import json
 from datetime import timedelta
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -210,7 +213,6 @@ def require_provider_admin(
 
 @router.get("/google/login", response_model=GoogleOAuthStatus)
 def google_login(
-    redirect_uri: str | None = None,
     settings: Settings = Depends(get_settings),
 ) -> GoogleOAuthStatus:
     if not settings.google_oauth_configured:
@@ -220,11 +222,10 @@ def google_login(
             message="Google OAuth credentials are placeholders or missing in local demo mode.",
         )
 
-    oauth_redirect_uri = redirect_uri or settings.google_redirect_uri
     query = urlencode(
         {
             "client_id": settings.google_client_id,
-            "redirect_uri": oauth_redirect_uri,
+            "redirect_uri": settings.google_redirect_uri,
             "response_type": "code",
             "scope": "openid email profile",
             "access_type": "offline",
@@ -261,6 +262,7 @@ def google_local_sign_in(
 @router.get("/google/callback")
 def google_callback(
     code: str | None = None,
+    error: str | None = None,
     redirect_uri: str | None = None,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -271,6 +273,8 @@ def google_callback(
             configured=False,
             message="Google OAuth callback reached, but local demo credentials are not configured.",
         )
+    if error is not None and redirect_uri is None:
+        return RedirectResponse(f"{settings.google_frontend_callback_uri}#error={error}")
     if code is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -278,12 +282,22 @@ def google_callback(
         )
 
     identity = fetch_google_identity(code, settings, redirect_uri=redirect_uri)
-    return issue_google_sign_in(
+    auth_payload = issue_google_sign_in(
         db=db,
         settings=settings,
         email=identity["email"],
         google_subject=identity["sub"],
     )
+    if redirect_uri is not None:
+        return auth_payload
+    return RedirectResponse(f"{settings.google_frontend_callback_uri}#payload={encode_auth_fragment_payload(auth_payload)}")
+
+
+def encode_auth_fragment_payload(payload: AuthTokenResponse) -> str:
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload.model_dump(mode="json"), separators=(",", ":")).encode("utf-8"),
+    )
+    return encoded.decode("ascii").rstrip("=")
 
 
 def issue_google_sign_in(db: Session, settings: Settings, email: str, google_subject: str) -> AuthTokenResponse:

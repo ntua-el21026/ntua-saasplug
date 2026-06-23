@@ -4,10 +4,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../../components/AppShell";
 import { Alert } from "../../components/Feedback";
 import { messageFromUnknownError } from "../../lib/api";
+import type { AuthTokenResponse } from "../../lib/types";
 import { useAuth } from "./AuthContext";
 
 export function GoogleCallbackPage() {
-  const { completeGoogleSignIn } = useAuth();
+  const { completeGoogleRedirect, completeGoogleSignIn } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -16,6 +17,31 @@ export function GoogleCallbackPage() {
     let cancelled = false;
 
     async function finishGoogleSignIn() {
+      let fragmentPayload: AuthTokenResponse | null = null;
+      try {
+        fragmentPayload = readGoogleRedirectPayload();
+      } catch {
+        window.history.replaceState({}, "", "/login/google/callback");
+        setErrorMessage("Google sign-in could not be completed. Please try again.");
+        return;
+      }
+
+      if (fragmentPayload) {
+        window.history.replaceState({}, "", "/login/google/callback");
+        completeGoogleRedirect(fragmentPayload);
+        if (!cancelled) {
+          navigate("/", { replace: true });
+        }
+        return;
+      }
+
+      const fragmentError = readGoogleRedirectError();
+      if (fragmentError) {
+        window.history.replaceState({}, "", "/login/google/callback");
+        setErrorMessage("Google sign-in was not completed. Please try again.");
+        return;
+      }
+
       const googleError = searchParams.get("error");
       if (googleError) {
         setErrorMessage("Google sign-in was not completed. Please try again.");
@@ -45,7 +71,7 @@ export function GoogleCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [completeGoogleSignIn, navigate, searchParams]);
+  }, [completeGoogleRedirect, completeGoogleSignIn, navigate, searchParams]);
 
   return (
     <AppShell>
@@ -69,4 +95,28 @@ export function GoogleCallbackPage() {
       </main>
     </AppShell>
   );
+}
+
+function readGoogleRedirectPayload(): AuthTokenResponse | null {
+  const payload = new URLSearchParams(window.location.hash.slice(1)).get("payload");
+  if (!payload) {
+    return null;
+  }
+  const padding = "=".repeat((4 - (payload.length % 4)) % 4);
+  const normalized = `${payload}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const parsed = JSON.parse(window.atob(normalized)) as Partial<AuthTokenResponse>;
+  if (
+    typeof parsed.access_token !== "string" ||
+    typeof parsed.refresh_token !== "string" ||
+    typeof parsed.expires_in !== "number" ||
+    !parsed.user ||
+    !Array.isArray(parsed.user.roles)
+  ) {
+    throw new Error("Invalid Google sign-in payload");
+  }
+  return parsed as AuthTokenResponse;
+}
+
+function readGoogleRedirectError(): string | null {
+  return new URLSearchParams(window.location.hash.slice(1)).get("error");
 }

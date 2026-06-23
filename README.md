@@ -62,19 +62,19 @@ rabbitmq
 
 Each stateful service owns exactly one PostgreSQL container.
 
-| Service | Database container |
-|---|---|
-| `auth-service` | `auth-postgres` |
+| Service                     | Database container           |
+| --------------------------- | ---------------------------- |
+| `auth-service`              | `auth-postgres`              |
 | `provider-registry-service` | `provider-registry-postgres` |
-| `red-provider-service` | `red-provider-postgres` |
-| `green-provider-service` | `green-provider-postgres` |
-| `blue-provider-service` | `blue-provider-postgres` |
-| `catalog-service` | `catalog-postgres` |
-| `status-service` | `status-postgres` |
-| `reservation-service` | `reservation-postgres` |
-| `analytics-service` | `analytics-postgres` |
-| `billing-service` | `billing-postgres` |
-| `scheduler-service` | `scheduler-postgres` |
+| `red-provider-service`      | `red-provider-postgres`      |
+| `green-provider-service`    | `green-provider-postgres`    |
+| `blue-provider-service`     | `blue-provider-postgres`     |
+| `catalog-service`           | `catalog-postgres`           |
+| `status-service`            | `status-postgres`            |
+| `reservation-service`       | `reservation-postgres`       |
+| `analytics-service`         | `analytics-postgres`         |
+| `billing-service`           | `billing-postgres`           |
+| `scheduler-service`         | `scheduler-postgres`         |
 
 Rules:
 
@@ -89,20 +89,20 @@ Rules:
 
 ## Repository Layout
 
-| Path | Purpose |
-|---|---|
-| `apps/frontend/` | Single role-based frontend app |
-| `services/` | FastAPI microservices |
-| `packages/events/` | Shared RabbitMQ event contracts and helpers |
-| `packages/shared-contracts/` | Shared contract package placeholder |
-| `packages/provider-normalization/` | Provider-normalization package placeholder |
-| `deploy/nginx/` | Nginx gateway configuration |
-| `docs/specs/` | Accepted project specifications |
-| `docs/diagrams/final/` | Final PlantUML UML diagrams |
-| `docs/assignment/` | Professor-provided assignment materials and provider YAML |
-| `docs/lectures/` | Course lecture material |
-| `docs/ai/` | Codex prompts, run reports, and prompt log |
-| `scripts/` | Repository utility scripts |
+| Path                               | Purpose                                                   |
+| ---------------------------------- | --------------------------------------------------------- |
+| `apps/frontend/`                   | Single role-based frontend app                            |
+| `services/`                        | FastAPI microservices                                     |
+| `packages/events/`                 | Shared RabbitMQ event contracts and helpers               |
+| `packages/shared-contracts/`       | Shared contract package placeholder                       |
+| `packages/provider-normalization/` | Provider-normalization package placeholder                |
+| `deploy/nginx/`                    | Nginx gateway configuration                               |
+| `docs/specs/`                      | Accepted project specifications                           |
+| `docs/diagrams/final/`             | Final PlantUML UML diagrams                               |
+| `docs/assignment/`                 | Professor-provided assignment materials and provider YAML |
+| `docs/lectures/`                   | Course lecture material                                   |
+| `docs/ai/`                         | Codex prompts, run reports, and prompt log                |
+| `scripts/`                         | Repository utility scripts                                |
 
 ## Local Runtime
 
@@ -117,18 +117,18 @@ docker compose ps
 
 Public entrypoints:
 
-| Endpoint | Purpose |
-|---|---|
-| `http://localhost:8080/` | Frontend through Nginx |
-| `http://localhost:8080/health` | Gateway health |
-| `http://localhost:8080/api/auth/health` | `auth-service` health |
-| `http://localhost:8080/api/providers/health` | `provider-registry-service` health |
-| `http://localhost:8080/api/catalog/health` | `catalog-service` health |
-| `http://localhost:8080/api/status/health` | `status-service` health |
-| `http://localhost:8080/api/reservations/health` | `reservation-service` health |
-| `http://localhost:8080/api/analytics/health` | `analytics-service` health |
-| `http://localhost:8080/api/billing/health` | `billing-service` health |
-| `http://localhost:8080/api/scheduler/health` | `scheduler-service` health |
+| Endpoint                                        | Purpose                            |
+| ----------------------------------------------- | ---------------------------------- |
+| `http://localhost:8080/`                        | Frontend through Nginx             |
+| `http://localhost:8080/health`                  | Gateway health                     |
+| `http://localhost:8080/api/auth/health`         | `auth-service` health              |
+| `http://localhost:8080/api/providers/health`    | `provider-registry-service` health |
+| `http://localhost:8080/api/catalog/health`      | `catalog-service` health           |
+| `http://localhost:8080/api/status/health`       | `status-service` health            |
+| `http://localhost:8080/api/reservations/health` | `reservation-service` health       |
+| `http://localhost:8080/api/analytics/health`    | `analytics-service` health         |
+| `http://localhost:8080/api/billing/health`      | `billing-service` health           |
+| `http://localhost:8080/api/scheduler/health`    | `scheduler-service` health         |
 
 Stop the local stack with:
 
@@ -148,13 +148,13 @@ The safe local demo password is controlled by `DEMO_USER_PASSWORD` in
 change-me-demo-password
 ```
 
-| Email | Role | Provider scope |
-|---|---|---|
-| `operator@saasplug.local` | `OPERATOR` | none |
-| `evuser@saasplug.local` | `EV_USER` | none |
-| `red-admin@saasplug.local` | `PROVIDER_ADMIN` | `redPlug` |
-| `green-admin@saasplug.local` | `PROVIDER_ADMIN` | `greenPlug` |
-| `blue-admin@saasplug.local` | `PROVIDER_ADMIN` | `bluePlug` |
+| Email                        | Role             | Provider scope |
+| ---------------------------- | ---------------- | -------------- |
+| `operator@saasplug.local`    | `OPERATOR`       | none           |
+| `evuser@saasplug.local`      | `EV_USER`        | none           |
+| `red-admin@saasplug.local`   | `PROVIDER_ADMIN` | `redPlug`      |
+| `green-admin@saasplug.local` | `PROVIDER_ADMIN` | `greenPlug`    |
+| `blue-admin@saasplug.local`  | `PROVIDER_ADMIN` | `bluePlug`     |
 
 Login through the gateway:
 
@@ -193,11 +193,11 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
 The three external provider APIs are represented by provider-specific internal
 services:
 
-| Provider | Service | Source contract |
-|---|---|---|
-| `redPlug` | `red-provider-service` | `docs/assignment/providers/yaml/redPlug.yaml` |
+| Provider    | Service                  | Source contract                                 |
+| ----------- | ------------------------ | ----------------------------------------------- |
+| `redPlug`   | `red-provider-service`   | `docs/assignment/providers/yaml/redPlug.yaml`   |
 | `greenPlug` | `green-provider-service` | `docs/assignment/providers/yaml/greenPlug.yaml` |
-| `bluePlug` | `blue-provider-service` | `docs/assignment/providers/yaml/bluePlug.yaml` |
+| `bluePlug`  | `blue-provider-service`  | `docs/assignment/providers/yaml/bluePlug.yaml`  |
 
 Provider services use provider credentials from the private local `.env`.
 Credentials must not be committed. The live provider APIs use:
@@ -285,17 +285,3 @@ Primary final artifacts:
 - Services documentation: `services/README.md`
 - Deployment documentation: `deploy/README.md`
 - Final diagrams: `docs/diagrams/final/README.md`
-
-## Accepted MVP Limitations
-
-- Full interactive Google OAuth callback verification requires a browser and
-  user-driven Google login; the committed backend exposes safe OAuth hooks and
-  the live configuration check verifies the generated authorization URL.
-- Live reservation mutation is skipped unless
-  `RUN_LIVE_RESERVATION_SMOKE=true` is explicitly configured.
-- Provider catalog coordinates are deterministic Athens-area demo coordinates
-  where external provider payloads do not include map coordinates.
-- Startup table creation is used for the local MVP instead of full Alembic
-  migration management.
-- Billing uses mock full-invoice payments only; no real payment gateway,
-  refunds, partial payments, tax accounting, or subscriptions are implemented.

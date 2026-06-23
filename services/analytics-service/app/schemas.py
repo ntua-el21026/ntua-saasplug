@@ -56,6 +56,12 @@ class AggregateRefreshResponse(BaseModel):
     refreshed_at: str
 
 
+class ProviderAnalyticsRefreshResponse(BaseModel):
+    provider_code: str
+    consumed: ConsumeResponse
+    aggregates: AggregateRefreshResponse
+
+
 class PointMetricResponse(BaseModel):
     provider_code: str
     internal_point_id: str | None
