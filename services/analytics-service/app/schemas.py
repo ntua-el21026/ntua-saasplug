@@ -52,6 +52,7 @@ class AggregateRefreshResponse(BaseModel):
     point_daily_rows: int
     provider_status_daily_rows: int
     operator_daily_rows: int
+    ev_reservation_daily_rows: int
     refreshed_at: str
 
 
@@ -109,6 +110,26 @@ class ProviderDailyTrendResponse(BaseModel):
 class StatusDistributionResponse(BaseModel):
     provider_code: str
     status_distribution: dict[str, int]
+
+
+class EvReservationSummaryResponse(BaseModel):
+    user_id: str
+    total_reservations: int
+    successful_reservations: int
+    failed_reservations: int
+    total_duration_minutes: int
+    distinct_points: int
+    estimated_reservations: int
+    missing_estimate_count: int
+    total_estimated_energy_kwh: float | None
+    total_estimated_cost_eur: float | None
+    average_estimated_cost_per_point_eur: float | None
+    average_estimated_cost_per_reservation_eur: float | None
+    currency: str | None
+    estimate_basis: str | None
+    last_event_ingested_at: str | None
+    last_aggregate_computed_at: str | None
+    analytics_delay_notice: str
 
 
 class OperatorSummaryResponse(BaseModel):

@@ -15,6 +15,7 @@ from app.ingestion import IngestResult, ingest_events
 from app.models import (
     BillingSummarySnapshot,
     CatalogHealthSnapshot,
+    EvReservationDailyMetric,
     ExportJob,
     OperatorDailyMetric,
     PointDailyMetric,
@@ -27,6 +28,7 @@ from app.schemas import (
     AggregateRefreshResponse,
     ConsumeResponse,
     CurrentPrincipal,
+    EvReservationSummaryResponse,
     FreshnessResponse,
     IngestResponse,
     IngestResultResponse,
@@ -37,6 +39,7 @@ from app.schemas import (
     StatusDistributionResponse,
 )
 from app.security import (
+    ensure_ev_user,
     ensure_operator,
     ensure_provider_admin_or_operator,
     get_current_principal,
@@ -102,6 +105,7 @@ def refresh_aggregates_endpoint(
         point_daily_rows=result.point_daily_rows,
         provider_status_daily_rows=result.provider_status_daily_rows,
         operator_daily_rows=result.operator_daily_rows,
+        ev_reservation_daily_rows=result.ev_reservation_daily_rows,
         refreshed_at=result.refreshed_at.isoformat(),
     )
 
@@ -131,6 +135,7 @@ def refresh_aggregates_from_scheduler(
         point_daily_rows=result.point_daily_rows,
         provider_status_daily_rows=result.provider_status_daily_rows,
         operator_daily_rows=result.operator_daily_rows,
+        ev_reservation_daily_rows=result.ev_reservation_daily_rows,
         refreshed_at=result.refreshed_at.isoformat(),
     )
 
@@ -244,6 +249,15 @@ def provider_freshness(
     ensure_provider_admin_or_operator(principal)
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
     return freshness_response(db, resolved_provider_code)
+
+
+@router.get("/ev/reservations/summary", response_model=EvReservationSummaryResponse)
+def ev_reservation_summary(
+    db: Session = Depends(get_db),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> EvReservationSummaryResponse:
+    ensure_ev_user(principal)
+    return ev_reservation_summary_response(db, principal.sub)
 
 
 @router.get("/operator/summary", response_model=OperatorSummaryResponse)
@@ -414,6 +428,82 @@ def provider_totals(metrics: list[ProviderDailyMetric]) -> dict:
         "failed_reservations": sum(metric.failed_reservations for metric in metrics),
         "observed_amount": sum(metric.observed_amount for metric in metrics),
         "currency": currency,
+    }
+
+
+def ev_reservation_summary_response(db: Session, user_id: str) -> EvReservationSummaryResponse:
+    rows = db.scalars(
+        select(EvReservationDailyMetric)
+        .where(EvReservationDailyMetric.user_id == user_id)
+        .order_by(EvReservationDailyMetric.day_bucket.asc()),
+    ).all()
+    point_keys: set[str] = set()
+    estimated_point_keys: set[str] = set()
+    for row in rows:
+        point_keys.update(string_items(row.point_keys))
+        estimated_point_keys.update(string_items(row.estimated_point_keys))
+
+    total_reservations = sum(row.total_reservations for row in rows)
+    successful_reservations = sum(row.successful_reservations for row in rows)
+    failed_reservations = sum(row.failed_reservations for row in rows)
+    total_duration_minutes = sum(row.total_duration_minutes for row in rows)
+    estimated_reservations = sum(row.estimated_reservations for row in rows)
+    missing_estimate_count = sum(row.missing_estimate_count for row in rows)
+    total_estimated_energy_kwh = sum(row.total_estimated_energy_kwh for row in rows)
+    total_estimated_cost_eur = sum(row.total_estimated_cost_eur for row in rows)
+    freshness = ev_freshness_response(db, user_id)
+    has_estimates = estimated_reservations > 0
+    estimated_point_count = len(estimated_point_keys)
+    return EvReservationSummaryResponse(
+        user_id=user_id,
+        total_reservations=total_reservations,
+        successful_reservations=successful_reservations,
+        failed_reservations=failed_reservations,
+        total_duration_minutes=total_duration_minutes,
+        distinct_points=len(point_keys),
+        estimated_reservations=estimated_reservations,
+        missing_estimate_count=missing_estimate_count,
+        total_estimated_energy_kwh=round(total_estimated_energy_kwh, 4) if has_estimates else None,
+        total_estimated_cost_eur=round(total_estimated_cost_eur, 2) if has_estimates else None,
+        average_estimated_cost_per_point_eur=round(total_estimated_cost_eur / estimated_point_count, 2)
+        if estimated_point_count
+        else None,
+        average_estimated_cost_per_reservation_eur=round(total_estimated_cost_eur / estimated_reservations, 2)
+        if estimated_reservations
+        else None,
+        currency=next((row.currency for row in rows if row.currency), "EUR") if has_estimates else None,
+        estimate_basis="rated_power_duration_estimate" if has_estimates else None,
+        last_event_ingested_at=freshness["last_event_ingested_at"],
+        last_aggregate_computed_at=freshness["last_aggregate_computed_at"],
+        analytics_delay_notice=freshness["analytics_delay_notice"],
+    )
+
+
+def string_items(value) -> set[str]:
+    if not isinstance(value, list):
+        return set()
+    return {item for item in value if isinstance(item, str) and item}
+
+
+def ev_freshness_response(db: Session, user_id: str) -> dict[str, str | None]:
+    event_query = select(func.max(UsageEvent.ingested_at)).where(
+        UsageEvent.user_id == user_id,
+        UsageEvent.event_type.in_(("reservation.succeeded", "reservation.failed")),
+    )
+    aggregate_query = select(func.max(EvReservationDailyMetric.last_computed_at)).where(
+        EvReservationDailyMetric.user_id == user_id,
+    )
+    last_event = db.scalar(event_query)
+    last_aggregate = db.scalar(aggregate_query)
+    notice = "no_events_ingested"
+    if last_event and last_aggregate:
+        notice = "aggregates_current" if last_aggregate >= last_event else "aggregates_may_be_stale"
+    elif last_event:
+        notice = "aggregates_not_refreshed"
+    return {
+        "last_event_ingested_at": last_event.isoformat() if last_event else None,
+        "last_aggregate_computed_at": last_aggregate.isoformat() if last_aggregate else None,
+        "analytics_delay_notice": notice,
     }
 
 

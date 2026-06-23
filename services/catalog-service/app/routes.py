@@ -121,6 +121,25 @@ def base_point_filters(
     return filters
 
 
+def provider_scope_for_catalog_read(
+    requested_provider_code: str | None,
+    principal: CurrentPrincipal | None,
+) -> str | None:
+    if principal and "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
+        if not principal.provider_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Provider admin account is not scoped to a provider",
+            )
+        if requested_provider_code and requested_provider_code != principal.provider_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Provider admin can only view own provider catalog",
+            )
+        return principal.provider_code
+    return requested_provider_code
+
+
 def radius_prefilter_bounds(center_lat: float, center_lng: float, radius_km: float) -> list:
     lng_scale = max(0.2, math.cos(math.radians(center_lat)))
     lat_radius = radius_km / 111.32
@@ -168,9 +187,10 @@ def list_points(
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal | None = Depends(get_optional_principal),
 ) -> CatalogPointListResponse:
-    if provider_code:
+    effective_provider_code = provider_scope_for_catalog_read(provider_code, principal)
+    if effective_provider_code:
         try:
-            validate_provider_code(provider_code)
+            validate_provider_code(effective_provider_code)
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -187,7 +207,7 @@ def list_points(
     if radius_applied and not (-90 <= center_lat <= 90 and -180 <= center_lng <= 180):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid radius center")
 
-    filters = base_point_filters(include_stale, provider_code, status_filter, connector, q)
+    filters = base_point_filters(include_stale, effective_provider_code, status_filter, connector, q)
     missing_coordinates_count = db.scalar(
         select(func.count())
         .select_from(CatalogPoint)
@@ -243,7 +263,7 @@ def list_points(
             settings,
             principal,
             response,
-            provider_code=provider_code,
+            provider_code=effective_provider_code,
             status_filter=status_filter,
             connector=connector,
             q=q,

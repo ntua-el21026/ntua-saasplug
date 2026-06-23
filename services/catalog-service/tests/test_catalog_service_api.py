@@ -130,6 +130,14 @@ def import_red(client: TestClient) -> None:
     assert response.status_code == 200
 
 
+def import_green(client: TestClient) -> None:
+    response = client.post(
+        "/imports/providers/greenPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+    assert response.status_code == 200
+
+
 def scheduler_headers() -> dict[str, str]:
     return {"X-Scheduler-Token": "scheduler-test-token", "X-Job-Run-Id": "scheduler-run-1"}
 
@@ -272,6 +280,36 @@ def test_points_endpoint_supports_provider_status_and_search_filters(test_contex
     assert payload["total"] == 1
     assert payload["items"][0]["external_point_id"] == "101"
     assert payload["items"][0]["coordinate_source"] == "demo_synthetic"
+
+
+def test_provider_admin_points_listing_is_scoped_to_own_provider(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+    import_green(client)
+
+    response = client.get(
+        "/points?includeStale=true",
+        headers=auth_headers(["PROVIDER_ADMIN"], "red-admin@saasplug.local", "redPlug"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert {item["provider_code"] for item in payload["items"]} == {"redPlug"}
+
+
+def test_provider_admin_points_listing_rejects_other_provider_filter(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+    import_green(client)
+
+    response = client.get(
+        "/points?providerCode=greenPlug&includeStale=true",
+        headers=auth_headers(["PROVIDER_ADMIN"], "red-admin@saasplug.local", "redPlug"),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Provider admin can only view own provider catalog"
 
 
 def test_first_catalog_page_publishes_search_event(test_context, monkeypatch) -> None:

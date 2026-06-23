@@ -2,6 +2,7 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -53,6 +54,34 @@ def get_session_factory() -> sessionmaker[Session]:
 
 def init_db() -> None:
     Base.metadata.create_all(bind=get_engine())
+    migrate_reservation_schema()
+
+
+def migrate_reservation_schema() -> None:
+    engine = get_engine()
+    inspector = inspect(engine)
+    if "reservations" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("reservations")}
+    statements = []
+    if "charger_capacity_kw" not in columns:
+        statements.append("ALTER TABLE reservations ADD COLUMN charger_capacity_kw FLOAT")
+    if "estimated_energy_kwh" not in columns:
+        statements.append("ALTER TABLE reservations ADD COLUMN estimated_energy_kwh FLOAT")
+    if "estimated_cost_eur" not in columns:
+        statements.append("ALTER TABLE reservations ADD COLUMN estimated_cost_eur FLOAT")
+    if "estimated_cost_currency" not in columns:
+        statements.append("ALTER TABLE reservations ADD COLUMN estimated_cost_currency VARCHAR(16)")
+    if "estimate_basis" not in columns:
+        statements.append("ALTER TABLE reservations ADD COLUMN estimate_basis VARCHAR(128)")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
 
 
 def get_db() -> Generator[Session, None, None]:

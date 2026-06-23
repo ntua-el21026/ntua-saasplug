@@ -18,12 +18,16 @@ def catalog_point(
     external_point_id: str = "101",
     active: bool = True,
     stale: bool = False,
+    price_per_kwh_eur: float | None = 0.29,
+    capacity: float | None = 22,
 ) -> dict:
     return {
         "id": f"catalog-{provider_code}-{external_point_id}",
         "normalized_point_id": f"{provider_code}:{external_point_id}",
         "provider_code": provider_code,
         "external_point_id": external_point_id,
+        "price_per_kwh_eur": price_per_kwh_eur,
+        "capacity": capacity,
         "is_active": active,
         "is_stale": stale,
     }
@@ -243,6 +247,12 @@ def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) 
     assert payload["status"] == "succeeded"
     assert payload["provider_status"] == "reserved"
     assert payload["requested_duration_minutes"] == 45
+    assert payload["price_per_kwh_eur"] == 0.31
+    assert payload["charger_capacity_kw"] == 22
+    assert payload["estimated_energy_kwh"] == 16.5
+    assert payload["estimated_cost_eur"] == 5.12
+    assert payload["estimated_cost_currency"] == "EUR"
+    assert payload["estimate_basis"] == "rated_power_duration_estimate"
     assert fake_catalog.calls == [("redPlug", "101")]
     assert fake_provider.calls == [("redPlug", "101", 45)]
     assert call_order == ["catalog", "provider"]
@@ -259,8 +269,98 @@ def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) 
         assert event.publish_status == "pending"
         assert event.correlation_id == reservation.id
         assert event.payload["reservation_id"] == reservation.id
+        assert event.payload["charger_capacity_kw"] == 22
+        assert event.payload["estimated_energy_kwh"] == 16.5
+        assert event.payload["estimated_cost_eur"] == 5.12
     finally:
         db.close()
+
+
+def test_successful_reservation_falls_back_to_catalog_price_for_estimate(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    fake_provider.reservations[("redPlug", "101")]["price_per_kwh_eur"] = None
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 60},
+        headers=ev_headers(),
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["price_per_kwh_eur"] == 0.29
+    assert payload["charger_capacity_kw"] == 22
+    assert payload["estimated_energy_kwh"] == 22
+    assert payload["estimated_cost_eur"] == 6.38
+
+
+def test_invalid_provider_price_falls_back_to_catalog_price(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    fake_provider.reservations[("redPlug", "101")]["price_per_kwh_eur"] = -0.25
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 30},
+        headers=ev_headers(),
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["price_per_kwh_eur"] == 0.29
+    assert payload["charger_capacity_kw"] == 22
+    assert payload["estimated_energy_kwh"] == 11
+    assert payload["estimated_cost_eur"] == 3.19
+
+
+def test_missing_cost_inputs_keep_estimate_unavailable(test_context) -> None:
+    client, fake_catalog, fake_provider, _ = test_context
+    fake_catalog.points[("redPlug", "101")] = catalog_point(
+        "redPlug",
+        "101",
+        price_per_kwh_eur=None,
+        capacity=None,
+    )
+    fake_provider.reservations[("redPlug", "101")]["price_per_kwh_eur"] = None
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 60},
+        headers=ev_headers(),
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["price_per_kwh_eur"] is None
+    assert payload["charger_capacity_kw"] is None
+    assert payload["estimated_energy_kwh"] is None
+    assert payload["estimated_cost_eur"] is None
+    assert payload["estimated_cost_currency"] is None
+    assert payload["estimate_basis"] is None
+
+
+def test_invalid_capacity_keeps_estimate_unavailable(test_context) -> None:
+    client, fake_catalog, _, _ = test_context
+    fake_catalog.points[("redPlug", "101")] = catalog_point(
+        "redPlug",
+        "101",
+        price_per_kwh_eur=0.29,
+        capacity=0,
+    )
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 60},
+        headers=ev_headers(),
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["price_per_kwh_eur"] == 0.31
+    assert payload["charger_capacity_kw"] is None
+    assert payload["estimated_energy_kwh"] is None
+    assert payload["estimated_cost_eur"] is None
+    assert payload["estimated_cost_currency"] is None
+    assert payload["estimate_basis"] is None
 
 
 def test_provider_failure_is_persisted_and_returns_safe_error(test_context) -> None:
@@ -288,6 +388,9 @@ def test_provider_failure_is_persisted_and_returns_safe_error(test_context) -> N
         attempt = db.query(ReservationAttempt).one()
         event = db.query(ReservationEventOutbox).one()
         assert reservation.status == "failed"
+        assert reservation.price_per_kwh_eur == 0.29
+        assert reservation.charger_capacity_kw == 22
+        assert reservation.estimated_cost_eur is None
         assert reservation.failure_reason == "Provider reservation request failed"
         assert attempt.result_status == "failed"
         assert attempt.provider_error_message == "Provider reservation request failed"

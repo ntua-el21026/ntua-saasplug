@@ -138,7 +138,7 @@ function friendlyErrorType(errorType: string): string {
   const messages: Record<string, string> = {
     catalog_point_not_found: "The point is no longer available in the catalog.",
     catalog_point_unavailable: "This point is not currently available for reservation.",
-    provider_http_error: "The provider service rejected the request.",
+    provider_http_error: "The provider rejected the request.",
     provider_timeout: "The provider did not respond in time.",
   };
   return messages[errorType] ?? "The request could not be completed.";

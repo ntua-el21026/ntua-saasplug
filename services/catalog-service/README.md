@@ -89,7 +89,7 @@ with the shared `JWT_SECRET`.
 
 | Endpoint | Access |
 |---|---|
-| `GET /points` | Public read of active, non-stale catalog rows by default |
+| `GET /points` | Public read of active, non-stale catalog rows by default; authenticated `PROVIDER_ADMIN` requests are scoped to the admin's own provider |
 | `GET /points/{provider_code}/{external_point_id}` | Public cached detail read for active, non-stale rows |
 | `POST /imports/providers/{provider_code}` | `OPERATOR` only |
 | `POST /imports/all` | `OPERATOR` only |

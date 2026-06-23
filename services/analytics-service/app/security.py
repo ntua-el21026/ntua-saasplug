@@ -59,8 +59,18 @@ def is_provider_admin(principal: CurrentPrincipal) -> bool:
     return "PROVIDER_ADMIN" in principal.roles
 
 
+def is_ev_user(principal: CurrentPrincipal) -> bool:
+    return "EV_USER" in principal.roles
+
+
 def ensure_operator(principal: CurrentPrincipal) -> None:
     if is_operator(principal):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+
+def ensure_ev_user(principal: CurrentPrincipal) -> None:
+    if is_ev_user(principal):
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 

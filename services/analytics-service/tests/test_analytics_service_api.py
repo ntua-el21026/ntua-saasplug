@@ -14,6 +14,7 @@ from app.main import app
 from app.models import (
     BillingSummarySnapshot,
     CatalogHealthSnapshot,
+    EvReservationDailyMetric,
     ExportJob,
     OperatorDailyMetric,
     PointDailyMetric,
@@ -176,6 +177,7 @@ def test_scheduler_internal_refresh_reuses_analytics_aggregate_logic(test_contex
     payload = response.json()
     assert payload["usage_event_count"] == 0
     assert payload["operator_daily_rows"] == 0
+    assert payload["ev_reservation_daily_rows"] == 0
 
 
 def test_scheduler_internal_freshness_is_token_protected(test_context) -> None:
@@ -315,6 +317,157 @@ def test_aggregate_refresh_computes_provider_totals_and_reservation_metrics(test
     assert payload["reservation_conversion_rate"] == 1.0
 
 
+def test_ev_user_reads_own_reservation_cost_summary(test_context) -> None:
+    user_id = "user-evuser@saasplug.local"
+    events = [
+        envelope(
+            "reservation.succeeded",
+            provider_code="redPlug",
+            external_point_id="101",
+            payload={
+                "user_id": user_id,
+                "reservation_id": "reservation-1",
+                "status": "succeeded",
+                "requested_duration_minutes": 60,
+                "price_per_kwh_eur": 0.5,
+                "charger_capacity_kw": 22,
+            },
+        ),
+        envelope(
+            "reservation.succeeded",
+            provider_code="greenPlug",
+            external_point_id="201",
+            payload={
+                "user_id": user_id,
+                "reservation_id": "reservation-2",
+                "status": "succeeded",
+                "requested_duration_minutes": 30,
+                "price_per_kwh_eur": None,
+                "charger_capacity_kw": 50,
+            },
+        ),
+        envelope(
+            "reservation.failed",
+            provider_code="bluePlug",
+            external_point_id="301",
+            payload={
+                "user_id": user_id,
+                "reservation_id": "reservation-3",
+                "status": "failed",
+                "requested_duration_minutes": 45,
+                "error_type": "provider_http_error",
+            },
+        ),
+    ]
+
+    assert ingest(test_context, events).status_code == 200
+    refresh_response = refresh(test_context)
+    assert refresh_response.status_code == 200
+    assert refresh_response.json()["ev_reservation_daily_rows"] == 1
+
+    response = test_context.get("/ev/reservations/summary", headers=ev_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["user_id"] == user_id
+    assert payload["total_reservations"] == 3
+    assert payload["successful_reservations"] == 2
+    assert payload["failed_reservations"] == 1
+    assert payload["total_duration_minutes"] == 90
+    assert payload["distinct_points"] == 3
+    assert payload["estimated_reservations"] == 1
+    assert payload["missing_estimate_count"] == 1
+    assert payload["total_estimated_energy_kwh"] == 22
+    assert payload["total_estimated_cost_eur"] == 11
+    assert payload["average_estimated_cost_per_point_eur"] == 11
+    assert payload["average_estimated_cost_per_reservation_eur"] == 11
+    assert payload["currency"] == "EUR"
+    assert payload["analytics_delay_notice"] == "aggregates_current"
+    db = get_session_factory()()
+    try:
+        metric = db.query(EvReservationDailyMetric).one()
+        assert metric.point_keys == ["bluePlug:301", "greenPlug:201", "redPlug:101"]
+        assert metric.estimated_point_keys == ["redPlug:101"]
+    finally:
+        db.close()
+
+
+def test_ev_summary_handles_all_missing_cost_inputs(test_context) -> None:
+    event = envelope(
+        "reservation.succeeded",
+        payload={
+            "user_id": "user-evuser@saasplug.local",
+            "reservation_id": "reservation-1",
+            "status": "succeeded",
+            "requested_duration_minutes": 60,
+            "price_per_kwh_eur": None,
+            "charger_capacity_kw": None,
+        },
+    )
+
+    assert ingest(test_context, event).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    response = test_context.get("/ev/reservations/summary", headers=ev_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["estimated_reservations"] == 0
+    assert payload["missing_estimate_count"] == 1
+    assert payload["total_estimated_energy_kwh"] is None
+    assert payload["total_estimated_cost_eur"] is None
+    assert payload["average_estimated_cost_per_point_eur"] is None
+    assert payload["average_estimated_cost_per_reservation_eur"] is None
+    assert payload["estimate_basis"] is None
+
+
+def test_ev_summary_ignores_invalid_cost_inputs_but_accepts_zero_cost(test_context) -> None:
+    user_id = "user-evuser@saasplug.local"
+    events = [
+        envelope(
+            "reservation.succeeded",
+            provider_code="redPlug",
+            external_point_id="101",
+            payload={
+                "user_id": user_id,
+                "reservation_id": "reservation-1",
+                "status": "succeeded",
+                "requested_duration_minutes": 60,
+                "price_per_kwh_eur": "NaN",
+                "charger_capacity_kw": 22,
+            },
+        ),
+        envelope(
+            "reservation.succeeded",
+            provider_code="greenPlug",
+            external_point_id="201",
+            payload={
+                "user_id": user_id,
+                "reservation_id": "reservation-2",
+                "status": "succeeded",
+                "requested_duration_minutes": 60,
+                "price_per_kwh_eur": 0,
+                "charger_capacity_kw": 22,
+            },
+        ),
+    ]
+
+    assert ingest(test_context, events).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    response = test_context.get("/ev/reservations/summary", headers=ev_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["estimated_reservations"] == 1
+    assert payload["missing_estimate_count"] == 1
+    assert payload["total_estimated_energy_kwh"] == 22
+    assert payload["total_estimated_cost_eur"] == 0
+    assert payload["average_estimated_cost_per_point_eur"] == 0
+    assert payload["average_estimated_cost_per_reservation_eur"] == 0
+    assert payload["estimate_basis"] == "rated_power_duration_estimate"
+
+
 def test_repeated_aggregate_refresh_updates_existing_metric_rows(test_context) -> None:
     event = envelope("usage.point_viewed")
     assert ingest(test_context, event).status_code == 200
@@ -365,6 +518,14 @@ def test_provider_admin_cannot_export_another_provider(test_context) -> None:
 def test_ev_user_cannot_access_provider_or_operator_analytics(test_context) -> None:
     provider_response = test_context.get("/provider/summary", headers=ev_headers())
     operator_response = test_context.get("/operator/summary", headers=ev_headers())
+
+    assert provider_response.status_code == 403
+    assert operator_response.status_code == 403
+
+
+def test_provider_admin_cannot_access_ev_reservation_summary(test_context) -> None:
+    provider_response = test_context.get("/ev/reservations/summary", headers=red_admin_headers())
+    operator_response = test_context.get("/ev/reservations/summary", headers=operator_headers())
 
     assert provider_response.status_code == 403
     assert operator_response.status_code == 403

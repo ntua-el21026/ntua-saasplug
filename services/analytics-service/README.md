@@ -3,9 +3,9 @@
 ## Responsibility
 
 `analytics-service` owns raw usage events, idempotent event ingestion,
-precomputed hourly and daily aggregates, provider analytics, operator
-analytics, CSV exports, catalog-health projections, billing summary
-projections, and dashboard freshness indicators.
+precomputed hourly and daily aggregates, EV reservation summaries, provider
+analytics, operator analytics, CSV exports, catalog-health projections, billing
+summary projections, and dashboard freshness indicators.
 
 ## Owned database
 
@@ -51,6 +51,7 @@ provider_daily_metrics
 point_daily_metrics
 provider_status_daily_metrics
 operator_daily_metrics
+ev_reservation_daily_metrics
 catalog_health_snapshots
 billing_summary_snapshots
 export_jobs
@@ -146,7 +147,28 @@ Aggregates include:
 - provider daily metrics,
 - point daily metrics,
 - provider status distribution metrics,
-- operator daily metrics.
+- operator daily metrics,
+- EV reservation daily metrics.
+
+EV reservation daily metrics are scoped by `user_id` and include total
+reservations, successful/failed counts, successful reserved duration, distinct
+point keys, estimated-reservation counts, missing-estimate counts, total
+estimated energy, and total estimated cost. Distinct point sets are stored in
+the aggregate row so summary endpoints can union point keys across days instead
+of double-counting a point reserved on multiple days.
+
+Estimated cost is derived only when valid inputs exist:
+
+```text
+estimated_energy_kwh = charger_capacity_kw * requested_duration_minutes / 60
+estimated_cost_eur = price_per_kwh_eur * estimated_energy_kwh
+```
+
+If cost/kWh, charger power, or duration is missing or invalid, the estimate
+remains unavailable and is excluded from cost totals and averages.
+
+Manual aggregate refresh and the scheduler internal aggregate refresh both
+rebuild EV reservation metrics together with provider/operator metrics.
 
 ## Provider analytics endpoints
 
@@ -178,6 +200,40 @@ GET /operator/freshness
 
 Operator dashboards are projection-limited to events that analytics has
 ingested and aggregates that have been refreshed.
+
+## EV reservation analytics endpoint
+
+EV users can read only their own reservation summary. The endpoint is scoped to
+the JWT `sub`; it does not accept a user ID parameter.
+
+```text
+GET /ev/reservations/summary
+```
+
+The response includes:
+
+```text
+total_reservations
+successful_reservations
+failed_reservations
+total_duration_minutes
+distinct_points
+estimated_reservations
+missing_estimate_count
+total_estimated_energy_kwh
+total_estimated_cost_eur
+average_estimated_cost_per_point_eur
+average_estimated_cost_per_reservation_eur
+currency
+estimate_basis
+last_event_ingested_at
+last_aggregate_computed_at
+analytics_delay_notice
+```
+
+`average_estimated_cost_per_point_eur` is calculated from points that have at
+least one valid estimate, so missing provider cost/kWh or missing charger power
+does not silently count as zero.
 
 ## CSV export
 

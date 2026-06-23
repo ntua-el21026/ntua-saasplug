@@ -20,6 +20,8 @@ class CatalogPointDTO(BaseModel):
     normalized_point_id: str
     provider_code: str
     external_point_id: str
+    price_per_kwh_eur: float | None = None
+    capacity: float | None = None
     is_active: bool
     is_stale: bool
 
@@ -51,6 +53,11 @@ class ReservationResponse(BaseModel):
     provider_reservation_id: str | None
     reservation_ends_at: str | None
     price_per_kwh_eur: float | None
+    charger_capacity_kw: float | None
+    estimated_energy_kwh: float | None
+    estimated_cost_eur: float | None
+    estimated_cost_currency: str | None
+    estimate_basis: str | None
     failure_reason: str | None
     created_at: str
     updated_at: str

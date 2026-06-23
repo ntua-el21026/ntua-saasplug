@@ -242,6 +242,15 @@ function requireProvider(providerCode: ProviderCode | null) {
   return providerCode;
 }
 
+function scopeCatalogToProvider(catalog: CatalogPointListResponse, providerCode: ProviderCode): CatalogPointListResponse {
+  const items = catalog.items.filter((point) => point.provider_code === providerCode);
+  return { ...catalog, items, total: items.length };
+}
+
+function scopeStatusFreshnessToProvider(rows: StatusProviderFreshness[], providerCode: ProviderCode): StatusProviderFreshness[] {
+  return rows.filter((row) => row.provider_code === providerCode);
+}
+
 async function loadProviderSummary(accessToken: string, providerCode: ProviderCode) {
   const query = `providerCode=${encodeURIComponent(providerCode)}`;
   const [summary, trends, topPoints, invoices, billing, catalog, freshness] = await Promise.all([
@@ -253,7 +262,7 @@ async function loadProviderSummary(accessToken: string, providerCode: ProviderCo
     requestJson<CatalogPointListResponse>(`/api/catalog/points?providerCode=${providerCode}&includeStale=true&limit=25`, { accessToken }),
     requestJson<ProviderFreshness[]>("/api/catalog/freshness", { accessToken }),
   ]);
-  return { summary, trends, topPoints, invoices, billing, catalog, freshness };
+  return { summary, trends, topPoints, invoices, billing, catalog: scopeCatalogToProvider(catalog, providerCode), freshness };
 }
 
 export function ProviderDashboardPage() {
@@ -271,7 +280,7 @@ export function ProviderDashboardPage() {
     <AppShell>
       <DashboardPage
         title="Provider command center"
-        description="Monitor your provider catalog, reservation conversion, invoice exposure, and aggregate freshness."
+        description="Track your charging network, reservation performance, billing status, and recent catalog updates."
       >
         <LoadState loading={state.loading} error={state.error} />
         {data ? (
@@ -283,14 +292,14 @@ export function ProviderDashboardPage() {
               <MetricCard label="Unpaid invoices" value={formatMoney(data.billing.unpaid_amount, currency)} />
             </MetricGrid>
             <DashboardGrid>
-              <DashboardPanel title="Usage trend" description="Daily successful reservations by the analytics aggregate cache.">
+              <DashboardPanel title="Usage trend" description="Daily successful reservations across your charging network.">
                 <BarList
                   rows={data.trends}
                   getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
                   getValue={(row) => row.successful_reservations}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Catalog posture" description="Local aggregated catalog for your provider.">
+              <DashboardPanel title="Catalog posture" description="Current coverage and update status for your listed charging points.">
                 <dl className="admin-definition-list">
                   <div>
                     <dt>Active points</dt>
@@ -310,14 +319,14 @@ export function ProviderDashboardPage() {
                   </div>
                 </dl>
               </DashboardPanel>
-              <DashboardPanel title="Top viewed points" description="Highest point-view activity in the current aggregates.">
+              <DashboardPanel title="Top viewed points" description="Charging points attracting the most driver interest.">
                 <BarList
                   rows={data.summary.top_viewed_points}
                   getLabel={(row) => row.point_name || row.external_point_id || "Unknown point"}
                   getValue={(row) => row.point_views}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Recent invoices" description="Issued and paid invoice status from billing-service.">
+              <DashboardPanel title="Recent invoices" description="Latest invoices and payment status for your provider account.">
                 <InvoiceTable invoices={data.invoices.slice(0, 6)} showProvider={false} />
               </DashboardPanel>
             </DashboardGrid>
@@ -347,14 +356,17 @@ export function ProviderPointsPage() {
       requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken }),
       requestJson<StatusProviderFreshness[]>("/api/status/freshness", { accessToken }),
     ]);
-    return { catalog, statusFreshness };
+    return {
+      catalog: scopeCatalogToProvider(catalog, code),
+      statusFreshness: scopeStatusFreshnessToProvider(statusFreshness, code),
+    };
   }, [accessToken, providerCode, query, includeStale]);
 
   return (
     <AppShell>
       <DashboardPage
         title="Provider points"
-        description="Inspect your normalized catalog projection, stale flags, cached status posture, and catalog sync metadata."
+        description="Review your charging-point inventory, availability state, and latest catalog updates."
       >
         <section className="admin-toolbar">
           <label>
@@ -369,7 +381,7 @@ export function ProviderPointsPage() {
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardGrid>
-            <DashboardPanel title="Point inventory" description={`${state.data.catalog.total} catalog records match the current filter.`}>
+            <DashboardPanel title="Point inventory" description={`${state.data.catalog.total} charging points match the current filter.`}>
               <DataTable
                 rows={state.data.catalog.items}
                 getRowKey={(row) => row.id}
@@ -378,19 +390,19 @@ export function ProviderPointsPage() {
                   { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
                   { key: "connector", label: "Connector", render: (row) => row.connector ?? "Unknown" },
                   { key: "stale", label: "Freshness", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
-                  { key: "synced", label: "Synced", render: (row) => formatDateTime(row.last_catalog_sync_at) },
+                  { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
                 ]}
               />
             </DashboardPanel>
-            <DashboardPanel title="Status cache" description="Status-service freshness for cached provider status lookups.">
+            <DashboardPanel title="Availability checks" description="Recent availability coverage for your provider points.">
               <DataTable
                 rows={state.data.statusFreshness}
                 getRowKey={(row) => row.provider_code}
                 columns={[
                   { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "cached", label: "Cached", render: (row) => formatNumber(row.cached_count) },
-                  { key: "valid", label: "Valid", render: (row) => formatNumber(row.valid_cache_count) },
-                  { key: "expired", label: "Expired", render: (row) => formatNumber(row.expired_cache_count) },
+                  { key: "cached", label: "Known points", render: (row) => formatNumber(row.cached_count) },
+                  { key: "valid", label: "Current", render: (row) => formatNumber(row.valid_cache_count) },
+                  { key: "expired", label: "Needs refresh", render: (row) => formatNumber(row.expired_cache_count) },
                   { key: "checked", label: "Last checked", render: (row) => formatDateTime(row.last_checked_at) },
                 ]}
               />
@@ -425,7 +437,7 @@ export function ProviderAnalyticsPage() {
     <AppShell>
       <DashboardPage
         title="Provider analytics"
-        description="Review precomputed aggregate metrics for point demand, conversion, status checks, and dashboard freshness."
+        description="Review demand, reservations, status checks, and revenue signals for your charging network."
       >
         <LoadState loading={state.loading} error={state.error} />
         {summary ? (
@@ -444,7 +456,7 @@ export function ProviderAnalyticsPage() {
                   getValue={(row) => row.successful_reservations}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Status distribution" description="Normalized status counts observed by analytics.">
+              <DashboardPanel title="Status distribution" description="Latest availability mix across observed charging points.">
                 <BarList
                   rows={Object.entries(statusDistribution)}
                   getLabel={(row) => statusLabel(row[0])}
@@ -482,7 +494,7 @@ export function ProviderInvoicesPage() {
     <AppShell>
       <DashboardPage
         title="Provider invoices"
-        description="View issued invoices, pay outstanding invoices through the mock payment flow, and monitor unpaid balances."
+        description="View issued invoices, record payments, and monitor outstanding balances."
       >
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
@@ -493,7 +505,7 @@ export function ProviderInvoicesPage() {
               <MetricCard label="Unbilled" value={formatMoney(state.data.overview.unbilled_amount, currency)} />
               <MetricCard label="Issued invoices" value={formatNumber(state.data.overview.issued_invoice_count)} />
             </MetricGrid>
-            <DashboardPanel title="Invoices" description="Open an invoice to inspect lines and submit mock full payment.">
+            <DashboardPanel title="Invoices" description="Open an invoice to inspect charges and record a full payment.">
               <InvoiceTable invoices={state.data.invoices} showProvider={false} />
             </DashboardPanel>
           </>
@@ -526,7 +538,7 @@ export function ProviderInvoiceDetailPage() {
         accessToken,
         bodyJson: { mock_payment_reference: paymentReference || null },
       });
-      setActionMessage("Invoice paid through the mock payment flow.");
+      setActionMessage("Payment recorded for this invoice.");
       setReloadKey((current) => current + 1);
     } catch (caught) {
       setActionMessage(messageFromUnknownError(caught));
@@ -539,7 +551,7 @@ export function ProviderInvoiceDetailPage() {
     <AppShell>
       <DashboardPage
         title={invoice ? invoice.invoice_number : "Invoice detail"}
-        description="Inspect invoice lines and submit a full mock invoice payment when the invoice is issued."
+        description="Inspect invoice charges and record a full payment when the invoice is issued."
       >
         <LoadState loading={state.loading} error={state.error} />
         {invoice ? (
@@ -566,7 +578,7 @@ export function ProviderInvoiceDetailPage() {
               {invoice.status === "issued" ? (
                 <form className="admin-inline-form" onSubmit={payInvoice}>
                   <label>
-                    Mock payment reference
+                    Payment reference
                     <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Optional reference" />
                   </label>
                   <button className="button-primary" type="submit">Pay invoice</button>
@@ -574,13 +586,13 @@ export function ProviderInvoiceDetailPage() {
               ) : null}
               <InlineResult message={actionMessage} tone={actionMessage?.includes("paid") ? "success" : "warning"} />
             </DashboardPanel>
-            <DashboardPanel title="Invoice lines" description="Charge lines included in this invoice.">
+            <DashboardPanel title="Invoice lines" description="Charges included in this invoice.">
               <DataTable
                 rows={invoice.lines}
                 getRowKey={(row) => row.id}
                 columns={[
                   { key: "description", label: "Description", render: (row) => row.description },
-                  { key: "event", label: "Source event", render: (row) => row.source_event_id },
+                  { key: "event", label: "Reference", render: (row) => row.source_event_id },
                   { key: "amount", label: "Amount", render: (row) => formatMoney(row.amount, row.currency) },
                 ]}
               />
@@ -628,7 +640,7 @@ export function ProviderExportPage() {
     <AppShell>
       <DashboardPage
         title="Usage export"
-        description="Download provider-scoped analytics usage logs as CSV from analytics-service."
+        description="Download a CSV report of your provider activity for the selected period."
       >
         <DashboardPanel title="CSV export" description="Exports are scoped to your provider account.">
           <form className="admin-form" onSubmit={exportUsage}>
@@ -667,12 +679,12 @@ export function ProviderSettingsPage() {
     <AppShell>
       <DashboardPage
         title="Provider settings"
-        description="View provider account metadata, external API configuration metadata, pricing, and recent provider-registry audit logs."
+        description="Review your provider profile, connection settings, pricing, and recent account changes."
       >
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardGrid>
-            <DashboardPanel title="Provider profile" description="Editable profile fields are managed through provider-registry.">
+            <DashboardPanel title="Provider profile" description="Business details used to identify your provider workspace.">
               <dl className="admin-definition-list">
                 <div>
                   <dt>Provider</dt>
@@ -692,7 +704,7 @@ export function ProviderSettingsPage() {
                 </div>
               </dl>
             </DashboardPanel>
-            <DashboardPanel title="API configuration metadata" description="Secret values remain outside the frontend and repository.">
+            <DashboardPanel title="Connection settings" description="Configuration used to connect your provider account to saasPlug.">
               <dl className="admin-definition-list">
                 <div>
                   <dt>Base URL</dt>
@@ -712,7 +724,7 @@ export function ProviderSettingsPage() {
                 </div>
               </dl>
             </DashboardPanel>
-            <DashboardPanel title="Effective pricing" description="Provider override if one is active, otherwise global default pricing.">
+            <DashboardPanel title="Effective pricing" description="Pricing currently applied to activity from your provider account.">
               <dl className="admin-definition-list">
                 <div>
                   <dt>Rule</dt>
@@ -732,7 +744,7 @@ export function ProviderSettingsPage() {
                 </div>
               </dl>
             </DashboardPanel>
-            <DashboardPanel title="Recent audit log" description="Provider configuration changes tracked by provider-registry.">
+            <DashboardPanel title="Recent account changes" description="Recent updates made to your provider profile and configuration.">
               <DataTable
                 rows={state.data.auditLogs.slice(0, 8)}
                 getRowKey={(row) => row.id}
@@ -800,10 +812,10 @@ export function OperatorDashboardPage() {
                   ]}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Recent import runs" description="Latest catalog-service import attempts.">
+              <DashboardPanel title="Recent import runs" description="Latest catalog refresh attempts across providers.">
                 <ImportRunTable rows={data.imports} />
               </DashboardPanel>
-              <DashboardPanel title="Billing by provider" description="Provider billing posture from billing-service.">
+              <DashboardPanel title="Billing by provider" description="Outstanding and billed amounts by provider.">
                 <DataTable
                   rows={data.billing.provider_rows}
                   getRowKey={(row) => row.provider_code}
@@ -851,12 +863,12 @@ export function OperatorProvidersPage() {
     <AppShell>
       <DashboardPage
         title="Provider management"
-        description="Review provider-registry metadata and control provider activation state."
+        description="Review configured providers and control whether each provider is active."
       >
         <LoadState loading={state.loading} error={state.error} />
         <InlineResult message={message} tone={message?.includes("marked") ? "success" : "warning"} />
         {state.data ? (
-          <DashboardPanel title="Configured providers" description="Provider metadata and API configuration references.">
+          <DashboardPanel title="Configured providers" description="Provider identity, contact details, connection mode, and activation state.">
             <DataTable
               rows={state.data}
               getRowKey={(row) => row.id}
@@ -901,7 +913,7 @@ export function OperatorAnalyticsPage() {
     <AppShell>
       <DashboardPage
         title="Operator analytics"
-        description="Inspect global aggregates without live cross-service joins."
+        description="Review platform-wide demand, usage, and provider performance."
       >
         <LoadState loading={state.loading} error={state.error} />
         {summary ? (
@@ -920,7 +932,7 @@ export function OperatorAnalyticsPage() {
                   getValue={(row) => row.successful_reservations}
                 />
               </DashboardPanel>
-              <DashboardPanel title="Daily activity" description="Daily successful reservations from operator aggregates.">
+              <DashboardPanel title="Daily activity" description="Daily successful reservations across the platform.">
                 <BarList
                   rows={state.data?.trends ?? []}
                   getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
@@ -992,7 +1004,7 @@ export function OperatorCatalogPage() {
     <AppShell>
       <DashboardPage
         title="Catalog and sync controls"
-        description="Inspect the aggregated catalog, freshness, and trigger accepted catalog import flows."
+        description="Review catalog coverage, freshness, and provider import activity."
       >
         <section className="admin-toolbar">
           <label>
@@ -1011,7 +1023,7 @@ export function OperatorCatalogPage() {
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardGrid>
-            <DashboardPanel title="Catalog points" description={`${state.data.catalog.total} records returned by the current filter.`}>
+            <DashboardPanel title="Catalog points" description={`${state.data.catalog.total} charging points match the current filter.`}>
               <DataTable
                 rows={state.data.catalog.items}
                 getRowKey={(row) => row.id}
@@ -1020,11 +1032,11 @@ export function OperatorCatalogPage() {
                   { key: "point", label: "Point", render: (row) => row.display_name },
                   { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
                   { key: "stale", label: "Stale", render: (row) => (row.is_stale ? "Yes" : "No") },
-                  { key: "synced", label: "Synced", render: (row) => formatDateTime(row.last_catalog_sync_at) },
+                  { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
                 ]}
               />
             </DashboardPanel>
-            <DashboardPanel title="Freshness" description="Catalog-service active/stale summary by provider.">
+            <DashboardPanel title="Freshness" description="Active and stale charging points by provider.">
               <DataTable
                 rows={state.data.freshness}
                 getRowKey={(row) => row.provider_code}
@@ -1090,7 +1102,7 @@ export function OperatorInvoicesPage() {
               <MetricCard label="Unbilled" value={formatMoney(state.data.overview.unbilled_amount, currency)} />
               <MetricCard label="Invoice count" value={formatNumber(state.data.invoices.length)} />
             </MetricGrid>
-            <DashboardPanel title="Invoices" description="Invoices generated by billing-service.">
+            <DashboardPanel title="Invoices" description="Invoices issued for provider activity.">
               <InvoiceTable invoices={state.data.invoices} showProvider detailBasePath="/operator/invoices" />
             </DashboardPanel>
           </>
@@ -1263,7 +1275,7 @@ export function OperatorPricingPage() {
             </form>
             <InlineResult message={message} tone={message?.includes("created") || message?.includes("enabled") || message?.includes("disabled") ? "success" : "warning"} />
           </DashboardPanel>
-          <DashboardPanel title="Pricing rules" description="Active rules are used by billing-service charge creation.">
+          <DashboardPanel title="Pricing rules" description="Active rules determine charges for provider activity.">
             <LoadState loading={state.loading} error={state.error} />
             {state.data ? (
               <DataTable
@@ -1326,7 +1338,7 @@ export function OperatorSyncPage() {
     <AppShell>
       <DashboardPage
         title="Sync controls"
-        description="Run background jobs on demand, pause scheduled jobs, and tune their cadence without bypassing service ownership."
+        description="Run scheduled maintenance jobs, pause automation, and adjust refresh cadence."
       >
         <section className="admin-toolbar">
           <label>
@@ -1350,7 +1362,7 @@ export function OperatorSyncPage() {
           </button>
         </section>
         <DashboardGrid>
-          <DashboardPanel title="Scheduler control plane" description="Central job metadata, manual runs, pause controls, editable job intervals, and ordered maintenance execution.">
+          <DashboardPanel title="Scheduler control plane" description="Manage scheduled jobs, manual runs, pause controls, and job intervals.">
             <LoadState loading={schedulerState.loading} error={schedulerState.error} />
             {schedulerState.data ? (
               <DataTable
@@ -1358,7 +1370,7 @@ export function OperatorSyncPage() {
                 getRowKey={(row) => row.job_key}
                 columns={[
                   { key: "job", label: "Job", render: (row) => schedulerJobLabel(row.job_key) },
-                  { key: "target", label: "Target", render: (row) => row.target_service },
+                  { key: "target", label: "Destination", render: (row) => row.target_service },
                   {
                     key: "schedule",
                     label: "Schedule",
@@ -1400,7 +1412,7 @@ export function OperatorSyncPage() {
               />
             ) : null}
           </DashboardPanel>
-          <DashboardPanel title="Scheduler run history" description="Recent scheduler-service run records.">
+          <DashboardPanel title="Scheduler run history" description="Recent scheduled job activity.">
             <LoadState loading={schedulerState.loading} error={schedulerState.error} />
             {schedulerState.data ? (
               <DataTable
@@ -1418,25 +1430,25 @@ export function OperatorSyncPage() {
               />
             ) : null}
           </DashboardPanel>
-          <DashboardPanel title="Catalog sync" description="Trigger catalog-service provider imports.">
+          <DashboardPanel title="Catalog sync" description="Refresh provider charging-point data.">
             <div className="button-row">
               <button className="button-secondary" type="button" onClick={() => runAction("All-provider import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}>Import all providers</button>
               <button className="button-primary" type="button" onClick={() => runAction(`${providerCode} import`, () => requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, { method: "POST", accessToken }))}>Import selected provider</button>
             </div>
           </DashboardPanel>
-          <DashboardPanel title="Analytics aggregation" description="Drain analytics events and refresh aggregate tables.">
+          <DashboardPanel title="Analytics refresh" description="Process recent analytics activity and update provider, operator, point, status, and EV summaries.">
             <div className="button-row">
               <button className="button-secondary" type="button" onClick={() => runAction("Analytics queue drain", () => requestJson<QueueDrainResponse>("/api/analytics/events/consume?limit=100", { method: "POST", accessToken }))}>Drain analytics queue</button>
-              <button className="button-primary" type="button" onClick={() => runAction("Aggregate refresh", () => requestJson<AggregateRefreshResponse>("/api/analytics/aggregates/refresh", { method: "POST", accessToken }))}>Refresh aggregates</button>
+              <button className="button-primary" type="button" onClick={() => runAction("Analytics refresh", () => requestJson<AggregateRefreshResponse>("/api/analytics/aggregates/refresh", { method: "POST", accessToken }))}>Refresh analytics summaries</button>
             </div>
           </DashboardPanel>
-          <DashboardPanel title="Billing propagation" description="Drain billing events and publish pending billing outbox records.">
+          <DashboardPanel title="Billing refresh" description="Process recent billing activity and publish pending billing updates.">
             <div className="button-row">
               <button className="button-secondary" type="button" onClick={() => runAction("Billing queue drain", () => requestJson<QueueDrainResponse>("/api/billing/events/drain?limit=100", { method: "POST", accessToken }))}>Drain billing queue</button>
               <button className="button-primary" type="button" onClick={() => runAction("Billing outbox publish", () => requestJson("/api/billing/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}>Publish billing outbox</button>
             </div>
           </DashboardPanel>
-          <DashboardPanel title="Reservation outbox" description="Publish staged reservation events after synchronous reservation completion.">
+          <DashboardPanel title="Reservation updates" description="Publish pending reservation updates after completed reservation attempts.">
             <button className="button-primary" type="button" onClick={() => runAction("Reservation outbox publish", () => requestJson("/api/reservations/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}>Publish reservation outbox</button>
           </DashboardPanel>
         </DashboardGrid>
@@ -1483,12 +1495,12 @@ export function OperatorSystemPage() {
     <AppShell>
       <DashboardPage
         title="System overview"
-        description="Inspect service health, cache freshness, and recent background-operation records."
+        description="Review platform health, availability freshness, and recent background operations."
       >
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardGrid>
-            <DashboardPanel title="Service health" description="Gateway health checks for deployed backend services.">
+            <DashboardPanel title="Service health" description="Health checks for the deployed platform components.">
               <div className="health-grid">
                 {state.data.health.map((row) => (
                   <div className="health-card" key={row.label}>
@@ -1499,7 +1511,7 @@ export function OperatorSystemPage() {
                 ))}
               </div>
             </DashboardPanel>
-            <DashboardPanel title="Scheduler health" description="scheduler-service metadata and run posture.">
+            <DashboardPanel title="Scheduler health" description="Current scheduled job availability and run posture.">
               <MetricGrid>
                 <MetricCard label="Jobs" value={formatNumber(state.data.schedulerHealth.total_job_count)} />
                 <MetricCard label="Enabled" value={formatNumber(state.data.schedulerHealth.enabled_job_count)} />
@@ -1507,7 +1519,7 @@ export function OperatorSystemPage() {
                 <MetricCard label="Last status" value={state.data.schedulerHealth.last_run_status ?? "None"} />
               </MetricGrid>
             </DashboardPanel>
-            <DashboardPanel title="Catalog freshness" description="Aggregated catalog freshness by provider.">
+            <DashboardPanel title="Catalog freshness" description="Catalog coverage and update freshness by provider.">
               <DataTable
                 rows={state.data.catalogFreshness}
                 getRowKey={(row) => row.provider_code}
@@ -1519,22 +1531,22 @@ export function OperatorSystemPage() {
                 ]}
               />
             </DashboardPanel>
-            <DashboardPanel title="Status cache" description="Status-service cached status posture.">
+            <DashboardPanel title="Availability freshness" description="Current and expired availability checks by provider.">
               <DataTable
                 rows={state.data.statusFreshness}
                 getRowKey={(row) => row.provider_code}
                 columns={[
                   { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                  { key: "valid", label: "Valid cache", render: (row) => formatNumber(row.valid_cache_count) },
-                  { key: "expired", label: "Expired", render: (row) => formatNumber(row.expired_cache_count) },
+                  { key: "valid", label: "Current", render: (row) => formatNumber(row.valid_cache_count) },
+                  { key: "expired", label: "Needs refresh", render: (row) => formatNumber(row.expired_cache_count) },
                   { key: "checked", label: "Checked", render: (row) => formatDateTime(row.last_checked_at) },
                 ]}
               />
             </DashboardPanel>
-            <DashboardPanel title="Import runs" description="Latest catalog import records.">
+            <DashboardPanel title="Import runs" description="Latest catalog refresh activity.">
               <ImportRunTable rows={state.data.imports} />
             </DashboardPanel>
-            <DashboardPanel title="Scheduler runs" description="Latest scheduler-service job run records.">
+            <DashboardPanel title="Scheduler runs" description="Latest scheduled job activity.">
               <DataTable
                 rows={state.data.schedulerRuns}
                 getRowKey={(row) => row.id}

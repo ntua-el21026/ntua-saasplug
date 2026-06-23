@@ -60,6 +60,15 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 032 | 2026-06-15 | Direct implementation prompt | N/A | Live usage/status/catalog events, scheduler cadence updates, and operator schedule editing | `completed_with_warnings` | `docs/ai/codex-runs/032-event-scheduler-cadence-and-operator-controls.md` |
 | 033 | 2026-06-15 | Direct corrective continuation | N/A | Viewport-derived map search radius and all-in-circle catalog rendering | `completed_with_warnings` | `docs/ai/codex-runs/033-viewport-derived-map-radius.md` |
 | 034 | 2026-06-15 | Direct continuation prompt | N/A | Ordered scheduler maintenance run action for operators | `completed_with_warnings` | `docs/ai/codex-runs/034-ordered-scheduler-maintenance-run.md` |
+| 035 | 2026-06-22 | Direct UI polish continuation | N/A | Signed-in UI text polish, reservation copy cleanup, brand slogan, and app mark update | `completed` | `docs/ai/codex-runs/035-ui-brand-and-reservation-polish.md` |
+| 036 | 2026-06-22 | Direct question prompt | N/A | Current EV tariff and provider billing price computation answer | `completed` | `docs/ai/codex-runs/036-current-price-computation-answer.md` |
+| 037 | 2026-06-22 | Direct planning/question prompt | N/A | EV cost label terminology and analytics queue cadence explanation | `completed` | `docs/ai/codex-runs/037-ev-cost-label-and-analytics-cadence.md` |
+| 038 | 2026-06-22 | Direct implementation prompt | N/A | EV-only Google sign-in, password changes, and profile copy polish | `completed_with_warnings` | `docs/ai/codex-runs/038-google-ev-password-profile.md` |
+| 039 | 2026-06-22 | Direct implementation prompt | N/A | EV reservation cost estimates and analytics summary aggregates | `completed_with_warnings` | `docs/ai/codex-runs/039-ev-reservation-cost-analytics.md` |
+| 040 | 2026-06-23 | Direct bugfix prompt | N/A | Nginx gateway runtime DNS resolution after container rebuilds | `completed_with_warnings` | `docs/ai/codex-runs/040-nginx-runtime-dns-gateway-paths.md` |
+| 041 | 2026-06-23 | Direct UI polish and bugfix prompt | N/A | Provider filter card polish, user-facing admin copy, and provider-owned point access | `completed_with_warnings` | `docs/ai/codex-runs/041-provider-filter-and-point-access-polish.md` |
+| 042 | 2026-06-23 | Direct corrective implementation prompt | N/A | Provider catalog point list scope enforcement | `completed_with_warnings` | `docs/ai/codex-runs/042-provider-catalog-scope-enforcement.md` |
+| 043 | 2026-06-23 | Direct UI bugfix and polish prompt | N/A | Login shortcuts, EV point-list visibility, reservation duration editing, and dismissible messages | `completed_with_warnings` | `docs/ai/codex-runs/043-login-map-reservation-message-polish.md` |
 
 ---
 

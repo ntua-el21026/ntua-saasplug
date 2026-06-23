@@ -41,6 +41,8 @@ The service implements:
 - pending staged events in `reservation_event_outbox`;
 - catalog point resolution through `catalog-service` before provider calls;
 - synchronous reservation calls to the relevant internal provider service;
+- reservation-time snapshots for EV display: cost/kWh, charger capacity,
+  estimated energy, estimated cost, estimate currency, and estimate basis;
 - JWT-compatible role and provider scoping;
 - safe normalized error responses that do not expose raw provider errors.
 
@@ -87,6 +89,23 @@ correlation_id
 producer
 payload
 ```
+
+Reservation event payloads include the reservation identity, user ID, provider
+code, point IDs, requested duration, provider status, provider reservation ID,
+reservation end time, `price_per_kwh_eur`, charger capacity in kW, estimated
+energy in kWh, estimated cost in EUR, estimate currency, and estimate basis.
+
+The estimate basis is `rated_power_duration_estimate`:
+
+```text
+estimated_energy_kwh = charger_capacity_kw * requested_duration_minutes / 60
+estimated_cost_eur = price_per_kwh_eur * estimated_energy_kwh
+```
+
+Estimates are stored only when cost/kWh, charger power, and duration are valid.
+Missing, negative, or non-finite provider cost/kWh and missing or non-positive
+charger power remain `null`; the service does not treat unavailable estimate
+inputs as zero.
 
 Operators can publish pending rows after the reservation result is already
 persisted:

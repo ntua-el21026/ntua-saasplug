@@ -69,7 +69,8 @@ issuance remains an explicit operator billing action.
 `analytics.consume-events` and `analytics.refresh-aggregates` are separate on
 purpose. The consume job moves RabbitMQ messages into analytics-owned raw event
 tables. The refresh job rebuilds dashboard aggregate/cache tables from those
-already-ingested events.
+already-ingested events, including provider/operator metrics and EV reservation
+summary metrics.
 
 `billing.drain-events` and `billing.publish-outbox` are also separate. The
 drain job consumes reservation/point-view events and creates billing-owned
@@ -93,7 +94,8 @@ existing jobs through scheduler-service in this sequence:
 
 This sequence refreshes catalog data, releases reservation outcomes, lets
 billing consume and publish its derived events, then lets analytics drain all
-available events and refresh dashboard aggregates.
+available events and refresh dashboard aggregates, including EV reservation
+cost estimates and average estimated cost per point.
 
 ## Internal endpoint security
 

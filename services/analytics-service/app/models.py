@@ -131,6 +131,27 @@ class OperatorDailyMetric(Base):
     last_computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class EvReservationDailyMetric(Base):
+    __tablename__ = "ev_reservation_daily_metrics"
+    __table_args__ = (UniqueConstraint("user_id", "day_bucket", name="uq_ev_reservation_daily_bucket"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    day_bucket: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    total_reservations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    successful_reservations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_reservations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    estimated_reservations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    missing_estimate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_estimated_energy_kwh: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    total_estimated_cost_eur: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    currency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    point_keys: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    estimated_point_keys: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    last_computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class CatalogHealthSnapshot(Base):
     __tablename__ = "catalog_health_snapshots"
 

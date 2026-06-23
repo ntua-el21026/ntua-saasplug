@@ -108,6 +108,33 @@ Catalog and status usage events are best-effort propagation after the
 corresponding read/import/log operation has completed. They must not make the
 live user request fail if RabbitMQ is temporarily unavailable.
 
+`reservation.succeeded` and `reservation.failed` payloads include reservation
+and point identity fields plus EV-facing estimate snapshot fields when
+available:
+
+```text
+reservation_id
+user_id
+provider_code
+external_point_id
+normalized_point_id
+requested_duration_minutes
+status
+provider_status
+provider_reservation_id
+reservation_ends_at
+price_per_kwh_eur
+charger_capacity_kw
+estimated_energy_kwh
+estimated_cost_eur
+estimated_cost_currency
+estimate_basis
+```
+
+Estimate fields are nullable. Consumers must treat missing, negative, or
+non-finite cost/kWh, missing or non-positive charger capacity, and missing
+duration as unavailable rather than zero.
+
 ## Consumer behavior
 
 `handle_delivery` parses the envelope and maps handler results to explicit

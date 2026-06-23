@@ -41,6 +41,8 @@ refresh_tokens
 - UUID user ID,
 - normalized email,
 - bcrypt password hash,
+- sign-in provider metadata (`auth_provider`, optional `google_subject`, and
+  `last_login_method`),
 - active flag,
 - roles array,
 - provider-admin `provider_id` and `provider_code` scope where applicable,
@@ -85,11 +87,13 @@ Auth endpoints:
 | `POST` | `/auth/login` | `/api/auth/auth/login` | JSON email/password login |
 | `POST` | `/auth/refresh` | `/api/auth/auth/refresh` | issue a new JWT access token from a valid refresh token |
 | `POST` | `/auth/logout` | `/api/auth/auth/logout` | revoke a refresh token idempotently |
+| `POST` | `/auth/password` | `/api/auth/auth/password` | change the password for the current local password account |
 | `GET` | `/auth/me` | `/api/auth/auth/me` | return the current bearer-token user |
 | `GET` | `/auth/require-operator` | `/api/auth/auth/require-operator` | development role-check endpoint |
 | `GET` | `/auth/require-provider-admin` | `/api/auth/auth/require-provider-admin` | development provider-scope endpoint |
 | `GET` | `/auth/google/login` | `/api/auth/auth/google/login` | Google OAuth hook |
 | `GET` | `/auth/google/callback` | `/api/auth/auth/google/callback` | Google OAuth callback hook |
+| `POST` | `/auth/google/local-sign-in` | `/api/auth/auth/google/local-sign-in` | local/demo Google sign-in simulation for EV users only |
 
 Public registration always creates an `EV_USER`. It ignores any attempted role
 or provider-scope escalation in the request body.
@@ -109,7 +113,10 @@ Login and registration return:
     "email": "evuser@saasplug.local",
     "roles": ["EV_USER"],
     "provider_id": null,
-    "provider_code": null
+    "provider_code": null,
+    "auth_provider": "local",
+    "last_login_method": "local",
+    "password_change_supported": true
   }
 }
 ```
@@ -129,7 +136,7 @@ Refresh tokens are persisted hashed. The refresh endpoint returns the same
 still-valid refresh token with a new access token. `POST /auth/logout` revokes
 the refresh token and subsequent refresh attempts fail.
 
-## Google OAuth Local Behavior
+## Google OAuth Behavior
 
 `GET /auth/google/login` and `GET /auth/google/callback` are safe hooks. When
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, or `GOOGLE_REDIRECT_URI` are
@@ -137,7 +144,37 @@ placeholder values, the endpoints return non-500 JSON explaining that Google
 OAuth is not configured in local demo mode.
 
 When configured, `/auth/google/login` builds a standards-compatible Google
-authorization URL. Actual Google token exchange is intentionally deferred.
+authorization URL and `/auth/google/callback` exchanges the authorization code
+with Google, reads the verified OpenID Connect userinfo response, and signs in
+the matching user. The login and callback endpoints accept an optional
+`redirect_uri` query parameter so the React app can use
+`http://localhost:8080/login/google/callback` as the browser callback route and
+then complete the code exchange through the gateway. The same redirect URI must
+be registered in the Google OAuth client configuration.
+
+Google sign-in is EV-only:
+
+- if the Google email does not exist, `auth-service` creates an `EV_USER`
+  account with `auth_provider=google`;
+- if the Google email belongs to an existing `EV_USER`, the same account is
+  signed in and `last_login_method` becomes `google`;
+- if the Google email belongs to an `OPERATOR` or `PROVIDER_ADMIN`, the request
+  is rejected with HTTP 403.
+
+For local demos without real Google credentials,
+`POST /auth/google/local-sign-in` accepts an email address and applies the same
+EV-only account provisioning rules. This endpoint is disabled when real Google
+OAuth credentials are configured.
+
+## Password Changes
+
+`POST /auth/password` requires a bearer token, the current password, and a new
+password. It is supported for all local password accounts, including EV users,
+provider admins, and operators. Google-created accounts cannot change a password
+until a password login flow is explicitly added for them.
+
+The frontend currently exposes the password-change form only on the EV profile
+when the current session was not signed in with Google.
 
 No real Google credentials must be committed.
 
@@ -190,7 +227,7 @@ Relevant variables:
 | `DEMO_USER_PASSWORD` | safe local demo password placeholder |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID placeholder |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret placeholder |
-| `GOOGLE_REDIRECT_URI` | gateway callback URL |
+| `GOOGLE_REDIRECT_URI` | default OAuth callback URL; the frontend can pass `/login/google/callback` through the `redirect_uri` query parameter |
 
 Do not commit real secrets or `.env`.
 
@@ -198,8 +235,9 @@ Do not commit real secrets or `.env`.
 
 - Public registration always creates `EV_USER`; it does not allow role or
   provider-scope escalation.
-- Real Google token exchange is not part of the local MVP. The OAuth endpoints
-  provide safe configuration and callback hooks.
+- Real Google OAuth uses the configured Google client ID/secret and exchanges
+  authorization codes in `auth-service`; local demo mode uses the explicit
+  local sign-in endpoint instead.
 - Provider metadata, catalog data, status cache, reservations, analytics, and
   billing are owned by their respective services.
 

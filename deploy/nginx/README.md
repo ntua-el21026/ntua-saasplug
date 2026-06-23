@@ -29,6 +29,11 @@ deploy/nginx/default.conf
 The gateway listens on container port `80` and is exposed by Compose on host
 port `8080`.
 
+The Nginx configuration resolves Docker service names at request time through
+Docker DNS (`127.0.0.11`) instead of using static upstream blocks. This prevents
+stale upstream IPs after `docker compose up --build` recreates backend
+containers while `nginx-gateway` keeps running.
+
 Baseline routes:
 
 | Gateway path | Upstream |

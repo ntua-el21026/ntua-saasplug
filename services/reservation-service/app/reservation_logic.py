@@ -1,3 +1,4 @@
+import math
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -14,6 +15,9 @@ from app.schemas import (
     ReservationAttemptResponse,
     ReservationResponse,
 )
+
+
+ESTIMATE_BASIS_RATED_POWER = "rated_power_duration_estimate"
 
 
 class ReservationFlowError(Exception):
@@ -43,6 +47,11 @@ def reservation_response(reservation: Reservation) -> ReservationResponse:
         provider_reservation_id=reservation.provider_reservation_id,
         reservation_ends_at=reservation.reservation_ends_at,
         price_per_kwh_eur=reservation.price_per_kwh_eur,
+        charger_capacity_kw=reservation.charger_capacity_kw,
+        estimated_energy_kwh=reservation.estimated_energy_kwh,
+        estimated_cost_eur=reservation.estimated_cost_eur,
+        estimated_cost_currency=reservation.estimated_cost_currency,
+        estimate_basis=reservation.estimate_basis,
         failure_reason=reservation.failure_reason,
         created_at=reservation.created_at.isoformat(),
         updated_at=reservation.updated_at.isoformat(),
@@ -118,6 +127,54 @@ def sanitize_payload(value: Any) -> Any:
     return str(value)
 
 
+def positive_float(value: float | int | None) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number <= 0:
+        return None
+    return number
+
+
+def non_negative_float(value: float | int | None) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number < 0:
+        return None
+    return number
+
+
+def estimate_energy_kwh(capacity_kw: float | None, duration_minutes: int) -> float | None:
+    valid_capacity = positive_float(capacity_kw)
+    valid_duration = positive_float(duration_minutes)
+    if valid_capacity is None or valid_duration is None:
+        return None
+    return round(valid_capacity * valid_duration / 60, 4)
+
+
+def estimate_cost_eur(price_per_kwh_eur: float | None, capacity_kw: float | None, duration_minutes: int) -> tuple[float | None, float | None, str | None, str | None]:
+    valid_price = non_negative_float(price_per_kwh_eur)
+    energy_kwh = estimate_energy_kwh(capacity_kw, duration_minutes)
+    if valid_price is None or energy_kwh is None:
+        return energy_kwh, None, None, None
+    return energy_kwh, round(valid_price * energy_kwh, 2), "EUR", ESTIMATE_BASIS_RATED_POWER
+
+
+def resolve_price_per_kwh(point: CatalogPointDTO, provider_reservation: ProviderReservationDTO | None = None) -> float | None:
+    if provider_reservation:
+        provider_price = non_negative_float(provider_reservation.price_per_kwh_eur)
+        if provider_price is not None:
+            return provider_price
+    return non_negative_float(point.price_per_kwh_eur)
+
+
 def base_attempt(
     principal: CurrentPrincipal,
     provider_code: str,
@@ -170,6 +227,11 @@ def success_payload(reservation: Reservation) -> dict[str, Any]:
         "provider_reservation_id": reservation.provider_reservation_id,
         "reservation_ends_at": reservation.reservation_ends_at,
         "price_per_kwh_eur": reservation.price_per_kwh_eur,
+        "charger_capacity_kw": reservation.charger_capacity_kw,
+        "estimated_energy_kwh": reservation.estimated_energy_kwh,
+        "estimated_cost_eur": reservation.estimated_cost_eur,
+        "estimated_cost_currency": reservation.estimated_cost_currency,
+        "estimate_basis": reservation.estimate_basis,
     }
 
 
@@ -261,6 +323,13 @@ def create_successful_reservation(
     duration_minutes: int,
     provider_reservation: ProviderReservationDTO,
 ) -> Reservation:
+    price_per_kwh_eur = resolve_price_per_kwh(point, provider_reservation)
+    charger_capacity_kw = positive_float(point.capacity)
+    energy_kwh, estimated_cost_eur, estimate_currency, estimate_basis = estimate_cost_eur(
+        price_per_kwh_eur,
+        charger_capacity_kw,
+        duration_minutes,
+    )
     reservation = Reservation(
         user_id=principal.sub,
         user_email=principal.email,
@@ -273,7 +342,12 @@ def create_successful_reservation(
         provider_status=provider_reservation.status,
         provider_reservation_id=provider_reservation.provider_reservation_id,
         reservation_ends_at=provider_reservation.reservation_ends_at,
-        price_per_kwh_eur=provider_reservation.price_per_kwh_eur,
+        price_per_kwh_eur=price_per_kwh_eur,
+        charger_capacity_kw=charger_capacity_kw,
+        estimated_energy_kwh=energy_kwh,
+        estimated_cost_eur=estimated_cost_eur,
+        estimated_cost_currency=estimate_currency,
+        estimate_basis=estimate_basis,
         raw_provider_payload=sanitize_payload(provider_reservation.raw_payload),
     )
     db.add(reservation)
@@ -310,6 +384,8 @@ def create_failed_reservation(
         catalog_point_id=point.id,
         requested_duration_minutes=duration_minutes,
         status=result_status,
+        price_per_kwh_eur=non_negative_float(point.price_per_kwh_eur),
+        charger_capacity_kw=positive_float(point.capacity),
         failure_reason=safe_message,
     )
     db.add(reservation)
