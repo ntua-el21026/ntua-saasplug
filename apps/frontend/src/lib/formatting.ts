@@ -12,8 +12,18 @@ export function providerLabel(providerCode: string): string {
   return labels[providerCode] ?? providerCode;
 }
 
-function finiteNumber(value: number | null | undefined): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+export function providerAdminLabel(providerCode: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    redPlug: "Red provider admin",
+    greenPlug: "Green provider admin",
+    bluePlug: "Blue provider admin",
+  };
+  return providerCode ? labels[providerCode] ?? "Provider admin" : "Provider admin";
+}
+
+function finiteNumber(value: number | string | null | undefined): number | null {
+  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
 }
 
 export function formatDateTime(value: string | null | undefined): string {
@@ -54,7 +64,7 @@ export function formatCostPerKwh(value: number | null | undefined): string {
   }).format(number)}/kWh`;
 }
 
-export function formatMoney(value: number | null | undefined, currency: string | null | undefined = "EUR"): string {
+export function formatMoney(value: number | string | null | undefined, currency: string | null | undefined = "EUR"): string {
   const number = finiteNumber(value);
   if (number === null) {
     return "Not available";

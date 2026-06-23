@@ -15,6 +15,7 @@ from app.schemas import (
     CatalogPointListResponse,
     CatalogPointResponse,
     CatalogSearchCircleResponse,
+    CatalogImportJobRequest,
     CurrentPrincipal,
     ImportAllResponse,
     ImportRunResponse,
@@ -378,14 +379,23 @@ def import_provider_from_scheduler(
 
 @router.post("/internal/jobs/catalog/imports/all", response_model=ImportAllResponse)
 def import_all_providers_from_scheduler(
+    body: CatalogImportJobRequest | None = None,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     _: str = Depends(require_scheduler_job),
 ) -> ImportAllResponse:
+    provider_codes = PROVIDER_CODES
+    if body and body.provider_code:
+        try:
+            validate_provider_code(body.provider_code)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        provider_codes = (body.provider_code,)
+
     provider_client = ProviderServiceClient(settings)
     summaries: list[ImportSummaryResponse] = []
     try:
-        for provider_code in PROVIDER_CODES:
+        for provider_code in provider_codes:
             summary = import_provider_catalog(db, provider_code, "scheduler-service", provider_client)
             summaries.append(summary)
             if summary.status == "completed":

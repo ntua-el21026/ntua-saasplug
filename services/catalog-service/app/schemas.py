@@ -83,6 +83,10 @@ class ImportAllResponse(BaseModel):
     providers: list[ImportSummaryResponse]
 
 
+class CatalogImportJobRequest(BaseModel):
+    provider_code: str | None = None
+
+
 class ProviderFreshnessResponse(BaseModel):
     provider_code: str
     active_count: int

@@ -53,7 +53,10 @@ function responseFor(url: URL, role: Role): unknown {
     return providerSummary();
   }
   if (pathname === "/api/analytics/provider/trends/daily") {
-    return [];
+    return providerTrends();
+  }
+  if (pathname === "/api/analytics/provider/top-points") {
+    return url.searchParams.get("metric") === "reservations" ? topReservedPoints() : topViewedPoints();
   }
   if (pathname === "/api/analytics/provider/freshness") {
     return analyticsFreshness();
@@ -87,6 +90,15 @@ function responseFor(url: URL, role: Role): unknown {
   }
   if (pathname === "/api/analytics/operator/summary") {
     return operatorSummary();
+  }
+  if (pathname === "/api/analytics/operator/provider-comparison") {
+    return operatorProviderComparison();
+  }
+  if (pathname === "/api/analytics/operator/trends/daily") {
+    return operatorTrends();
+  }
+  if (pathname === "/api/analytics/operator/freshness") {
+    return analyticsFreshness();
   }
   if (pathname === "/api/providers/providers") {
     return [];
@@ -136,21 +148,84 @@ function responseFor(url: URL, role: Role): unknown {
 function providerSummary() {
   return {
     provider_code: "redPlug",
-    total_searches: 0,
-    total_point_views: 0,
-    total_status_checks: 0,
-    successful_reservations: 0,
-    failed_reservations: 0,
+    total_searches: 18,
+    total_point_views: 12,
+    total_status_checks: 8,
+    successful_reservations: 4,
+    failed_reservations: 1,
     reservation_conversion_rate: null,
     observed_amount: 0,
     currency: null,
-    top_viewed_points: [],
-    top_reserved_points: [],
-    status_distribution: {},
+    top_viewed_points: topViewedPoints(),
+    top_reserved_points: topReservedPoints(),
+    status_distribution: { available: 5, reserved: 2, charging: 1 },
     data_freshness: null,
     last_event_ingested_at: null,
     last_aggregate_computed_at: null,
   };
+}
+
+function providerTrends() {
+  return [
+    {
+      provider_code: "redPlug",
+      day_bucket: "2026-06-21",
+      searches: 8,
+      point_views: 6,
+      status_checks: 3,
+      successful_reservations: 2,
+      failed_reservations: 1,
+      reservation_conversion_rate: 0.33,
+      observed_amount: 1,
+      currency: "EUR",
+    },
+    {
+      provider_code: "redPlug",
+      day_bucket: "2026-06-22",
+      searches: 10,
+      point_views: 6,
+      status_checks: 5,
+      successful_reservations: 2,
+      failed_reservations: 0,
+      reservation_conversion_rate: 0.33,
+      observed_amount: 1,
+      currency: "EUR",
+    },
+  ];
+}
+
+function operatorTrends() {
+  return providerTrends().map((row) => ({
+    day_bucket: row.day_bucket,
+    total_searches: row.searches,
+    total_point_views: row.point_views,
+    total_status_checks: row.status_checks,
+    successful_reservations: row.successful_reservations,
+    failed_reservations: row.failed_reservations,
+    global_conversion_rate: row.reservation_conversion_rate,
+  }));
+}
+
+function topViewedPoints() {
+  return [{
+    provider_code: "redPlug",
+    internal_point_id: "redPlug:1515489",
+    external_point_id: "1515489",
+    point_name: "Athens Central",
+    point_views: 12,
+    successful_reservations: 4,
+    failed_reservations: 1,
+    status_checks: 8,
+  }];
+}
+
+function topReservedPoints() {
+  return [{
+    ...topViewedPoints()[0],
+    point_name: "Piraeus Port",
+    point_views: 9,
+    successful_reservations: 6,
+  }];
 }
 
 function analyticsFreshness() {
@@ -201,10 +276,10 @@ function pricingRule() {
     name: "Default provider pricing",
     active: true,
     currency: "EUR",
-    reservation_success_fee: 0.5,
-    point_view_fee: 0.01,
+    reservation_success_fee: "0.50",
+    point_view_fee: "0.01",
     point_view_fee_enabled: true,
-    reservation_failure_fee: 0,
+    reservation_failure_fee: "0.00",
     created_by_email: "operator@saasplug.local",
     created_at: "2026-06-13T00:00:00Z",
     updated_at: "2026-06-13T00:00:00Z",
@@ -346,7 +421,7 @@ function statusFreshnessRows() {
 
 function billingOverview() {
   return {
-    provider_code: null,
+    provider_code: "redPlug",
     unpaid_amount: 0,
     paid_amount: 0,
     unbilled_amount: 0,
@@ -357,28 +432,53 @@ function billingOverview() {
     issued_invoice_count: 0,
     paid_invoice_count: 0,
     currency: "EUR",
-    effective_pricing: null,
+    effective_pricing: pricingRule(),
     provider_rows: [],
   };
 }
 
 function operatorSummary() {
   return {
-    total_providers_seen: 0,
-    active_providers_seen: 0,
-    total_searches: 0,
-    total_point_views: 0,
-    total_status_checks: 0,
-    successful_reservations: 0,
-    failed_reservations: 0,
-    global_conversion_rate: null,
-    provider_comparison: [],
-    daily_trends: [],
+    total_providers_seen: 3,
+    active_providers_seen: 3,
+    total_searches: 18,
+    total_point_views: 12,
+    total_status_checks: 8,
+    successful_reservations: 4,
+    failed_reservations: 1,
+    global_conversion_rate: 0.33,
+    provider_comparison: operatorProviderComparison(),
+    daily_trends: providerTrends(),
     catalog_health: [],
     last_event_ingested_at: null,
     last_aggregate_computed_at: null,
     analytics_delay_notice: null,
   };
+}
+
+function operatorProviderComparison() {
+  return [
+    {
+      provider_code: "redPlug",
+      total_searches: 18,
+      total_point_views: 12,
+      total_status_checks: 8,
+      successful_reservations: 4,
+      failed_reservations: 1,
+      observed_amount: 2,
+      reservation_conversion_rate: 0.33,
+    },
+    {
+      provider_code: "greenPlug",
+      total_searches: 12,
+      total_point_views: 9,
+      total_status_checks: 5,
+      successful_reservations: 3,
+      failed_reservations: 0,
+      observed_amount: 1.5,
+      reservation_conversion_rate: 0.33,
+    },
+  ];
 }
 
 function schedulerHealth() {
@@ -477,6 +577,31 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /^provider analytics$/i })).toBeInTheDocument();
     expect(await screen.findByText("€0.00")).toBeInTheDocument();
+    expect(screen.getByText("Red provider admin")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /provider activity bar chart/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /status distribution/i }));
+    expect(await screen.findByRole("img", { name: /charging point status distribution/i })).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /top reserved points/i }));
+    expect(await screen.findByText("Piraeus Port")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /successful reservations bar chart/i })).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /conversion rate/i }));
+    expect(await screen.findByRole("img", { name: /reservation conversion bar chart/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /observed revenue/i }));
+    expect(await screen.findByRole("img", { name: /observed amount bar chart/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      const topPointCalls = vi.mocked(fetch).mock.calls.filter(([input]) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        return new URL(raw, "http://app.test").pathname === "/api/analytics/provider/top-points";
+      });
+      expect(topPointCalls).toHaveLength(2);
+    });
   });
 
   it("scopes provider point inventory to the signed-in provider", async () => {
@@ -565,6 +690,11 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /^provider settings$/i })).toBeInTheDocument();
     expect(await screen.findByText("display_name, is_active")).toBeInTheDocument();
+    expect(screen.getByText("Default provider pricing")).toBeInTheDocument();
+    expect(screen.getByText("redPlug override")).toBeInTheDocument();
+    expect(screen.getByText("€0.50")).toBeInTheDocument();
+    expect(screen.getByText("€0.01")).toBeInTheDocument();
+    expect(screen.queryByText("Not available")).not.toBeInTheDocument();
   });
 
   it("renders the provider-admin profile without leaving the workspace shell blank", async () => {
@@ -588,6 +718,50 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /operator command center/i })).toBeInTheDocument();
     expect(screen.queryByText(/operator workspace/i)).not.toBeInTheDocument();
+  });
+
+  it("browses operator analytics diagrams through shared tabs", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/analytics");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /operator analytics/i })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /platform activity bar chart/i })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("tab", { name: /provider reservations/i }));
+    expect(await screen.findByRole("img", { name: /successful reservations bar chart/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /provider conversion/i }));
+    expect(await screen.findByRole("img", { name: /conversion percent bar chart/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /comparison table/i }));
+    expect(await screen.findByRole("heading", { name: /provider comparison/i })).toBeInTheDocument();
+  });
+
+  it("uses tabs for operator catalog inventory, coverage, and runs", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/catalog");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /catalog and sync controls/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /catalog points/i })).toBeInTheDocument();
+    const pageSizeSelect = screen.getByLabelText(/results fetched/i);
+    expect(pageSizeSelect).toHaveValue("25");
+    expect(screen.getByRole("heading", { name: /point status guide/i })).toBeInTheDocument();
+    await userEvent.selectOptions(pageSizeSelect, "50");
+    await waitFor(() => {
+      const pointCalls = vi.mocked(fetch).mock.calls.filter(([input]) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        return url.pathname === "/api/catalog/points" && url.searchParams.get("limit") === "50";
+      });
+      expect(pointCalls.length).toBeGreaterThan(0);
+    });
+    await userEvent.click(screen.getByRole("tab", { name: /coverage health/i }));
+    expect(await screen.findByRole("heading", { name: /catalog coverage health/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /import runs/i }));
+    expect(await screen.findByRole("heading", { name: /import runs/i })).toBeInTheDocument();
   });
 
   it("blocks EV users from provider-admin routes", async () => {
@@ -647,13 +821,28 @@ describe("admin role routing", () => {
 
     render(<App />);
 
-    const button = await screen.findByRole("button", { name: /run maintenance sequence/i });
+    const button = await screen.findByRole("button", { name: /run all providers sequence/i });
     await userEvent.click(button);
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
         "/api/scheduler/jobs/run-maintenance",
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ provider_code: null }),
+        }),
+      );
+    });
+
+    await userEvent.selectOptions(screen.getByLabelText("Provider"), "greenPlug");
+    await userEvent.click(screen.getByRole("button", { name: /run greenplug sequence/i }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/run-maintenance",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ provider_code: "greenPlug" }),
+        }),
       );
     });
   });
@@ -735,7 +924,10 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /system overview/i })).toBeInTheDocument();
-    expect(await screen.findByText(/scheduler health/i)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("tab", { name: /scheduler posture/i }));
+    expect(await screen.findByRole("heading", { name: /scheduler posture/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /run duration milliseconds bar chart/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /background activity/i }));
     expect(await screen.findByText(/scheduler runs/i)).toBeInTheDocument();
     expect((await screen.findAllByText(/succeeded/i)).length).toBeGreaterThan(0);
   });

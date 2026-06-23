@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 
 import markUrl from "../../assets/brand/saasplug-mark.svg";
-import type { Role } from "../../lib/types";
+import { providerAdminLabel } from "../../lib/formatting";
+import type { ProviderCode, Role } from "../../lib/types";
 import { cx } from "../../lib/utils/classNames";
 
 export function BrandLockup({ compact = false }: { compact?: boolean }) {
@@ -73,10 +74,11 @@ export function SidebarNav({ items }: { items: Array<{ href: string; label: stri
   );
 }
 
-export function RoleSwitcher({ roles }: { roles: Role[] }) {
+export function RoleSwitcher({ roles, providerCode }: { roles: Role[]; providerCode?: ProviderCode | null }) {
   const role = roles[0] ?? "EV_USER";
-  const label = role === "PROVIDER_ADMIN" ? "Provider admin" : role === "OPERATOR" ? "Operator" : "EV user";
-  const tone = role === "PROVIDER_ADMIN" ? "provider" : role === "OPERATOR" ? "operator" : "ev";
+  const label = role === "PROVIDER_ADMIN" ? providerAdminLabel(providerCode) : role === "OPERATOR" ? "Operator" : "EV user";
+  const providerTone = providerCode === "redPlug" ? "provider-red" : providerCode === "bluePlug" ? "provider-blue" : "provider-green";
+  const tone = role === "PROVIDER_ADMIN" ? providerTone : role === "OPERATOR" ? "operator" : "ev";
   return (
     <span className={cx("role-badge", `role-badge-${tone}`)}>
       <span className="role-badge-mark" aria-hidden="true" />

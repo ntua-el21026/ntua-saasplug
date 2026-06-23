@@ -50,6 +50,7 @@ NTUA-saasPlug/
 │   │   │   │   ├── auth/
 │   │   │   │   │   ├── AuthContext.tsx
 │   │   │   │   │   ├── AuthLayout.tsx
+│   │   │   │   │   ├── GoogleCallbackPage.tsx
 │   │   │   │   │   ├── LoginPage.tsx
 │   │   │   │   │   ├── LogoutPage.tsx
 │   │   │   │   │   ├── ProfilePage.tsx
@@ -135,6 +136,15 @@ NTUA-saasPlug/
 │   │   │   ├── 032-event-scheduler-cadence-and-operator-controls.md
 │   │   │   ├── 033-viewport-derived-map-radius.md
 │   │   │   ├── 034-ordered-scheduler-maintenance-run.md
+│   │   │   ├── 035-ui-brand-and-reservation-polish.md
+│   │   │   ├── 036-current-price-computation-answer.md
+│   │   │   ├── 037-ev-cost-label-and-analytics-cadence.md
+│   │   │   ├── 038-google-ev-password-profile.md
+│   │   │   ├── 039-ev-reservation-cost-analytics.md
+│   │   │   ├── 040-nginx-runtime-dns-gateway-paths.md
+│   │   │   ├── 041-provider-filter-and-point-access-polish.md
+│   │   │   ├── 042-provider-catalog-scope-enforcement.md
+│   │   │   ├── 043-login-map-reservation-message-polish.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -582,4 +592,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 98, Total files: 485
+Total directories: 98, Total files: 495

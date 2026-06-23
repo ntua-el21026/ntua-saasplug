@@ -67,6 +67,12 @@ class JobSequenceRunResponse(BaseModel):
     runs: list[JobRunResponse]
 
 
+class MaintenanceSequenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_code: str | None = None
+
+
 class JobPatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
