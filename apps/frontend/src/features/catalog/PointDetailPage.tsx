@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AccessDenied } from "../../components/AccessDenied";
@@ -31,7 +31,7 @@ export function PointDetailPage() {
   const [statusLoading, setStatusLoading] = useState(false);
   const [reservationLoading, setReservationLoading] = useState(false);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
-  const [reservationIdempotencyKey, setReservationIdempotencyKey] = useState<string | null>(null);
+  const reservationInFlightRef = useRef<{ idempotencyKey: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [reservationError, setReservationError] = useState<string | null>(null);
@@ -105,7 +105,7 @@ export function PointDetailPage() {
 
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isEvUser) {
+    if (!isEvUser || reservationInFlightRef.current) {
       return;
     }
     setReservation(null);
@@ -118,10 +118,8 @@ export function PointDetailPage() {
       setReservationLoading(false);
       return;
     }
-    const idempotencyKey = reservationIdempotencyKey ?? newReservationIdempotencyKey();
-    if (!reservationIdempotencyKey) {
-      setReservationIdempotencyKey(idempotencyKey);
-    }
+    const idempotencyKey = newReservationIdempotencyKey();
+    reservationInFlightRef.current = { idempotencyKey };
     try {
       const payload = await requestJson<Reservation>(
         `/api/reservations/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/reservations`,
@@ -136,15 +134,13 @@ export function PointDetailPage() {
     } catch (caught) {
       setReservationError(messageFromUnknownError(caught));
     } finally {
+      reservationInFlightRef.current = null;
       setReservationLoading(false);
     }
   }
 
   function closeReservationDialog() {
     setReservationDialogOpen(false);
-    if (!reservationLoading) {
-      setReservationIdempotencyKey(null);
-    }
   }
 
   if (!isOwnProviderPoint) {
@@ -287,10 +283,7 @@ export function PointDetailPage() {
                       step={1}
                       required
                       value={durationMinutes}
-                      onChange={(event) => {
-                        setDurationMinutes(event.target.value);
-                        setReservationIdempotencyKey(null);
-                      }}
+                      onChange={(event) => setDurationMinutes(event.target.value)}
                     />
                   </label>
                   <button className="button-primary" type="submit" disabled={reservationLoading}>

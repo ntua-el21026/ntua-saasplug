@@ -758,6 +758,92 @@ describe("admin role routing", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: /reservation status/i })).not.toBeInTheDocument());
   });
 
+  it("prevents an in-flight double reservation submission", async () => {
+    storeSession("EV_USER");
+    let resolveReservation: (response: Response) => void;
+    const pendingReservationResponse = new Promise<Response>((resolve) => {
+      resolveReservation = resolve;
+    });
+    const idempotencyKeys: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/reservations/points/redPlug/1515489/reservations") {
+          const headers = new Headers(options?.headers);
+          idempotencyKeys.push(headers.get("Idempotency-Key") ?? "");
+          return pendingReservationResponse;
+        }
+        return Promise.resolve(new Response(JSON.stringify(responseFor(url, "EV_USER")), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }));
+      }),
+    );
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    await userEvent.dblClick(screen.getByRole("button", { name: /create reservation/i }));
+
+    await waitFor(() => expect(idempotencyKeys).toHaveLength(1));
+    expect(idempotencyKeys[0]).toBeTruthy();
+
+    resolveReservation!(new Response(JSON.stringify(reservationResponse()), {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    }));
+    expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+  });
+
+  it("uses a fresh idempotency key when retrying a completed failed reservation", async () => {
+    storeSession("EV_USER");
+    let reservationRequestCount = 0;
+    const idempotencyKeys: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/reservations/points/redPlug/1515489/reservations") {
+          const headers = new Headers(options?.headers);
+          idempotencyKeys.push(headers.get("Idempotency-Key") ?? "");
+          reservationRequestCount += 1;
+          if (reservationRequestCount === 1) {
+            return Promise.resolve(new Response(JSON.stringify({ detail: "Provider unavailable" }), {
+              headers: { "Content-Type": "application/json" },
+              status: 409,
+            }));
+          }
+          return Promise.resolve(new Response(JSON.stringify(reservationResponse()), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          }));
+        }
+        return Promise.resolve(new Response(JSON.stringify(responseFor(url, "EV_USER")), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }));
+      }),
+    );
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
+    expect(await screen.findByText("Provider unavailable")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^retry$/i }));
+    expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+    expect(idempotencyKeys).toHaveLength(2);
+    expect(idempotencyKeys[0]).toBeTruthy();
+    expect(idempotencyKeys[1]).toBeTruthy();
+    expect(idempotencyKeys[1]).not.toBe(idempotencyKeys[0]);
+  });
+
   it("blocks provider admins from opening another provider point detail", async () => {
     storeSession("PROVIDER_ADMIN");
     mockFetch("PROVIDER_ADMIN");

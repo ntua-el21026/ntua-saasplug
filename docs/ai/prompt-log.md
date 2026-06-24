@@ -77,6 +77,7 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 049 | 2026-06-24 | Direct UI polish and project closure prompt | N/A | EV reservations scroll polish and UI Final Polish project closure | `completed` | `docs/ai/codex-runs/049-ev-reservations-scroll-and-project-closure.md` |
 | 050 | 2026-06-24 | Direct UI polish prompt | N/A | Final UI polish for date filters, centered actions, and operator overview tabs | `completed` | `docs/ai/codex-runs/050-final-ui-polish-date-actions-operator-tabs.md` |
 | 051 | 2026-06-24 | Direct implementation prompt from attached text | N/A | Verified audit fixes safe finalization pass | `completed_with_warnings` | `docs/ai/codex-runs/051-verified-audit-fixes-safe-finalization.md` |
+| 052 | 2026-06-24 | Direct implementation prompt | N/A | Frontend reservation retry idempotency-key lifecycle correction | `completed` | `docs/ai/codex-runs/052-frontend-reservation-retry-idempotency.md` |
 
 ---
 
