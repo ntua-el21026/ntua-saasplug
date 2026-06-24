@@ -695,6 +695,39 @@ def test_point_detail_publishes_point_view_event(test_context, monkeypatch) -> N
     assert envelope.payload["provider_code"] == "redPlug"
     assert envelope.payload["external_point_id"] == "101"
     assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
+    assert envelope.payload["view_source"] == "detail"
+
+
+def test_marker_point_view_endpoint_publishes_billable_point_view_event(test_context, monkeypatch) -> None:
+    client, _ = test_context
+    fake_publisher = enable_fake_event_publisher(monkeypatch)
+    import_response = client.post(
+        "/imports/providers/bluePlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+    assert import_response.status_code == 200
+    fake_publisher.envelopes.clear()
+
+    response = client.post(
+        "/points/bluePlug/301/views",
+        json={"view_source": "map_quick_view"},
+        headers=auth_headers(["EV_USER"], "evuser@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider_code"] == "bluePlug"
+    assert payload["external_point_id"] == "301"
+    assert payload["status"] == "reserved"
+    assert "raw_provider_payload" not in payload
+    assert len(fake_publisher.envelopes) == 1
+    envelope = fake_publisher.envelopes[0]
+    assert envelope.event_type == EventType.USAGE_POINT_VIEWED.value
+    assert envelope.payload["provider_code"] == "bluePlug"
+    assert envelope.payload["external_point_id"] == "301"
+    assert envelope.payload["status"] == "reserved"
+    assert envelope.payload["view_source"] == "map_quick_view"
+    assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
 
 
 def test_stale_point_details_are_hidden_from_normal_detail_path(test_context) -> None:

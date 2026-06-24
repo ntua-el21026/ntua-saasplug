@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.event_publisher import publish_pending_outbox
 from app.main import app
-from app.models import BillingEvent, BillingEventOutbox, ChargeRecord, Invoice, InvoiceLine, Payment
+from app.models import BillingEvent, BillingEventOutbox, ChargeRecord, Invoice, InvoiceLine, Payment, PricingRule
 from app.pricing import seed_default_pricing
 from app.rabbitmq_consumer import DrainResult, drain_billing_queue
 from saasplug_events.envelope import EventEnvelope
@@ -272,6 +272,62 @@ def test_provider_admin_can_read_own_effective_pricing_only(test_context) -> Non
     assert own_response.json()["provider_code"] == "redPlug"
     assert own_response.json()["reservation_success_fee"] == "0.90"
     assert other_response.status_code == 403
+
+
+def test_pricing_activation_policy_coordinates_global_and_provider_rules(test_context) -> None:
+    global_response = test_context.post(
+        "/pricing/rules",
+        json={
+            "provider_code": None,
+            "name": "Presentation global pricing",
+            "active": True,
+            "currency": "EUR",
+            "reservation_success_fee": "0.40",
+            "point_view_fee": "0.01",
+            "point_view_fee_enabled": True,
+            "reservation_failure_fee": "0.00",
+        },
+        headers=operator_headers(),
+    )
+    assert global_response.status_code == 201
+    assert global_response.json()["active"] is True
+
+    red_response = create_provider_pricing(test_context, "redPlug", reservation_success_fee="0.90")
+    assert red_response.status_code == 201
+    assert test_context.get("/pricing/effective/redPlug", headers=operator_headers()).json()["id"] == red_response.json()["id"]
+    assert test_context.get("/pricing/effective/greenPlug", headers=operator_headers()).json()["id"] == global_response.json()["id"]
+
+    replacement_red = create_provider_pricing(test_context, "redPlug", reservation_success_fee="1.10")
+    assert replacement_red.status_code == 201
+    db = get_session_factory()()
+    try:
+        active_red_rules = db.query(PricingRule).filter(PricingRule.provider_code == "redPlug", PricingRule.active.is_(True)).all()
+        assert [rule.id for rule in active_red_rules] == [replacement_red.json()["id"]]
+    finally:
+        db.close()
+
+    green_response = create_provider_pricing(test_context, "greenPlug")
+    blue_response = create_provider_pricing(test_context, "bluePlug")
+    assert green_response.status_code == 201
+    assert blue_response.status_code == 201
+    db = get_session_factory()()
+    try:
+        assert db.query(PricingRule).filter(PricingRule.provider_code.is_(None), PricingRule.active.is_(True)).count() == 0
+    finally:
+        db.close()
+
+    reactivate_global = test_context.patch(
+        f"/pricing/rules/{global_response.json()['id']}",
+        json={"active": True},
+        headers=operator_headers(),
+    )
+    assert reactivate_global.status_code == 200
+    db = get_session_factory()()
+    try:
+        active_rules = db.query(PricingRule).filter(PricingRule.active.is_(True)).all()
+        assert [rule.id for rule in active_rules] == [global_response.json()["id"]]
+    finally:
+        db.close()
 
 
 def test_manual_ingest_reservation_success_creates_one_charge_and_outbox(test_context) -> None:

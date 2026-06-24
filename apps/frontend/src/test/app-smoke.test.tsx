@@ -47,6 +47,18 @@ describe("App", () => {
     view.unmount();
   });
 
+  it("renders an image-led landing page with a single account creation action", async () => {
+    window.history.pushState({}, "", "/");
+
+    const view = render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /charging, connected/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /map of nearby ev charging points in athens/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /create ev account/i })).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: /open workspace/i })).not.toBeInTheDocument();
+    view.unmount();
+  });
+
   it("renders the profile route as a professional account overview", async () => {
     storeUserSession(profileUser("EV_USER"));
     mockMe(profileUser("EV_USER"));

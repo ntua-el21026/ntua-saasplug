@@ -162,6 +162,12 @@ NTUA-saasPlug/
 │   │   │   ├── 053-operator-scheduler-interval-presets.md
 │   │   │   ├── 054-auth-landing-hero-polish.md
 │   │   │   ├── 055-status-cache-consistency-and-profile-polish.md
+│   │   │   ├── 056-catalog-progress-landing-map-viewport.md
+│   │   │   ├── 057-map-fullscreen-pricing-status-views.md
+│   │   │   ├── 058-landing-hero-spacing.md
+│   │   │   ├── 059-map-controls-polish.md
+│   │   │   ├── 060-map-quick-view-point-events.md
+│   │   │   ├── 060-operator-pricing-tabs.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -400,6 +406,8 @@ NTUA-saasPlug/
 │   └── README.md
 ├── scripts/
 │   ├── postman/
+│   │   ├── lib/
+│   │   │   └── env.sh
 │   │   ├── run-all-local.sh
 │   │   ├── run-mutation.sh
 │   │   ├── run-regression.sh
@@ -632,4 +640,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 103, Total files: 530
+Total directories: 104, Total files: 537

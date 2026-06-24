@@ -250,7 +250,7 @@ export function TrendChart<T>({
 export function DistributionChart({ rows }: { rows: Array<{ label: string; value: number; color: string }> }) {
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   if (total === 0) {
-    return <EmptyState title="No status data available">Status checks will populate this distribution after analytics refresh.</EmptyState>;
+    return <EmptyState title="No viewed status data available">Point views will populate this distribution after analytics refresh.</EmptyState>;
   }
 
   let offset = 0;
@@ -259,7 +259,7 @@ export function DistributionChart({ rows }: { rows: Array<{ label: string; value
 
   return (
     <div className="analytics-distribution">
-      <svg viewBox="0 0 200 200" role="img" aria-label="Charging point status distribution">
+      <svg viewBox="0 0 200 200" role="img" aria-label="Point views by charging point status">
         <circle cx="100" cy="100" r={radius} className="analytics-donut-track" />
         {rows.map((row) => {
           const length = (row.value / total) * circumference;
@@ -283,7 +283,7 @@ export function DistributionChart({ rows }: { rows: Array<{ label: string; value
           return segment;
         })}
         <text x="100" y="96" textAnchor="middle" className="analytics-donut-total">{formatNumber(total)}</text>
-        <text x="100" y="116" textAnchor="middle" className="analytics-donut-caption">points</text>
+        <text x="100" y="116" textAnchor="middle" className="analytics-donut-caption">views</text>
       </svg>
       <div className="analytics-distribution-legend">
         {rows.map((row) => (

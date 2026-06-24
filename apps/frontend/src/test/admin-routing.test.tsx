@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
-import type { Role, User } from "../lib/types";
+import type { PricingRule, ProviderCode, Role, User } from "../lib/types";
 
 const STORAGE_KEY = "saasplug.ev.session";
 
@@ -193,7 +193,7 @@ function providerSummary() {
     currency: null,
     top_viewed_points: topViewedPoints(),
     top_reserved_points: topReservedPoints(),
-    status_distribution: { available: 5, reserved: 2, charging: 1 },
+    status_distribution: { available: 5, reserved: 4, charging: 3 },
     data_freshness: null,
     last_event_ingested_at: null,
     last_aggregate_computed_at: null,
@@ -319,6 +319,60 @@ function pricingRule() {
     created_at: "2026-06-13T00:00:00Z",
     updated_at: "2026-06-13T00:00:00Z",
   };
+}
+
+function pricingRuleFixture(
+  id: string,
+  provider_code: ProviderCode | null,
+  name: string,
+  active: boolean,
+): PricingRule {
+  return {
+    id,
+    provider_code,
+    name,
+    active,
+    currency: "EUR",
+    reservation_success_fee: "0.50",
+    point_view_fee: "0.01",
+    point_view_fee_enabled: true,
+    reservation_failure_fee: "0.00",
+    created_by_email: "operator@saasplug.local",
+    created_at: "2026-06-13T00:00:00Z",
+    updated_at: "2026-06-13T00:00:00Z",
+  };
+}
+
+function applyPricingRulesForTest(rules: PricingRule[], targetRuleId: string, nextActive: boolean): PricingRule[] {
+  const targetRule = rules.find((rule) => rule.id === targetRuleId);
+  if (!targetRule) {
+    return rules;
+  }
+  if (!nextActive) {
+    return rules.map((rule) => (rule.id === targetRuleId ? { ...rule, active: false } : rule));
+  }
+  const nextRules = rules.map((rule) => {
+    if (targetRule.provider_code === null) {
+      return { ...rule, active: rule.id === targetRuleId };
+    }
+    if (rule.provider_code === targetRule.provider_code) {
+      return { ...rule, active: rule.id === targetRuleId };
+    }
+    return rule;
+  });
+  if (targetRule.provider_code !== null && ["redPlug", "greenPlug", "bluePlug"].every((provider) => (
+    nextRules.some((rule) => rule.provider_code === provider && rule.active)
+  ))) {
+    return nextRules.map((rule) => (rule.provider_code === null ? { ...rule, active: false } : rule));
+  }
+  return nextRules;
+}
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json" },
+    status: 200,
+  });
 }
 
 function providerAuditLog() {
@@ -685,8 +739,9 @@ describe("admin role routing", () => {
     expect(screen.getByRole("img", { name: /provider activity bar chart/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /update analytics|refresh stats/i })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: /status distribution/i }));
-    expect(await screen.findByRole("img", { name: /charging point status distribution/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /views by status/i }));
+    expect(await screen.findByRole("heading", { name: /point views by status/i })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /point views by charging point status/i })).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: /top reserved points/i }));
@@ -708,6 +763,77 @@ describe("admin role routing", () => {
       });
       expect(topPointCalls).toHaveLength(2);
     });
+  });
+
+  it("applies live pricing rule activation transitions", async () => {
+    storeSession("OPERATOR");
+    let rules = [
+      pricingRuleFixture("global-rule", null, "Global default", true),
+      pricingRuleFixture("red-current", "redPlug", "Red current", true),
+      pricingRuleFixture("red-candidate", "redPlug", "Red candidate", false),
+      pricingRuleFixture("green-current", "greenPlug", "Green current", true),
+      pricingRuleFixture("blue-current", "bluePlug", "Blue current", true),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/auth/auth/me") {
+          return jsonResponse(userFor("OPERATOR"));
+        }
+        if (url.pathname === "/api/billing/pricing/rules" && (!options?.method || options.method === "GET")) {
+          return jsonResponse(rules);
+        }
+        if (url.pathname.startsWith("/api/billing/pricing/rules/") && options?.method === "PATCH") {
+          const ruleId = url.pathname.split("/").pop() as string;
+          const body = JSON.parse(String(options.body ?? "{}")) as { active?: boolean };
+          rules = applyPricingRulesForTest(rules, ruleId, Boolean(body.active));
+          return jsonResponse(rules.find((rule) => rule.id === ruleId));
+        }
+        return jsonResponse(responseFor(url, "OPERATOR", options));
+      }),
+    );
+    window.history.pushState({}, "", "/operator/pricing");
+
+    render(<App />);
+    await vi.dynamicImportSettled();
+
+    expect(await screen.findByRole("heading", { name: /pricing controls/i })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /create pricing rule/i })).toBeInTheDocument();
+    const pricingRulesTab = await screen.findByRole("tab", { name: /pricing rules/i });
+    await userEvent.click(pricingRulesTab);
+    expect(screen.queryByText(/provider-specific rules override global pricing/i)).not.toBeInTheDocument();
+
+    const globalSwitch = await screen.findByRole("switch", { name: /toggle global default pricing rule/i });
+    const redCurrentSwitch = await screen.findByRole("switch", { name: /toggle red current pricing rule/i });
+    const redCandidateSwitch = await screen.findByRole("switch", { name: /toggle red candidate pricing rule/i });
+    const greenSwitch = await screen.findByRole("switch", { name: /toggle green current pricing rule/i });
+    const blueSwitch = await screen.findByRole("switch", { name: /toggle blue current pricing rule/i });
+
+    expect(globalSwitch).toBeChecked();
+    expect(redCurrentSwitch).toBeChecked();
+    expect(redCandidateSwitch).not.toBeChecked();
+    expect(greenSwitch).toBeChecked();
+    expect(blueSwitch).toBeChecked();
+
+    await userEvent.click(redCandidateSwitch);
+
+    expect(await screen.findByText(/red candidate activated/i)).toBeInTheDocument();
+    expect(globalSwitch).not.toBeChecked();
+    expect(redCurrentSwitch).not.toBeChecked();
+    expect(redCandidateSwitch).toBeChecked();
+    expect(greenSwitch).toBeChecked();
+    expect(blueSwitch).toBeChecked();
+
+    await userEvent.click(globalSwitch);
+
+    expect(await screen.findByText(/global default activated/i)).toBeInTheDocument();
+    expect(globalSwitch).toBeChecked();
+    expect(redCurrentSwitch).not.toBeChecked();
+    expect(redCandidateSwitch).not.toBeChecked();
+    expect(greenSwitch).not.toBeChecked();
+    expect(blueSwitch).not.toBeChecked();
   });
 
   it("scopes provider point inventory to the signed-in provider", async () => {
@@ -1075,6 +1201,43 @@ describe("admin role routing", () => {
       .getAllByText(/^completed$/i)
       .filter((element) => element.classList.contains("ui-status-badge"));
     expect(completedBadges[0]).toHaveClass("ui-tone-success");
+  });
+
+  it("shows catalog import progress while an operator import is running", async () => {
+    storeSession("OPERATOR");
+    let resolveImport: (response: Response) => void;
+    const pendingImport = new Promise<Response>((resolve) => {
+      resolveImport = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/catalog/imports/all") {
+          return pendingImport;
+        }
+        return Promise.resolve(new Response(JSON.stringify(responseFor(url, "OPERATOR", options)), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }));
+      }),
+    );
+    window.history.pushState({}, "", "/operator/catalog");
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /^import all$/i }));
+    expect(screen.getByRole("progressbar", { name: /all provider catalog import progress/i })).not.toHaveAttribute("aria-valuenow");
+    expect(screen.getByRole("button", { name: /^import all$/i })).toBeDisabled();
+
+    resolveImport!(new Response(JSON.stringify({ providers: [{ provider_code: "redPlug" }] }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    }));
+
+    expect(await screen.findByText(/catalog import finished for 1 provider/i)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: /all provider catalog import progress/i })).toHaveAttribute("aria-valuenow", "100");
   });
 
   it("blocks EV users from provider-admin routes", async () => {

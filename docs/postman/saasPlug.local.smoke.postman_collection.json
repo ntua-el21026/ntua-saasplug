@@ -18,7 +18,9 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "health"
+              ]
             }
           },
           "event": [
@@ -28,7 +30,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -45,7 +50,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -82,7 +87,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "login"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -108,7 +118,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -125,7 +138,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -160,7 +173,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "login"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -186,7 +204,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -203,7 +224,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -238,7 +259,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "login"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -264,7 +290,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -281,7 +310,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -316,7 +345,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "me"
+              ]
             }
           },
           "event": [
@@ -326,7 +360,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -343,7 +380,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -374,7 +411,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "me"
+              ]
             }
           },
           "event": [
@@ -384,7 +426,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -401,7 +446,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -432,7 +477,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "me"
+              ]
             }
           },
           "event": [
@@ -442,7 +492,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -459,7 +512,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -470,6 +523,151 @@
                   "  pm.expect(json).to.have.property('email');",
                   "  pm.expect(json.roles).to.include('OPERATOR');",
                   "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Role Dashboards",
+      "item": [
+        {
+          "name": "Provider analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/summary?providerCode={{providerCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "provider",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "providerCode",
+                  "value": "{{providerCode}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "operator",
+                "summary"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
                 ]
               }
             }
@@ -495,7 +693,33 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "catalog",
+                "points"
+              ],
+              "query": [
+                {
+                  "key": "centerLat",
+                  "value": "37.9838"
+                },
+                {
+                  "key": "centerLng",
+                  "value": "23.7275"
+                },
+                {
+                  "key": "radiusKm",
+                  "value": "10"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "includeStale",
+                  "value": "true"
+                }
+              ]
             }
           },
           "event": [
@@ -505,7 +729,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -522,7 +749,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -573,7 +800,9 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "{{pointDetailPath}}"
+              ]
             }
           },
           "event": [
@@ -606,7 +835,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -623,7 +855,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -659,7 +891,9 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "{{statusLookupPath}}"
+              ]
             }
           },
           "event": [
@@ -692,7 +926,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -709,7 +946,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -747,7 +984,9 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "{{statusCachePath}}"
+              ]
             }
           },
           "event": [
@@ -780,7 +1019,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -797,7 +1039,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",
@@ -822,129 +1064,6 @@
       ]
     },
     {
-      "name": "Role Dashboards",
-      "item": [
-        {
-          "name": "Provider analytics summary",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{providerAccessToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/analytics/provider/summary?providerCode={{providerCode}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": []
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
-                  "});",
-                  "const forbiddenHosts = [",
-                  "  'davinci.softlab.ntua.gr',",
-                  "  'auth-service',",
-                  "  'catalog-service',",
-                  "  'status-service',",
-                  "  'reservation-service',",
-                  "  'analytics-service',",
-                  "  'billing-service',",
-                  "  'scheduler-service',",
-                  "  'provider-registry-service',",
-                  "  'red-provider-service',",
-                  "  'green-provider-service',",
-                  "  'blue-provider-service'",
-                  "];",
-                  "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
-                  "  forbiddenHosts.forEach(function (host) {",
-                  "    pm.expect(rawUrl, host).to.not.include(host);",
-                  "  });",
-                  "});",
-                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
-                  "if (pm.response.code !== 204 && pm.response.text()) {",
-                  "  pm.test('response body is JSON object', function () {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json).to.be.an('object');",
-                  "  });",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Operator analytics summary",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{operatorAccessToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/analytics/operator/summary",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": []
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
-                  "});",
-                  "const forbiddenHosts = [",
-                  "  'davinci.softlab.ntua.gr',",
-                  "  'auth-service',",
-                  "  'catalog-service',",
-                  "  'status-service',",
-                  "  'reservation-service',",
-                  "  'analytics-service',",
-                  "  'billing-service',",
-                  "  'scheduler-service',",
-                  "  'provider-registry-service',",
-                  "  'red-provider-service',",
-                  "  'green-provider-service',",
-                  "  'blue-provider-service'",
-                  "];",
-                  "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
-                  "  forbiddenHosts.forEach(function (host) {",
-                  "    pm.expect(rawUrl, host).to.not.include(host);",
-                  "  });",
-                  "});",
-                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
-                  "if (pm.response.code !== 204 && pm.response.text()) {",
-                  "  pm.test('response body is JSON object', function () {",
-                  "    const json = pm.response.json();",
-                  "    pm.expect(json).to.be.an('object');",
-                  "  });",
-                  "}"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
       "name": "Negative Sanity",
       "item": [
         {
@@ -957,7 +1076,12 @@
               "host": [
                 "{{baseUrl}}"
               ],
-              "path": []
+              "path": [
+                "api",
+                "auth",
+                "auth",
+                "me"
+              ]
             }
           },
           "event": [
@@ -967,7 +1091,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('request URL uses baseUrl variable', function () {",
-                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "  const baseUrl = pm.environment.get('baseUrl');",
+                  "  const resolvedUrl = pm.request.url.toString();",
+                  "  pm.expect(baseUrl, 'baseUrl').to.be.ok;",
+                  "  pm.expect(resolvedUrl.indexOf(baseUrl)).to.eql(0);",
                   "});",
                   "const forbiddenHosts = [",
                   "  'davinci.softlab.ntua.gr',",
@@ -984,7 +1111,7 @@
                   "  'blue-provider-service'",
                   "];",
                   "pm.test('request URL does not use forbidden hosts', function () {",
-                  "  const rawUrl = pm.request.url.toString();",
+                  "  const rawUrl = pm.request.url.toJSON().raw || pm.request.url.toString();",
                   "  forbiddenHosts.forEach(function (host) {",
                   "    pm.expect(rawUrl, host).to.not.include(host);",
                   "  });",

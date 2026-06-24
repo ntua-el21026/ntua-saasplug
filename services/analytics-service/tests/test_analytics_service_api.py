@@ -127,7 +127,7 @@ def scheduler_headers() -> dict[str, str]:
 def seed_analytics_events(client: TestClient) -> None:
     events = [
         envelope("usage.search_performed", payload={"search_term": "fast charger"}),
-        envelope("usage.point_viewed"),
+        envelope("usage.point_viewed", payload={"status": "available"}),
         envelope("status.point_checked", payload={"status": "available"}),
         envelope(
             "reservation.succeeded",
@@ -377,6 +377,7 @@ def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:
         envelope(
             "usage.point_viewed",
             external_point_id="101",
+            payload={"status": "available"},
             occurred_at=datetime(2026, 6, 10, 9, 0, tzinfo=UTC),
         ),
         envelope(
@@ -388,6 +389,7 @@ def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:
         envelope(
             "usage.point_viewed",
             external_point_id="102",
+            payload={"status": "charging"},
             occurred_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
         ),
         envelope(
@@ -421,7 +423,7 @@ def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:
     assert summary_payload["total_point_views"] == 1
     assert summary_payload["total_status_checks"] == 1
     assert summary_payload["successful_reservations"] == 1
-    assert summary_payload["status_distribution"] == {"reserved": 1}
+    assert summary_payload["status_distribution"] == {"charging": 1}
 
     assert trends.status_code == 200
     assert [row["day_bucket"] for row in trends.json()] == ["2026-06-12"]
@@ -431,7 +433,7 @@ def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:
     assert [row["external_point_id"] for row in top_rows] == ["102"]
 
     assert status_response.status_code == 200
-    assert status_response.json()["status_distribution"] == {"reserved": 1}
+    assert status_response.json()["status_distribution"] == {"charging": 1}
 
 
 def test_ev_user_reads_own_reservation_cost_summary(test_context) -> None:
@@ -604,26 +606,36 @@ def test_repeated_aggregate_refresh_updates_existing_metric_rows(test_context) -
         db.close()
 
 
-def test_latest_point_observations_update_status_distribution(test_context) -> None:
+def test_point_view_statuses_update_status_distribution(test_context) -> None:
     seed_analytics_events(test_context)
 
     response = test_context.get("/provider/status-distribution?providerCode=redPlug", headers=operator_headers())
 
     assert response.status_code == 200
-    assert response.json()["status_distribution"] == {"reserved": 1}
+    assert response.json()["status_distribution"] == {"available": 1}
 
 
-def test_reservation_success_replaces_an_older_point_status_observation(test_context) -> None:
+def test_point_view_status_distribution_counts_view_statuses_not_live_checks(test_context) -> None:
     events = [
         envelope(
-            "status.point_checked",
+            "usage.point_viewed",
             payload={"status": "available"},
+            occurred_at=datetime(2026, 6, 12, 9, 59, tzinfo=UTC),
+        ),
+        envelope(
+            "usage.point_viewed",
+            payload={"status": "reserved"},
             occurred_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        ),
+        envelope(
+            "status.point_checked",
+            payload={"status": "malfunction"},
+            occurred_at=datetime(2026, 6, 12, 10, 1, tzinfo=UTC),
         ),
         envelope(
             "reservation.succeeded",
             payload={"reservation_id": "reservation-1", "status": "succeeded", "provider_status": "reserved"},
-            occurred_at=datetime(2026, 6, 12, 10, 1, tzinfo=UTC),
+            occurred_at=datetime(2026, 6, 12, 10, 2, tzinfo=UTC),
         ),
     ]
 
@@ -633,7 +645,7 @@ def test_reservation_success_replaces_an_older_point_status_observation(test_con
     response = test_context.get("/provider/status-distribution?providerCode=redPlug", headers=operator_headers())
 
     assert response.status_code == 200
-    assert response.json()["status_distribution"] == {"reserved": 1}
+    assert response.json()["status_distribution"] == {"available": 1, "reserved": 1}
 
 
 def test_provider_admin_can_access_only_own_provider_analytics(test_context) -> None:

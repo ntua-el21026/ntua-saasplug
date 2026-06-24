@@ -201,14 +201,14 @@ Provider Admins are always scoped to their own provider.
 Provider analytics must be realistic and useful, but not overly complex. Provider dashboards must include at least:
 
 - total searches involving the provider,
-- total point detail views/clicks,
+- total point views/clicks, including map/list quick views and full detail views,
 - status checks,
 - successful reservations,
 - failed reservations,
 - reservation conversion rate,
 - top viewed charging points,
 - top reserved charging points,
-- status distribution,
+- point views by status,
 - fees/charges owed to saasPlug,
 - invoice/payment status,
 - data freshness indicators,
@@ -1026,8 +1026,8 @@ RabbitMQ is used for:
 - provider catalog sync,
 - provider snapshot readiness,
 - catalog aggregation/import events,
-- catalog search and point-view analytics events after the catalog read has
-  completed,
+- catalog search and point-view analytics events after the relevant catalog
+  read or point-view tracking request has completed,
 - status-check analytics events after the status lookup/log write has
   completed,
 - analytics aggregation,
@@ -1147,10 +1147,12 @@ The following user/system activities publish analytics events:
 
 `catalog-service` publishes `usage.search_performed`,
 `usage.point_viewed`, and `catalog.points.imported` after the relevant catalog
-operation has completed. `status-service` publishes `status.point_checked`
-after a status lookup/log write has completed. These publishers are best-effort:
-a RabbitMQ outage must not make catalog search, point details, or status lookup
-fail after the source service has completed its own request.
+operation has completed. A point view is counted when the EV user opens the
+map/list quick-view popup or the full point-detail page. `status-service`
+publishes `status.point_checked` after a status lookup/log write has completed.
+These publishers are best-effort: a RabbitMQ outage must not make catalog
+search, point views, point details, or status lookup fail after the source
+service has completed its own request.
 
 ## SPEC-5.10 Reservation event flow
 
@@ -1257,7 +1259,7 @@ Provider dashboard includes:
 - reservation conversion rate,
 - top viewed points,
 - top reserved points,
-- status distribution,
+- point views by status,
 - fees/charges generated,
 - unpaid/paid invoice summaries,
 - data freshness,
@@ -1429,6 +1431,12 @@ Operator can edit:
 - provider-specific pricing overrides,
 - point view fee enable/disable,
 - active pricing rule.
+
+At most one global pricing rule and one provider-specific pricing rule per
+provider should be active. Provider-specific active rules override the global
+fallback. Activating a global rule deactivates provider-specific rules; when
+all three providers have active provider-specific rules, the global rule is
+deactivated.
 
 Complex tiers, coupons, subscriptions, and contracts are out of scope.
 
@@ -1776,8 +1784,8 @@ Displayed data:
 
 Reservation flow:
 
-1. EV user opens point details.
-2. EV user clicks reserve.
+1. EV user opens a point quick view from the map/list or opens the full point details.
+2. EV user clicks reserve from the point-detail flow.
 3. EV user chooses duration where supported.
 4. Frontend calls `reservation-service` through gateway.
 5. UI shows immediate success/failure.

@@ -82,6 +82,12 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 053 | 2026-06-24 | Direct implementation prompt from attached text plus user clarification | N/A | Final audit fixes F-001 through F-018, runtime validation, and password shortcut preservation | `completed_with_warnings` | `docs/ai/codex-runs/053-final-audit-fixes-f001-f018.md` |
 | 054 | 2026-06-24 | Direct auth landing UI polish prompt | N/A | Auth hero image, EV-user commercial copy, role shortcut heading, and password guidance cleanup | `completed_with_warnings` | `docs/ai/codex-runs/054-auth-landing-hero-polish.md` |
 | 055 | 2026-06-24 | Direct implementation prompt plus follow-up | N/A | Reservation/status consistency, operator-controlled cache TTL, profile password visibility, and revenue chart currency formatting | `completed` | `docs/ai/codex-runs/055-status-cache-consistency-and-profile-polish.md` |
+| 056 | 2026-06-24 | Direct frontend workflow and landing polish prompt | N/A | Operator catalog import progress, minimal image-led landing page, and map viewport persistence | `completed` | `docs/ai/codex-runs/056-catalog-progress-landing-map-viewport.md` |
+| 057 | 2026-06-25 | Direct UI and analytics/pricing prompt plus follow-up | N/A | EV map fullscreen mode, pricing rule switches, split landing hero, and point views by status analytics | `completed` | `docs/ai/codex-runs/057-map-fullscreen-pricing-status-views.md` |
+| 058 | 2026-06-25 | Direct landing polish prompt | N/A | Remove landing kicker and lower the split hero below the header | `completed` | `docs/ai/codex-runs/058-landing-hero-spacing.md` |
+| 059 | 2026-06-25 | Direct map controls polish prompt plus analytics clarification | N/A | Remove custom map pan/zoom pad, restyle fullscreen as right-side icon control, and clarify point-view status chart behavior | `completed` | `docs/ai/codex-runs/059-map-controls-polish.md` |
+| 060 | 2026-06-25 | Direct product-logic update prompt | N/A | Treat EV map/list quick-view opens as billable and analytic point views | `completed` | `docs/ai/codex-runs/060-map-quick-view-point-events.md` |
+| 060 | 2026-06-25 | Direct operator pricing UI prompt | N/A | Operator pricing page tabs and pricing policy sentence removal | `completed` | `docs/ai/codex-runs/060-operator-pricing-tabs.md` |
 
 ---
 

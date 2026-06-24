@@ -4,7 +4,6 @@ import { AppShell } from "../../components/AppShell";
 import {
   ChargingPointCard,
   MapFilterPanel,
-  MapFloatingControls,
   SelectedFiltersBar,
 } from "../../components/domain/ev";
 import { Alert, EmptyState, LoadingBlock } from "../../components/Feedback";
@@ -21,13 +20,11 @@ import {
   buildCatalogPointsPath,
   catalogSearchCircle,
   catalogQueryRadiusKm,
-  moveBounds,
   pointWithinCatalogSearchCircle,
   sameCatalogSearchCircle,
-  zoomBounds,
   type CatalogResultLimit,
 } from "../../lib/routing";
-import type { Bounds, CatalogFilters, CatalogPointListResponse } from "../../lib/types";
+import type { Bounds, CatalogFilters, CatalogPoint, CatalogPointListResponse } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
 const DEFAULT_FILTERS: CatalogFilters = {
@@ -37,10 +34,11 @@ const DEFAULT_FILTERS: CatalogFilters = {
   connector: "",
   includeStale: false,
 };
+const MAP_VIEWPORT_STORAGE_KEY = "saasplug.catalog.viewport.v1";
 
 export function CatalogPage() {
   const { session } = useAuth();
-  const [bounds, setBounds] = useState<Bounds>(ATHENS_DEFAULT_BOUNDS);
+  const [bounds, setBounds] = useState<Bounds>(readStoredBounds);
   const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
   const [resultLimit, setResultLimit] = useState<CatalogResultLimit>("all");
   const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(null);
@@ -48,7 +46,30 @@ export function CatalogPage() {
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const latestRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    window.sessionStorage.setItem(MAP_VIEWPORT_STORAGE_KEY, JSON.stringify(bounds));
+  }, [bounds]);
+
+  useEffect(() => {
+    if (!fullscreen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [fullscreen]);
 
   const catalogRequest = useMemo(() => ({ bounds, filters, resultLimit }), [bounds, filters, resultLimit]);
 
@@ -113,13 +134,28 @@ export function CatalogPage() {
   const selectedPoint = currentItems.find((point) => point.id === selectedPointId) ?? null;
   const queryRadiusKm = catalogQueryRadiusKm(searchBounds);
 
+  const trackPointView = useCallback((point: CatalogPoint) => {
+    void requestJson<CatalogPoint>(
+      `/api/catalog/points/${encodeURIComponent(point.provider_code)}/${encodeURIComponent(point.external_point_id)}/views`,
+      {
+        method: "POST",
+        accessToken: session?.accessToken,
+        bodyJson: { view_source: "map_quick_view" },
+      },
+    ).catch(() => undefined);
+  }, [session?.accessToken]);
+
+  const handlePointSelect = useCallback((pointId: string) => {
+    setSelectedPointId(pointId);
+    const point = currentItems.find((item) => item.id === pointId);
+    if (point) {
+      trackPointView(point);
+    }
+  }, [currentItems, trackPointView]);
+
   const handleBoundsChange = useCallback((nextBounds: Bounds) => {
     setMapCircleReady(true);
     setBounds((current) => (sameCatalogSearchCircle(current, nextBounds) ? current : nextBounds));
-  }, []);
-
-  const updateBoundsFromControl = useCallback((updater: (current: Bounds) => Bounds) => {
-    setBounds((current) => updater(current));
   }, []);
 
   useEffect(() => {
@@ -134,7 +170,7 @@ export function CatalogPage() {
 
   return (
     <AppShell>
-      <main className="page map-page">
+      <main className={`page map-page ${fullscreen ? "is-map-fullscreen" : ""}`}>
         <section className="map-workspace">
           <aside className="map-results-panel" aria-label="Charging point filters and results">
             <MapFilterPanel
@@ -170,7 +206,7 @@ export function CatalogPage() {
                   key={point.id}
                   point={point}
                   selected={selectedPoint?.id === point.id}
-                  onSelect={() => setSelectedPointId(point.id)}
+                  onSelect={() => handlePointSelect(point.id)}
                 />
               ))}
             </div>
@@ -185,25 +221,27 @@ export function CatalogPage() {
                 </p>
               </div>
             </div>
-            <MapFloatingControls
-              onNorth={() => updateBoundsFromControl((current) => moveBounds(current, "north"))}
-              onSouth={() => updateBoundsFromControl((current) => moveBounds(current, "south"))}
-              onWest={() => updateBoundsFromControl((current) => moveBounds(current, "west"))}
-              onEast={() => updateBoundsFromControl((current) => moveBounds(current, "east"))}
-              onZoomIn={() => updateBoundsFromControl((current) => zoomBounds(current, "in"))}
-              onZoomOut={() => updateBoundsFromControl((current) => zoomBounds(current, "out"))}
-              zoom={bounds.zoom}
-              minZoom={MAP_MIN_ZOOM}
-              maxZoom={MAP_MAX_ZOOM}
-            />
+            <div className="map-fullscreen-control maplibregl-ctrl maplibregl-ctrl-group">
+              <button
+                aria-label={fullscreen ? "Exit fullscreen" : "Full screen"}
+                aria-pressed={fullscreen}
+                className={`map-fullscreen-toggle maplibregl-ctrl-${fullscreen ? "shrink" : "fullscreen"}`}
+                onClick={() => setFullscreen((current) => !current)}
+                title={fullscreen ? "Exit fullscreen" : "Full screen"}
+                type="button"
+              >
+                <span aria-hidden="true" className="maplibregl-ctrl-icon" />
+              </button>
+            </div>
             <CatalogMap
               points={currentItems}
               bounds={bounds}
               searchBounds={searchBounds}
               selectedPointId={selectedPoint?.id}
-              onSelectPoint={setSelectedPointId}
+              onSelectPoint={handlePointSelect}
               onClosePoint={() => setSelectedPointId(null)}
               onBoundsChange={handleBoundsChange}
+              layoutMode={fullscreen ? "fullscreen" : "standard"}
               loading={loading}
             />
           </section>
@@ -256,4 +294,29 @@ async function loadCatalogPoints(
       radius_km: requestCircle.radiusKm,
     },
   };
+}
+
+function readStoredBounds(): Bounds {
+  try {
+    const value = window.sessionStorage.getItem(MAP_VIEWPORT_STORAGE_KEY);
+    if (!value) {
+      return ATHENS_DEFAULT_BOUNDS;
+    }
+    const parsed = JSON.parse(value) as Partial<Bounds>;
+    if (
+      typeof parsed.minLat !== "number" || typeof parsed.maxLat !== "number"
+      || typeof parsed.minLng !== "number" || typeof parsed.maxLng !== "number"
+      || typeof parsed.zoom !== "number" || typeof parsed.radiusKm !== "number"
+      || !Number.isFinite(parsed.minLat) || !Number.isFinite(parsed.maxLat)
+      || !Number.isFinite(parsed.minLng) || !Number.isFinite(parsed.maxLng)
+      || !Number.isFinite(parsed.zoom) || !Number.isFinite(parsed.radiusKm)
+      || parsed.minLat >= parsed.maxLat || parsed.minLng >= parsed.maxLng
+      || parsed.zoom < MAP_MIN_ZOOM || parsed.zoom > MAP_MAX_ZOOM || parsed.radiusKm <= 0
+    ) {
+      return ATHENS_DEFAULT_BOUNDS;
+    }
+    return parsed as Bounds;
+  } catch {
+    return ATHENS_DEFAULT_BOUNDS;
+  }
 }

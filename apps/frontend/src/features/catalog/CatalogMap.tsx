@@ -35,6 +35,7 @@ export function CatalogMap({
   onSelectPoint,
   onClosePoint,
   onBoundsChange,
+  layoutMode = "standard",
   loading = false,
 }: {
   points: CatalogPoint[];
@@ -44,6 +45,7 @@ export function CatalogMap({
   onSelectPoint: (pointId: string) => void;
   onClosePoint: () => void;
   onBoundsChange: (bounds: Bounds) => void;
+  layoutMode?: "standard" | "fullscreen";
   loading?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -173,6 +175,19 @@ export function CatalogMap({
 
     updateRadiusLayer(map, circleBounds);
   }, [circleBounds, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      map.resize();
+      updateRadiusLayer(map, circleBounds);
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, [circleBounds, layoutMode, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;

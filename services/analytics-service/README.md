@@ -146,16 +146,15 @@ Aggregates include:
 - provider hourly metrics,
 - provider daily metrics,
 - point daily metrics,
-- provider status distribution metrics,
+- provider point-view status metrics,
 - operator daily metrics,
 - EV reservation daily metrics.
 
-Status-distribution rows represent the latest normalized observation for each
-provider point in a day, rather than the number of status requests. A
-`reservation.succeeded` event contributes a `reserved` observation and
-supersedes an older same-day status check for that point when it is newer. This
-keeps the provider/operator status mix aligned with completed reservations
-after the normal event-drain and aggregate-refresh cycle.
+Status-distribution rows count map/list quick views and full point-detail views
+by the normalized point status included in each `usage.point_viewed` event.
+They answer how many point views happened while points were `available`,
+`reserved`, `charging`, `malfunction`, `offline`, or `unknown`; live
+status-check events and reservation events do not move this chart.
 
 EV reservation daily metrics are scoped by `user_id` and include total
 reservations, successful/failed counts, successful reserved duration, distinct
@@ -198,7 +197,11 @@ The dashboard endpoints `GET /provider/summary`,
 `GET /provider/status-distribution` accept optional `from` and `to` date query
 parameters in `YYYY-MM-DD` format. The date range is inclusive and filters the
 precomputed provider, point, and status daily aggregate rows returned to the
-frontend.
+frontend. Status distribution rows count `usage.point_viewed` events from
+map/list quick views and full point-detail views by the point status included
+in each view event, so the chart answers "how many point views happened while
+points were available, reserved, charging, malfunctioning, offline, or
+unknown."
 
 Provider-admin analytics endpoints are read-only. Provider pages do not trigger
 queue consumption or aggregate refresh.

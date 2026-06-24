@@ -29,6 +29,7 @@ Gateway route behavior strips `/api/catalog/`, so service-local routes are:
 ```text
 GET  /points
 GET  /points/{provider_code}/{external_point_id}
+POST /points/{provider_code}/{external_point_id}/views
 POST /imports/providers/{provider_code}
 POST /imports/all
 GET  /imports/runs
@@ -194,7 +195,7 @@ RabbitMQ topology:
 | Event | Published after | Notes |
 |---|---|---|
 | `usage.search_performed` | First page of `GET /points` completes | Includes filters, matched provider codes, result count, and authenticated user id when a bearer token is present |
-| `usage.point_viewed` | `GET /points/{provider_code}/{external_point_id}` returns an active point | Includes provider, normalized point id, external point id, point name, and authenticated user id when available |
+| `usage.point_viewed` | `GET /points/{provider_code}/{external_point_id}` returns an active point, or `POST /points/{provider_code}/{external_point_id}/views` records a map/list quick view | Includes provider, normalized point id, external point id, point name, point status, view source, and authenticated user id when available |
 | `catalog.points.imported` | A provider import completes successfully | Includes provider/import counts for analytics catalog-health projections |
 
 Event publishing is best-effort and non-blocking for user-facing catalog reads.
