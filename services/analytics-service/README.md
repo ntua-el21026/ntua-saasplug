@@ -263,7 +263,18 @@ does not silently count as zero.
 
 ## CSV export
 
-CSV export columns:
+Provider-admin CSV export columns are intentionally minimized:
+
+```text
+occurred_at,event_type,provider_code,internal_point_id,external_point_id,point_name,status,amount,currency,reservation_reference
+```
+
+The provider export omits direct `user_id`, direct `reservation_id`, and raw
+event `details`. `reservation_reference` is a stable short hash for provider
+reconciliation without exposing the underlying EV user or reservation
+identifier.
+
+Operator exports remain richer and include:
 
 ```text
 occurred_at,event_type,provider_code,internal_point_id,external_point_id,point_name,user_id,reservation_id,status,amount,currency,details
@@ -301,7 +312,13 @@ ANALYTICS_RABBITMQ_CONSUME_BATCH_SIZE
 ANALYTICS_RABBITMQ_CONSUME_TIMEOUT_SECONDS
 ANALYTICS_RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP
 SCHEDULER_INTERNAL_TOKEN
+SAASPLUG_STRICT_SECRETS
+APP_ENV
 ```
+
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT, scheduler-token, and RabbitMQ credential values are rejected
+at startup.
 
 ## Tests
 

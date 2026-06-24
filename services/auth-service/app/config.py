@@ -2,7 +2,13 @@ import os
 from dataclasses import dataclass
 
 
-PLACEHOLDER_VALUES = {"", "replace-me", "change-me", "change-me-in-local-env"}
+PLACEHOLDER_VALUES = {
+    "",
+    "replace-me",
+    "change-me",
+    "change-me-in-local-env",
+    "change-me-demo-password",
+}
 
 
 def _get_int_env(name: str, default: int) -> int:
@@ -15,11 +21,28 @@ def _get_int_env(name: str, default: int) -> int:
         return default
 
 
+def _get_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def is_placeholder(value: str | None) -> bool:
     if value is None:
         return True
     normalized = value.strip()
     return normalized in PLACEHOLDER_VALUES or normalized.startswith("change-me")
+
+
+def strict_secret_validation_enabled() -> bool:
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    return _get_bool_env("SAASPLUG_STRICT_SECRETS", False) or app_env in {"production", "demo"}
+
+
+def validate_required_secret(name: str, value: str | None) -> None:
+    if is_placeholder(value):
+        raise RuntimeError(f"{name} must be set to a non-placeholder value when strict secret validation is enabled")
 
 
 @dataclass(frozen=True)
@@ -30,6 +53,7 @@ class Settings:
     jwt_access_token_expire_minutes: int
     jwt_refresh_token_expire_days: int
     demo_user_password: str
+    reset_demo_users_on_startup: bool
     google_client_id: str
     google_client_secret: str
     google_redirect_uri: str
@@ -49,7 +73,7 @@ class Settings:
 
 
 def get_settings() -> Settings:
-    return Settings(
+    settings = Settings(
         service_name=os.getenv("SERVICE_NAME", "auth-service"),
         database_url=os.getenv(
             "DATABASE_URL",
@@ -65,6 +89,7 @@ def get_settings() -> Settings:
             "DEMO_USER_PASSWORD",
             "change-me-demo-password",
         ),
+        reset_demo_users_on_startup=_get_bool_env("RESET_DEMO_USERS_ON_STARTUP", False),
         google_client_id=os.getenv("GOOGLE_CLIENT_ID", "replace-me"),
         google_client_secret=os.getenv("GOOGLE_CLIENT_SECRET", "replace-me"),
         google_redirect_uri=os.getenv(
@@ -76,3 +101,7 @@ def get_settings() -> Settings:
             "http://localhost:8080/login/google/callback",
         ),
     )
+    if strict_secret_validation_enabled():
+        validate_required_secret("JWT_SECRET", settings.jwt_secret)
+        validate_required_secret("DEMO_USER_PASSWORD", settings.demo_user_password)
+    return settings

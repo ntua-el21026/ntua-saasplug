@@ -481,7 +481,11 @@ Flow:
 frontend -> nginx-gateway -> reservation-service -> provider service -> external provider API
 ```
 
-After the provider call returns, `reservation-service` stores the result and publishes events for analytics and billing.
+Before the external provider mutation, `reservation-service` may store a durable
+idempotency/attempt journal and acquire a same-point in-flight guard. This is
+not a queue and does not defer the provider call. After the provider call
+returns, `reservation-service` stores the reservation result and stages outbox
+events for analytics and billing.
 
 ## SPEC-2.11 Missing values and timeout policy
 
@@ -492,7 +496,7 @@ After the provider call returns, `reservation-service` stores the result and pub
 | Missing status | Display `unknown`. |
 | Status provider timeout | Return last known status if available with warning/freshness indicator. |
 | Reservation provider timeout | Store failed/unknown attempt and return clear message. |
-| Provider 400/404/500 | Normalize to internal error response. |
+| Provider 400/404/500 | Normalize to internal error response; provider already-reserved/unavailable responses return a conflict-style reservation error. |
 | Sync failure | Store failed sync run, retry, preserve previous catalog. |
 
 Raw provider errors must not be shown directly to users.
@@ -959,7 +963,10 @@ Duplicated data is never the source of truth unless the owning service says so.
 
 ## SPEC-4.14 Migrations and seed data
 
-Each stateful service owns its own migrations and seed data.
+Each stateful service owns its schema/model definitions and seed data. For the
+coursework MVP/local Docker runtime, services initialize schemas with
+SQLAlchemy `Base.metadata.create_all` for deterministic setup. Alembic-style
+migrations remain deferred as a production hardening item.
 
 Seed data must include where relevant:
 
@@ -1313,11 +1320,16 @@ including EV reservation daily metrics.
 
 Provider Admin can export only own provider logs. Operator can export all or by provider.
 
-CSV columns should include:
+Provider-admin CSV export is minimized to provider-relevant operational fields
+and must not include direct user IDs or raw event payload JSON. Provider export
+columns should include:
 
 ```text
-occurred_at,event_type,provider_code,internal_point_id,external_point_id,point_name,user_id,reservation_id,status,amount,currency,details
+occurred_at,event_type,provider_code,internal_point_id,external_point_id,point_name,status,amount,currency,reservation_reference
 ```
+
+Operator export may include richer audit columns such as `user_id`,
+`reservation_id`, and sanitized raw details because it is operator-scoped.
 
 ## SPEC-6.11 Data freshness indicators
 
@@ -1468,7 +1480,8 @@ Payment flow:
 
 1. Provider Admin opens issued unpaid invoice.
 2. Provider Admin clicks pay.
-3. `billing-service` creates payment record.
+3. `billing-service` locks the invoice where supported, verifies no successful
+   payment already exists, and creates one payment record.
 4. Invoice becomes `paid`.
 5. Invoice charges become `paid`.
 6. `billing.invoice_paid` event is published.
@@ -1816,7 +1829,7 @@ Accepted.
 | Gateway/reverse proxy | Nginx |
 | API style | REST + JSON |
 | Data validation | Pydantic |
-| DB access | SQLAlchemy or SQLModel + Alembic |
+| DB access | SQLAlchemy/SQLModel models with local `create_all`; Alembic deferred for production hardening |
 | Containerization | Docker + Docker Compose |
 | Diagrams | PlantUML |
 | Backend tests | pytest |
@@ -1918,7 +1931,7 @@ Suggested internal ports:
 | `analytics-service` | 8040 |
 | `billing-service` | 8050 |
 | RabbitMQ AMQP | 5672 |
-| RabbitMQ management | 15672, dev only if exposed |
+| RabbitMQ management | 127.0.0.1:15672 in local Docker Compose, dev only |
 | PostgreSQL containers | 5432 internal each |
 
 ## SPEC-10.7 Gateway routes

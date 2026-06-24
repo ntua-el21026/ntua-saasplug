@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
@@ -10,7 +10,8 @@ from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.importer import synthetic_coordinates
 from app.main import app
-from app.models import CatalogImportRun, CatalogPoint, utcnow
+from app.models import CatalogImportLock, CatalogImportRun, CatalogPoint, utcnow
+from app.provider_client import ProviderServiceError
 from app.schemas import ProviderPointDTO, ProviderSyncSummaryDTO
 from saasplug_events.routing import EventType
 
@@ -66,11 +67,18 @@ class FakeProviderServiceClient:
                 provider_point("bluePlug", "301", "reserved", "Blue Hub", "1 Blue Street", "CHAdeMO"),
             ],
         }
+        self.sync_failures: dict[str, ProviderServiceError] = {}
+        self.sync_calls: list[str] = []
+        self.list_calls: list[str] = []
 
     def close(self) -> None:
         return None
 
     def sync_provider(self, provider_code: str) -> ProviderSyncSummaryDTO:
+        self.sync_calls.append(provider_code)
+        failure = self.sync_failures.get(provider_code)
+        if failure is not None:
+            raise failure
         return ProviderSyncSummaryDTO(
             provider_code=provider_code,
             status="completed",
@@ -80,6 +88,7 @@ class FakeProviderServiceClient:
         )
 
     def list_points(self, provider_code: str) -> list[ProviderPointDTO]:
+        self.list_calls.append(provider_code)
         return [ProviderPointDTO.model_validate(point) for point in self.points_by_provider[provider_code]]
 
     def get_provider(self, provider_code: str) -> dict:
@@ -107,6 +116,8 @@ def auth_headers(roles: list[str], email: str, provider_code: str | None = None)
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'catalog-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "catalog-service")
     monkeypatch.setenv("JWT_SECRET", "catalog-test-secret")
@@ -171,6 +182,89 @@ def test_operator_can_import_one_provider_from_fake_provider_service(test_contex
     assert payload["provider_code"] == "redPlug"
     assert payload["status"] == "completed"
     assert payload["catalog_upserted_count"] == 2
+
+
+def test_import_rejects_same_provider_when_lock_is_active(test_context) -> None:
+    client, fake_client = test_context
+    db = get_session_factory()()
+    try:
+        db.add(
+            CatalogImportLock(
+                provider_code="redPlug",
+                owner_run_id="running-import-run",
+                acquired_at=utcnow(),
+                expires_at=utcnow() + timedelta(hours=1),
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["provider_code"] == "redPlug"
+    assert fake_client.sync_calls == []
+    db = get_session_factory()()
+    try:
+        import_run = db.query(CatalogImportRun).one()
+        assert import_run.status == "skipped"
+    finally:
+        db.close()
+
+
+def test_provider_import_lock_does_not_block_different_provider(test_context) -> None:
+    client, fake_client = test_context
+    db = get_session_factory()()
+    try:
+        db.add(
+            CatalogImportLock(
+                provider_code="redPlug",
+                owner_run_id="running-import-run",
+                acquired_at=utcnow(),
+                expires_at=utcnow() + timedelta(hours=1),
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/imports/providers/greenPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["provider_code"] == "greenPlug"
+    assert fake_client.sync_calls == ["greenPlug"]
+
+
+def test_provider_import_lock_releases_after_failure(test_context) -> None:
+    client, fake_client = test_context
+    fake_client.sync_failures["redPlug"] = ProviderServiceError("redPlug", "provider_sync_failed", "sync failed")
+
+    failed_response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+    fake_client.sync_failures.clear()
+    retry_response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert failed_response.status_code == 502
+    assert retry_response.status_code == 200
+    db = get_session_factory()()
+    try:
+        assert db.query(CatalogImportLock).count() == 0
+        statuses = [run.status for run in db.query(CatalogImportRun).order_by(CatalogImportRun.started_at.asc()).all()]
+        assert statuses == ["failed", "completed"]
+    finally:
+        db.close()
 
 
 def test_successful_import_publishes_catalog_imported_event(test_context, monkeypatch) -> None:
@@ -522,6 +616,15 @@ def test_points_endpoint_rejects_partial_radius_parameters(test_context) -> None
 
     assert response.status_code == 400
     assert response.json()["detail"] == "All radius parameters must be provided"
+
+
+def test_points_endpoint_rejects_too_large_radius(test_context) -> None:
+    client, _ = test_context
+    import_red(client)
+
+    response = client.get("/points?centerLat=37.985&centerLng=23.78&radiusKm=10.1")
+
+    assert response.status_code == 422
 
 
 def test_points_endpoint_rejects_unsupported_provider_filter(test_context) -> None:

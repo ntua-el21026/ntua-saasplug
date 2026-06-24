@@ -11,6 +11,7 @@ class CurrentPrincipal(BaseModel):
 
 class ReservationCreateRequest(BaseModel):
     duration_minutes: int = Field(default=60, ge=1, le=1440)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class CatalogPointDTO(BaseModel):

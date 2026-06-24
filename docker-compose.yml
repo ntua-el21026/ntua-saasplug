@@ -80,6 +80,8 @@ services:
       context: ./services/auth-service
     environment:
       SERVICE_NAME: auth-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${AUTH_DATABASE_URL:-postgresql://saasplug:saasplug@auth-postgres:5432/auth}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
@@ -107,6 +109,8 @@ services:
       context: ./services/provider-registry-service
     environment:
       SERVICE_NAME: provider-registry-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${PROVIDER_REGISTRY_DATABASE_URL:-postgresql://saasplug:saasplug@provider-registry-postgres:5432/provider_registry}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       PROVIDER_API_TIMEOUT_SECONDS: ${PROVIDER_API_TIMEOUT_SECONDS:-10}
@@ -207,6 +211,8 @@ services:
       dockerfile: services/catalog-service/Dockerfile
     environment:
       SERVICE_NAME: catalog-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${CATALOG_DATABASE_URL:-postgresql://saasplug:saasplug@catalog-postgres:5432/catalog}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
@@ -237,6 +243,8 @@ services:
       dockerfile: services/status-service/Dockerfile
     environment:
       SERVICE_NAME: status-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${STATUS_DATABASE_URL:-postgresql://saasplug:saasplug@status-postgres:5432/status}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
@@ -266,6 +274,8 @@ services:
       dockerfile: services/reservation-service/Dockerfile
     environment:
       SERVICE_NAME: reservation-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${RESERVATION_DATABASE_URL:-postgresql://saasplug:saasplug@reservation-postgres:5432/reservation}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
@@ -297,6 +307,8 @@ services:
       dockerfile: services/analytics-service/Dockerfile
     environment:
       SERVICE_NAME: analytics-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${ANALYTICS_DATABASE_URL:-postgresql://saasplug:saasplug@analytics-postgres:5432/analytics}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
@@ -323,6 +335,8 @@ services:
       dockerfile: services/billing-service/Dockerfile
     environment:
       SERVICE_NAME: billing-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       DATABASE_URL: ${BILLING_DATABASE_URL:-postgresql://saasplug:saasplug@billing-postgres:5432/billing}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
       RABBITMQ_EVENT_EXCHANGE: ${RABBITMQ_EVENT_EXCHANGE:-saasplug.events}
@@ -355,6 +369,8 @@ services:
       dockerfile: services/scheduler-service/Dockerfile
     environment:
       SERVICE_NAME: scheduler-service
+      APP_ENV: ${APP_ENV:-development}
+      SAASPLUG_STRICT_SECRETS: ${SAASPLUG_STRICT_SECRETS:-false}
       SCHEDULER_DATABASE_URL: ${SCHEDULER_DATABASE_URL:-postgresql://saasplug:saasplug@scheduler-postgres:5432/scheduler}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-local-env}
       SCHEDULER_TICK_SECONDS: ${SCHEDULER_TICK_SECONDS:-15}
@@ -402,7 +418,7 @@ services:
         chmod 400 /var/lib/rabbitmq/.erlang.cookie
         exec gosu rabbitmq /usr/local/bin/docker-entrypoint.sh rabbitmq-server
     ports:
-      - "15672:15672"
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     networks:

@@ -33,8 +33,9 @@ provider-management routes under `/api/provider-registry/...` and
 
 ## Seeded providers
 
-Startup seeding creates or updates the three canonical providers
-idempotently:
+Startup seeding inserts missing canonical providers idempotently. It does not
+overwrite existing provider display names, activation state, configuration
+metadata, or operator/provider-admin edits.
 
 | Provider code | Display name | API key environment variable |
 |---|---|---|
@@ -120,6 +121,17 @@ safe metadata such as:
 
 Integration-config responses expose `api_key_env_var` and whether a secret is
 expected to be configured elsewhere. They must not expose raw provider secrets.
+
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT values are rejected at startup.
+
+Relevant security variables:
+
+```text
+JWT_SECRET
+SAASPLUG_STRICT_SECRETS
+APP_ENV
+```
 
 ## Local commands
 

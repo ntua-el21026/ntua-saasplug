@@ -18,6 +18,7 @@ Tables created by the service at MVP startup:
 | `catalog_points` | Aggregated normalized point rows across `redPlug`, `greenPlug`, and `bluePlug` |
 | `catalog_import_runs` | Provider import run records, counts, status, and errors |
 | `catalog_point_changes` | Simple change metadata for created, updated, and stale/inactive points |
+| `catalog_import_locks` | Short-lived provider-level import locks used to reject overlapping imports for the same provider |
 
 ## Exposure
 
@@ -67,16 +68,24 @@ read provider databases and does not call external provider APIs directly.
 
 Each import:
 
-1. creates a `catalog_import_runs` row with status `running`;
-2. triggers the provider-service sync endpoint;
-3. reads the provider-service normalized point snapshots;
-4. upserts catalog rows by `(provider_code, external_point_id)`;
-5. records simple point-change metadata when fields change;
-6. marks provider points missing from the latest import as `is_active=false`
+1. acquires a short-lived provider-level import lock;
+2. creates a `catalog_import_runs` row with status `running`;
+3. triggers the provider-service sync endpoint;
+4. reads the provider-service normalized point snapshots;
+5. upserts catalog rows by `(provider_code, external_point_id)`;
+6. records simple point-change metadata when fields change;
+7. marks provider points missing from the latest import as `is_active=false`
    and `is_stale=true`;
-7. records final counts and completion/failure status.
-8. publishes a best-effort `catalog.points.imported` analytics event after a
+8. records final counts and completion/failure status;
+9. releases the provider-level import lock;
+10. publishes a best-effort `catalog.points.imported` analytics event after a
    successful import.
+
+If an import is already active for the same provider, the single-provider API
+returns HTTP 409 and the all-provider API reports that provider as `skipped`.
+Imports for different providers may proceed independently. Locks have a
+bounded stale timeout so a failed process does not permanently block future
+imports.
 
 Raw provider payloads are stored in `catalog_points.raw_provider_payload`, but
 sensitive-looking keys such as API keys, tokens, passwords, and authorization
@@ -125,9 +134,10 @@ offset
 
 If any bounds are supplied, all four bounds are required. If any radius
 parameter is supplied, `centerLat`, `centerLng`, and `radiusKm` are all
-required. Radius queries use a SQL bounding-box prefilter followed by exact
-Haversine distance filtering before `total`, `limit`, and `offset` are applied,
-so returned rows are inside the requested circle. Radius responses include
+required. Radius queries are capped at 10 km to prevent accidental broad map
+loads. They use a SQL bounding-box prefilter followed by exact Haversine
+distance filtering before `total`, `limit`, and `offset` are applied, so
+returned rows are inside the requested circle. Radius responses include
 `search_circle` with the exact center and radius applied by the service.
 Coordinate-less rows do not match bounded or radius queries. The default result
 set includes only active, non-stale points. `q` searches display name, location
@@ -166,10 +176,15 @@ RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
 RABBITMQ_EVENT_EXCHANGE=saasplug.events
 RABBITMQ_PUBLISH_TIMEOUT_SECONDS=5
 CATALOG_RABBITMQ_EVENT_PUBLISH_ENABLED=true
+SAASPLUG_STRICT_SECRETS=false
+APP_ENV=local
 ```
 
 `CATALOG_IMPORT_ON_STARTUP` intentionally defaults to `false` so normal stack
 startup does not surprise-call provider sync endpoints.
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT, scheduler-token, and RabbitMQ credential values are rejected
+at startup.
 
 ## Analytics events
 

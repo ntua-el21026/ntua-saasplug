@@ -78,27 +78,6 @@ def seed_providers(db: Session, settings: Settings) -> None:
             )
             continue
 
-        changed_fields: dict[str, dict[str, object]] = {}
-        for field in (
-            "display_name",
-            "legal_name",
-            "contact_email",
-            "api_base_url",
-            "api_key_env_var",
-            "api_auth_type",
-            "api_auth_header",
-            "timeout_seconds",
-            "is_active",
-            "is_seeded",
-        ):
-            new_value = seed_provider[field]
-            old_value = getattr(provider, field)
-            if old_value != new_value:
-                setattr(provider, field, new_value)
-                changed_fields[field] = {"old": old_value, "new": new_value}
-        if changed_fields:
-            record_audit_log(db, provider, "seed_updated", changed_fields)
-
     db.commit()
 
 

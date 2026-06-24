@@ -126,6 +126,8 @@ def event_json(event: EventEnvelope) -> dict:
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'billing-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "billing-service")
     monkeypatch.setenv("JWT_SECRET", "billing-test-secret")
@@ -324,6 +326,27 @@ def test_reservation_failed_is_recorded_and_skipped_by_default(test_context) -> 
         db.close()
 
 
+def test_provider_unavailable_failed_reservation_is_not_billed(test_context) -> None:
+    event = envelope(
+        "reservation.failed",
+        payload={
+            "status": "failed",
+            "error_type": "provider_http_error",
+            "external_status_code": 409,
+        },
+    )
+
+    response = ingest(test_context, event)
+
+    assert response.status_code == 200
+    assert response.json()["skipped_count"] == 1
+    db = get_session_factory()()
+    try:
+        assert db.query(ChargeRecord).count() == 0
+    finally:
+        db.close()
+
+
 def test_usage_point_viewed_charges_only_when_enabled(test_context) -> None:
     enabled_event = envelope("usage.point_viewed", payload={"reservation_id": None})
     assert ingest(test_context, enabled_event).json()["charged_count"] == 1
@@ -429,6 +452,39 @@ def test_repaying_paid_invoice_returns_conflict(test_context) -> None:
     assert response.json()["detail"]["error_type"] == "invoice_already_paid"
 
 
+def test_existing_succeeded_payment_blocks_duplicate_payment(test_context) -> None:
+    assert ingest(test_context, envelope("reservation.succeeded")).status_code == 200
+    invoice_id = issue_invoice_for_red(test_context).json()["id"]
+    db = get_session_factory()()
+    try:
+        invoice = db.get(Invoice, invoice_id)
+        assert invoice is not None
+        db.add(
+            Payment(
+                invoice_id=invoice.id,
+                provider_code=invoice.provider_code,
+                amount=invoice.total_amount,
+                currency=invoice.currency,
+                status="succeeded",
+                mock_payment_reference="PREEXISTING-PAYMENT",
+                paid_by_email="red-admin@saasplug.local",
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = test_context.post(f"/invoices/{invoice_id}/pay", headers=red_admin_headers())
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "duplicate_invoice_payment"
+    db = get_session_factory()()
+    try:
+        assert db.query(Payment).count() == 1
+    finally:
+        db.close()
+
+
 def test_operator_and_provider_billing_overviews_return_expected_totals(test_context) -> None:
     assert ingest(test_context, envelope("reservation.succeeded")).status_code == 200
     invoice_id = issue_invoice_for_red(test_context).json()["id"]
@@ -445,7 +501,7 @@ def test_operator_and_provider_billing_overviews_return_expected_totals(test_con
     assert provider_response.json()["effective_pricing"]["currency"] == "EUR"
 
 
-def test_provider_admin_can_refresh_own_billing_data(test_context, monkeypatch) -> None:
+def test_operator_only_provider_refresh_drains_billing_data(test_context, monkeypatch) -> None:
     captured: dict[str, int] = {}
 
     def fake_consume_billing_events(settings, db, limit):
@@ -459,8 +515,8 @@ def test_provider_admin_can_refresh_own_billing_data(test_context, monkeypatch) 
 
     monkeypatch.setattr(routes, "consume_billing_events", fake_consume_billing_events)
 
-    response = test_context.post("/providers/redPlug/refresh?limit=100", headers=red_admin_headers())
-    other_provider_response = test_context.post("/providers/greenPlug/refresh", headers=red_admin_headers())
+    response = test_context.post("/providers/redPlug/refresh?limit=100", headers=operator_headers())
+    provider_response = test_context.post("/providers/redPlug/refresh", headers=red_admin_headers())
     ev_response = test_context.post("/providers/redPlug/refresh", headers=ev_headers())
 
     assert response.status_code == 200
@@ -469,7 +525,7 @@ def test_provider_admin_can_refresh_own_billing_data(test_context, monkeypatch) 
     assert payload["provider_code"] == "redPlug"
     assert payload["drained"]["ack_count"] == 1
     assert payload["drained"]["charged_count"] == 1
-    assert other_provider_response.status_code == 403
+    assert provider_response.status_code == 403
     assert ev_response.status_code == 403
 
 

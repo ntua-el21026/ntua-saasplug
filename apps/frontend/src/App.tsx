@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AccessDenied } from "./components/AccessDenied";
@@ -6,32 +6,31 @@ import { AuthProvider, useAuth } from "./features/auth/AuthContext";
 import { GoogleCallbackPage } from "./features/auth/GoogleCallbackPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { LogoutPage } from "./features/auth/LogoutPage";
-import { ProfilePage } from "./features/auth/ProfilePage";
 import { ProviderRegistrationPage } from "./features/auth/ProviderRegistrationPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
-import {
-  OperatorAnalyticsPage,
-  OperatorCatalogPage,
-  OperatorDashboardPage,
-  OperatorInvoicesPage,
-  OperatorIssueInvoicePage,
-  OperatorPricingPage,
-  OperatorProvidersPage,
-  OperatorSyncPage,
-  OperatorSystemPage,
-  ProviderAnalyticsPage,
-  ProviderDashboardPage,
-  ProviderExportPage,
-  ProviderInvoiceDetailPage,
-  ProviderInvoicesPage,
-  ProviderPointsPage,
-  ProviderSettingsPage,
-} from "./features/admin/AdminPages";
-import { CatalogPage } from "./features/catalog/CatalogPage";
-import { PointDetailPage } from "./features/catalog/PointDetailPage";
 import { LandingPage } from "./features/landing/LandingPage";
-import { ReservationsPage } from "./features/reservations/ReservationsPage";
 import type { Role } from "./lib/types";
+
+const ProfilePage = lazy(() => import("./features/auth/ProfilePage").then((module) => ({ default: module.ProfilePage })));
+const CatalogPage = lazy(() => import("./features/catalog/CatalogPage").then((module) => ({ default: module.CatalogPage })));
+const PointDetailPage = lazy(() => import("./features/catalog/PointDetailPage").then((module) => ({ default: module.PointDetailPage })));
+const ReservationsPage = lazy(() => import("./features/reservations/ReservationsPage").then((module) => ({ default: module.ReservationsPage })));
+const OperatorAnalyticsPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorAnalyticsPage })));
+const OperatorCatalogPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorCatalogPage })));
+const OperatorDashboardPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorDashboardPage })));
+const OperatorInvoicesPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorInvoicesPage })));
+const OperatorIssueInvoicePage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorIssueInvoicePage })));
+const OperatorPricingPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorPricingPage })));
+const OperatorProvidersPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorProvidersPage })));
+const OperatorSyncPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorSyncPage })));
+const OperatorSystemPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.OperatorSystemPage })));
+const ProviderAnalyticsPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderAnalyticsPage })));
+const ProviderDashboardPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderDashboardPage })));
+const ProviderExportPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderExportPage })));
+const ProviderInvoiceDetailPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderInvoiceDetailPage })));
+const ProviderInvoicesPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderInvoicesPage })));
+const ProviderPointsPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderPointsPage })));
+const ProviderSettingsPage = lazy(() => import("./features/admin/AdminPages").then((module) => ({ default: module.ProviderSettingsPage })));
 
 function HomeRedirect() {
   const { session, bootstrapping } = useAuth();
@@ -98,12 +97,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="/auth" element={<LoginPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/login/google/callback" element={<GoogleCallbackPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+        <Suspense fallback={<div className="page-loader">Loading page...</div>}>
+          <Routes>
+            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/auth" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login/google/callback" element={<GoogleCallbackPage />} />
+            <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/provider-register"
             element={
@@ -333,8 +333,9 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

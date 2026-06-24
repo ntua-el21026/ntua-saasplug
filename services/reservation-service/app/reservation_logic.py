@@ -1,11 +1,24 @@
 import math
+from datetime import timezone, datetime, timedelta
+from hashlib import sha256
+import json
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.catalog_client import CatalogServiceClient, CatalogServiceError
 from app.config import PROVIDER_CODES
-from app.models import Reservation, ReservationAttempt, ReservationEventOutbox, utcnow
+from app.models import (
+    Reservation,
+    ReservationAttempt,
+    ReservationEventOutbox,
+    ReservationIdempotencyRecord,
+    ReservationPointLock,
+    new_id,
+    utcnow,
+)
 from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import (
     CatalogPointDTO,
@@ -18,6 +31,16 @@ from app.schemas import (
 
 
 ESTIMATE_BASIS_RATED_POWER = "rated_power_duration_estimate"
+POINT_LOCK_TTL_SECONDS = 5 * 60
+PROVIDER_AVAILABILITY_CONFLICT_EXTERNAL_CODES = {400, 404, 409}
+PROVIDER_AVAILABILITY_CONFLICT_TYPES = {
+    "provider_already_reserved",
+    "provider_unavailable",
+    "provider_conflict",
+    "point_already_reserved",
+    "point_unavailable",
+}
+CHARGER_UNAVAILABLE_MESSAGE = "This charger is no longer available. Refresh status or choose another point."
 
 
 class ReservationFlowError(Exception):
@@ -27,9 +50,54 @@ class ReservationFlowError(Exception):
         self.detail = detail
 
 
+class ReservationReplay(Exception):
+    def __init__(self, reservation: Reservation) -> None:
+        super().__init__(reservation.id)
+        self.reservation = reservation
+
+
 def validate_provider_code(provider_code: str) -> None:
     if provider_code not in PROVIDER_CODES:
         raise ValueError(f"Unsupported provider code: {provider_code}")
+
+
+def normalize_idempotency_key(idempotency_key: str | None) -> str | None:
+    if idempotency_key is None:
+        return None
+    normalized = idempotency_key.strip()
+    if not normalized:
+        return None
+    if len(normalized) > 128:
+        raise ReservationFlowError(
+            400,
+            {
+                "error_type": "invalid_idempotency_key",
+                "message": "Idempotency key must be 128 characters or fewer",
+            },
+        )
+    return normalized
+
+
+def reservation_request_fingerprint(
+    principal: CurrentPrincipal,
+    provider_code: str,
+    external_point_id: str,
+    duration_minutes: int,
+) -> str:
+    payload = {
+        "user_id": principal.sub,
+        "provider_code": provider_code,
+        "external_point_id": external_point_id,
+        "duration_minutes": duration_minutes,
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def ensure_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 def reservation_response(reservation: Reservation) -> ReservationResponse:
@@ -104,7 +172,15 @@ def outbox_response(event: ReservationEventOutbox) -> OutboxEventResponse:
     )
 
 
-def safe_provider_failure_message(error_type: str) -> str:
+def is_provider_availability_conflict(error: ProviderServiceError) -> bool:
+    if error.error_type in PROVIDER_AVAILABILITY_CONFLICT_TYPES:
+        return True
+    return error.external_status_code in PROVIDER_AVAILABILITY_CONFLICT_EXTERNAL_CODES
+
+
+def safe_provider_failure_message(error_type: str, external_status_code: int | None = None) -> str:
+    if error_type in PROVIDER_AVAILABILITY_CONFLICT_TYPES or external_status_code in PROVIDER_AVAILABILITY_CONFLICT_EXTERNAL_CODES:
+        return CHARGER_UNAVAILABLE_MESSAGE
     if error_type == "provider_timeout":
         return "Provider reservation outcome unknown"
     return "Provider reservation request failed"
@@ -193,6 +269,210 @@ def base_attempt(
         result_status="failed",
         started_at=utcnow(),
     )
+
+
+def get_or_create_idempotency_record(
+    db: Session,
+    principal: CurrentPrincipal,
+    provider_code: str,
+    external_point_id: str,
+    duration_minutes: int,
+    idempotency_key: str | None,
+) -> ReservationIdempotencyRecord | None:
+    normalized_key = normalize_idempotency_key(idempotency_key)
+    if normalized_key is None:
+        return None
+
+    fingerprint = reservation_request_fingerprint(principal, provider_code, external_point_id, duration_minutes)
+    existing = db.scalar(
+        select(ReservationIdempotencyRecord).where(
+            ReservationIdempotencyRecord.idempotency_key == normalized_key,
+        ),
+    )
+    if existing is not None:
+        if existing.user_id != principal.sub or existing.request_fingerprint != fingerprint:
+            raise ReservationFlowError(
+                409,
+                {
+                    "error_type": "idempotency_key_conflict",
+                    "message": "Idempotency key was already used for a different reservation request",
+                },
+            )
+        if existing.status == "in_progress":
+            raise ReservationFlowError(
+                409,
+                {
+                    "error_type": "reservation_request_in_progress",
+                    "message": "Reservation request is already in progress",
+                },
+            )
+        if existing.reservation_id:
+            reservation = db.get(Reservation, existing.reservation_id)
+            if reservation is not None and existing.status == "succeeded":
+                raise ReservationReplay(reservation)
+        if existing.error_detail and existing.response_status_code:
+            raise ReservationFlowError(existing.response_status_code, existing.error_detail)
+        raise ReservationFlowError(
+            409,
+            {
+                "error_type": "idempotency_key_replay_unavailable",
+                "message": "The previous reservation result for this key is unavailable",
+            },
+        )
+
+    record = ReservationIdempotencyRecord(
+        idempotency_key=normalized_key,
+        request_fingerprint=fingerprint,
+        user_id=principal.sub,
+        provider_code=provider_code,
+        external_point_id=external_point_id,
+        requested_duration_minutes=duration_minutes,
+        status="in_progress",
+    )
+    db.add(record)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        return get_or_create_idempotency_record(
+            db,
+            principal,
+            provider_code,
+            external_point_id,
+            duration_minutes,
+            normalized_key,
+        )
+    db.refresh(record)
+    return record
+
+
+def complete_idempotency_with_reservation(
+    db: Session,
+    record: ReservationIdempotencyRecord | None,
+    reservation: Reservation,
+    status_code: int,
+) -> None:
+    if record is None:
+        return
+    record.status = reservation.status
+    record.reservation_id = reservation.id
+    record.response_status_code = status_code
+    record.response_payload = reservation_response(reservation).model_dump(mode="json")
+    record.error_detail = None
+    db.commit()
+
+
+def complete_idempotency_with_error(
+    db: Session,
+    record: ReservationIdempotencyRecord | None,
+    status_code: int,
+    detail: dict[str, Any],
+    *,
+    status_value: str = "failed",
+    reservation: Reservation | None = None,
+) -> None:
+    if record is None:
+        return
+    record.status = status_value
+    record.reservation_id = reservation.id if reservation else None
+    record.response_status_code = status_code
+    record.response_payload = reservation_response(reservation).model_dump(mode="json") if reservation else None
+    record.error_detail = detail
+    db.commit()
+
+
+def acquire_point_lock(db: Session, provider_code: str, external_point_id: str, owner_id: str) -> bool:
+    normalized_point_id = f"{provider_code}:{external_point_id}"
+    now = utcnow()
+    existing = db.get(ReservationPointLock, normalized_point_id)
+    if existing is not None:
+        if ensure_aware_utc(existing.expires_at) > now:
+            return False
+        db.delete(existing)
+        db.flush()
+
+    db.add(
+        ReservationPointLock(
+            normalized_point_id=normalized_point_id,
+            provider_code=provider_code,
+            external_point_id=external_point_id,
+            owner_id=owner_id,
+            acquired_at=now,
+            expires_at=now + timedelta(seconds=POINT_LOCK_TTL_SECONDS),
+        ),
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return False
+    return True
+
+
+def release_point_lock(db: Session, provider_code: str, external_point_id: str, owner_id: str) -> None:
+    normalized_point_id = f"{provider_code}:{external_point_id}"
+    lock = db.get(ReservationPointLock, normalized_point_id)
+    if lock is None or lock.owner_id != owner_id:
+        return
+    db.delete(lock)
+    db.commit()
+
+
+def reservation_end_is_active(value: str | None) -> bool:
+    if value is None:
+        return True
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed > utcnow()
+
+
+def active_successful_reservation_exists(db: Session, provider_code: str, external_point_id: str) -> bool:
+    reservations = db.scalars(
+        select(Reservation).where(
+            Reservation.provider_code == provider_code,
+            Reservation.external_point_id == external_point_id,
+            Reservation.status == "succeeded",
+        ),
+    ).all()
+    return any(reservation_end_is_active(reservation.reservation_ends_at) for reservation in reservations)
+
+
+def create_provider_call_attempt(
+    db: Session,
+    principal: CurrentPrincipal,
+    point: CatalogPointDTO,
+    duration_minutes: int,
+) -> ReservationAttempt:
+    attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
+    attempt.normalized_point_id = point.normalized_point_id
+    attempt.provider_called = True
+    attempt.result_status = "provider_call_started"
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+
+def record_local_conflict_attempt(
+    db: Session,
+    principal: CurrentPrincipal,
+    point: CatalogPointDTO,
+    duration_minutes: int,
+    error_type: str,
+    message: str,
+) -> None:
+    attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
+    attempt.normalized_point_id = point.normalized_point_id
+    attempt.provider_error_type = error_type
+    attempt.provider_error_message = message
+    attempt.external_status_code = 409
+    attempt.completed_at = utcnow()
+    db.add(attempt)
+    db.commit()
 
 
 def add_outbox_event(
@@ -322,6 +602,7 @@ def create_successful_reservation(
     point: CatalogPointDTO,
     duration_minutes: int,
     provider_reservation: ProviderReservationDTO,
+    attempt: ReservationAttempt | None = None,
 ) -> Reservation:
     price_per_kwh_eur = resolve_price_per_kwh(point, provider_reservation)
     charger_capacity_kw = positive_float(point.capacity)
@@ -353,7 +634,8 @@ def create_successful_reservation(
     db.add(reservation)
     db.flush()
 
-    attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
+    if attempt is None:
+        attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
     attempt.reservation_id = reservation.id
     attempt.normalized_point_id = point.normalized_point_id
     attempt.provider_called = True
@@ -372,9 +654,10 @@ def create_failed_reservation(
     point: CatalogPointDTO,
     duration_minutes: int,
     error: ProviderServiceError,
+    attempt: ReservationAttempt | None = None,
 ) -> Reservation:
     result_status = "unknown" if error.ambiguous_outcome or error.error_type == "provider_timeout" else "failed"
-    safe_message = safe_provider_failure_message(error.error_type)
+    safe_message = safe_provider_failure_message(error.error_type, error.external_status_code)
     reservation = Reservation(
         user_id=principal.sub,
         user_email=principal.email,
@@ -391,7 +674,8 @@ def create_failed_reservation(
     db.add(reservation)
     db.flush()
 
-    attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
+    if attempt is None:
+        attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
     attempt.reservation_id = reservation.id
     attempt.normalized_point_id = point.normalized_point_id
     attempt.provider_called = True
@@ -415,31 +699,122 @@ def create_reservation(
     duration_minutes: int,
     catalog_client: CatalogServiceClient,
     provider_client: ProviderServiceClient,
+    idempotency_key: str | None = None,
 ) -> Reservation:
     validate_provider_code(provider_code)
-    point = require_catalog_point_available(
+    idempotency_record = get_or_create_idempotency_record(
         db,
         principal,
         provider_code,
         external_point_id,
         duration_minutes,
-        catalog_client,
+        idempotency_key,
     )
     try:
-        provider_reservation = provider_client.reserve_point(provider_code, external_point_id, duration_minutes)
-    except ProviderServiceError as exc:
-        reservation = create_failed_reservation(db, principal, point, duration_minutes, exc)
-        status_code = 504 if exc.error_type == "provider_timeout" else 502
-        raise ReservationFlowError(
-            status_code,
-            {
+        point = require_catalog_point_available(
+            db,
+            principal,
+            provider_code,
+            external_point_id,
+            duration_minutes,
+            catalog_client,
+        )
+    except ReservationFlowError as exc:
+        complete_idempotency_with_error(db, idempotency_record, exc.status_code, exc.detail)
+        raise
+
+    lock_owner_id = idempotency_record.id if idempotency_record is not None else new_id()
+    lock_acquired = acquire_point_lock(db, provider_code, external_point_id, lock_owner_id)
+    if not lock_acquired:
+        detail = {
+            "provider_code": provider_code,
+            "external_point_id": external_point_id,
+            "error_type": "reservation_request_in_progress",
+            "message": "Reservation request is already in progress for this point",
+        }
+        complete_idempotency_with_error(db, idempotency_record, 409, detail, status_value="conflict")
+        raise ReservationFlowError(409, detail)
+
+    attempt: ReservationAttempt | None = None
+    try:
+        if active_successful_reservation_exists(db, provider_code, external_point_id):
+            record_local_conflict_attempt(
+                db,
+                principal,
+                point,
+                duration_minutes,
+                "reservation_already_active",
+                CHARGER_UNAVAILABLE_MESSAGE,
+            )
+            detail = {
+                "provider_code": provider_code,
+                "external_point_id": external_point_id,
+                "error_type": "reservation_already_active",
+                "message": CHARGER_UNAVAILABLE_MESSAGE,
+            }
+            complete_idempotency_with_error(db, idempotency_record, 409, detail, status_value="conflict")
+            raise ReservationFlowError(409, detail)
+
+        attempt = create_provider_call_attempt(db, principal, point, duration_minutes)
+        try:
+            provider_reservation = provider_client.reserve_point(provider_code, external_point_id, duration_minutes)
+        except ProviderServiceError as exc:
+            reservation = create_failed_reservation(db, principal, point, duration_minutes, exc, attempt)
+            status_code = 504 if exc.error_type == "provider_timeout" else 502
+            if is_provider_availability_conflict(exc):
+                status_code = 409
+            detail = {
                 "provider_code": provider_code,
                 "external_point_id": external_point_id,
                 "reservation_id": reservation.id,
                 "error_type": exc.error_type,
-                "message": safe_provider_failure_message(exc.error_type),
+                "message": safe_provider_failure_message(exc.error_type, exc.external_status_code),
                 "external_status_code": exc.external_status_code,
-            },
-        ) from exc
+            }
+            complete_idempotency_with_error(
+                db,
+                idempotency_record,
+                status_code,
+                detail,
+                status_value=reservation.status,
+                reservation=reservation,
+            )
+            raise ReservationFlowError(status_code, detail) from exc
 
-    return create_successful_reservation(db, principal, point, duration_minutes, provider_reservation)
+        try:
+            reservation = create_successful_reservation(
+                db,
+                principal,
+                point,
+                duration_minutes,
+                provider_reservation,
+                attempt,
+            )
+        except SQLAlchemyError as exc:
+            db.rollback()
+            persistence_detail = {
+                "provider_code": provider_code,
+                "external_point_id": external_point_id,
+                "error_type": "local_persistence_failed_after_provider_success",
+                "message": "Provider reservation succeeded but local persistence failed",
+            }
+            persisted_attempt = db.get(ReservationAttempt, attempt.id) if attempt is not None else None
+            if persisted_attempt is not None:
+                persisted_attempt.result_status = "unknown"
+                persisted_attempt.provider_error_type = "local_persistence_failed_after_provider_success"
+                persisted_attempt.provider_error_message = persistence_detail["message"]
+                persisted_attempt.completed_at = utcnow()
+                db.commit()
+            complete_idempotency_with_error(
+                db,
+                idempotency_record,
+                500,
+                persistence_detail,
+                status_value="persistence_failed",
+            )
+            raise ReservationFlowError(500, persistence_detail) from exc
+
+        complete_idempotency_with_reservation(db, idempotency_record, reservation, 201)
+        return reservation
+    finally:
+        release_point_lock(db, provider_code, external_point_id, lock_owner_id)

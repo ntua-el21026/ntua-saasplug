@@ -116,6 +116,7 @@ Use this checklist before packaging or presenting the final course submission.
 | README documentation issue #20 | Done | Issue #20 closed and moved to `Done` in GitHub Project #3 after README polish validation |
 | Usage/status/catalog event and scheduler cadence update | Done with warning | Live event emitters, editable scheduler intervals, and targeted validation documented in `docs/ai/codex-runs/032-event-scheduler-cadence-and-operator-controls.md` |
 | Ordered scheduler maintenance run | Done | Single operator action and ordered scheduler API documented in `docs/ai/codex-runs/034-ordered-scheduler-maintenance-run.md` |
+| Safe finalization audit fixes | Done with warning | Verified audit fixes F-001 through F-013 documented in `docs/ai/codex-runs/051-verified-audit-fixes-safe-finalization.md`; live reservation mutations were intentionally skipped |
 
 ## Manual Review Notes
 
@@ -160,5 +161,12 @@ Use this checklist before packaging or presenting the final course submission.
 - Prompt 34 added one operator action to run the maintenance job chain in
   dependency order through scheduler-service while preserving service-owned
   execution.
+- Prompt 51 implemented the verified audit fixes for reservation idempotency,
+  point guards, strict placeholder validation, provider-status scoping,
+  operator-only billing refresh, duplicate-payment prevention, catalog import
+  locks, catalog radius caps, provider CSV minimization, demo-seed preservation,
+  RabbitMQ management localhost binding, and frontend lazy/idempotent
+  reservation behavior. It did not print, manually inspect, or modify `.env`
+  values and did not run live provider reservation mutations.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.

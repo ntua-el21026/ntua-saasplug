@@ -99,9 +99,9 @@ the shared `JWT_SECRET`.
 
 | Endpoint | Access |
 |---|---|
-| `GET /points/{provider_code}/{external_point_id}/status` | Any authenticated role |
-| `GET /points/{provider_code}/{external_point_id}` | Any authenticated role |
-| `GET /cache/{provider_code}/{external_point_id}` | Any authenticated role; never calls provider services |
+| `GET /points/{provider_code}/{external_point_id}/status` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider |
+| `GET /points/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider |
+| `GET /cache/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider; never calls provider services |
 | `GET /logs` | `OPERATOR` all logs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |
 | `GET /freshness` | Public non-sensitive provider-level metadata |
 
@@ -122,10 +122,14 @@ RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
 RABBITMQ_EVENT_EXCHANGE=saasplug.events
 RABBITMQ_PUBLISH_TIMEOUT_SECONDS=5
 STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED=true
+SAASPLUG_STRICT_SECRETS=false
+APP_ENV=local
 ```
 
 The provider-service URLs are Docker-internal service URLs. `status-service`
 does not call external provider APIs directly.
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT and RabbitMQ credential values are rejected at startup.
 
 ## Runtime baseline
 

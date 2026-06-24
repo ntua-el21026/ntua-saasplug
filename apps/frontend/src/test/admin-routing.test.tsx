@@ -747,6 +747,11 @@ describe("admin role routing", () => {
       });
       expect(reservationCall).toBeDefined();
       expect(JSON.parse(String(reservationCall?.[1]?.body))).toEqual({ duration_minutes: 35 });
+      const headers = reservationCall?.[1]?.headers;
+      const idempotencyKey = headers instanceof Headers
+        ? headers.get("Idempotency-Key")
+        : undefined;
+      expect(idempotencyKey).toBeTruthy();
     });
 
     await userEvent.click(screen.getByRole("button", { name: /close reservation status/i }));

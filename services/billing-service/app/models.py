@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -128,6 +128,7 @@ class InvoiceLine(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (UniqueConstraint("invoice_id", name="uq_payments_invoice_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     invoice_id: Mapped[str] = mapped_column(String(36), ForeignKey("invoices.id"), nullable=False, index=True)

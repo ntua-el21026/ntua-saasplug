@@ -84,6 +84,8 @@ def auth_headers(roles: list[str], email: str, provider_code: str | None = None)
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'status-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "status-service")
     monkeypatch.setenv("JWT_SECRET", "status-test-secret")
@@ -105,6 +107,10 @@ def operator_headers() -> dict[str, str]:
 
 def ev_headers() -> dict[str, str]:
     return auth_headers(["EV_USER"], "evuser@saasplug.local")
+
+
+def red_admin_headers() -> dict[str, str]:
+    return auth_headers(["PROVIDER_ADMIN"], "red-admin@saasplug.local", "redPlug")
 
 
 def enable_fake_event_publisher(monkeypatch) -> FakeEventPublisher:
@@ -140,6 +146,34 @@ def test_first_lookup_calls_provider_and_stores_cache(test_context) -> None:
         assert db.query(StatusCheckLog).count() == 1
     finally:
         db.close()
+
+
+def test_status_lookup_scopes_provider_admins_but_allows_ev_and_operator(test_context) -> None:
+    client, fake_client = test_context
+
+    ev_response = client.get("/points/greenPlug/201/status", headers=ev_headers())
+    operator_response = client.get("/points/greenPlug/201/status?forceRefresh=true", headers=operator_headers())
+    own_provider_response = client.get("/points/redPlug/101/status", headers=red_admin_headers())
+    other_provider_response = client.get("/points/greenPlug/201/status", headers=red_admin_headers())
+
+    assert ev_response.status_code == 200
+    assert operator_response.status_code == 200
+    assert own_provider_response.status_code == 200
+    assert other_provider_response.status_code == 403
+    assert ("greenPlug", "201") in fake_client.calls
+    assert ("redPlug", "101") in fake_client.calls
+
+
+def test_status_cache_read_scopes_provider_admins(test_context) -> None:
+    client, _ = test_context
+    assert client.get("/points/redPlug/101/status", headers=operator_headers()).status_code == 200
+    assert client.get("/points/greenPlug/201/status", headers=operator_headers()).status_code == 200
+
+    own_cache_response = client.get("/cache/redPlug/101", headers=red_admin_headers())
+    other_cache_response = client.get("/cache/greenPlug/201", headers=red_admin_headers())
+
+    assert own_cache_response.status_code == 200
+    assert other_cache_response.status_code == 403
 
 
 def test_status_lookup_publishes_status_checked_event(test_context, monkeypatch) -> None:

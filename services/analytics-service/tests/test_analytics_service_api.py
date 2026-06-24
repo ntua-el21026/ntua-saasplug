@@ -90,6 +90,8 @@ def event_json(event: EventEnvelope) -> dict:
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'analytics-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "analytics-service")
     monkeypatch.setenv("JWT_SECRET", "analytics-test-secret")
@@ -717,6 +719,23 @@ def test_csv_export_returns_required_columns_and_records_export_job(test_context
         assert export_job.row_count == len(rows)
     finally:
         db.close()
+
+
+def test_provider_csv_export_omits_user_ids_and_raw_payload_details(test_context) -> None:
+    seed_analytics_events(test_context)
+
+    response = test_context.get("/exports/usage.csv", headers=red_admin_headers())
+
+    assert response.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert rows
+    assert "user_id" not in rows[0]
+    assert "details" not in rows[0]
+    assert "reservation_id" not in rows[0]
+    assert "reservation_reference" in rows[0]
+    assert "user-1" not in response.text
+    assert '"user_id"' not in response.text
+    assert '"reservation_id"' not in response.text
 
 
 class FakeMethod:

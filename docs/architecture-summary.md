@@ -61,9 +61,9 @@ manual background job dispatch without owning business logic.
 | `red-provider-service` | `red-provider-postgres` | `provider_point_snapshots`, `raw_provider_payloads`, `provider_sync_runs`, `provider_point_changes` |
 | `green-provider-service` | `green-provider-postgres` | `provider_point_snapshots`, `raw_provider_payloads`, `provider_sync_runs`, `provider_point_changes` |
 | `blue-provider-service` | `blue-provider-postgres` | `provider_point_snapshots`, `raw_provider_payloads`, `provider_sync_runs`, `provider_point_changes` |
-| `catalog-service` | `catalog-postgres` | `catalog_points`, `catalog_import_runs`, `catalog_point_changes` |
+| `catalog-service` | `catalog-postgres` | `catalog_points`, `catalog_import_runs`, `catalog_point_changes`, `catalog_import_locks` |
 | `status-service` | `status-postgres` | `status_cache`, `status_check_logs` |
-| `reservation-service` | `reservation-postgres` | `reservations`, `reservation_attempts`, `reservation_event_outbox` |
+| `reservation-service` | `reservation-postgres` | `reservations`, `reservation_attempts`, `reservation_idempotency_records`, `reservation_point_locks`, `reservation_event_outbox` |
 | `analytics-service` | `analytics-postgres` | `usage_events`, aggregate/cache tables, snapshots, `export_jobs` |
 | `billing-service` | `billing-postgres` | `pricing_rules`, `billing_events`, `charge_records`, `invoices`, `invoice_lines`, `payments`, `billing_event_outbox` |
 | `scheduler-service` | `scheduler-postgres` | `scheduled_jobs`, `job_runs` |
@@ -165,9 +165,10 @@ analytics propagation.
 2. Point details come from `/api/catalog/points/{provider_code}/{external_point_id}`.
 3. Status lookup goes through `/api/status/points/{provider_code}/{external_point_id}/status`.
 4. Reservation creation posts to `/api/reservations/points/{provider_code}/{external_point_id}/reservations`.
-5. `reservation-service` resolves the catalog point, calls the relevant
-   provider service synchronously, stores the reservation and attempt, and
-   stages reservation events.
+5. `reservation-service` resolves the catalog point, records idempotency/attempt
+   journal metadata, acquires a short-lived point guard, calls the relevant
+   provider service synchronously, stores the reservation result, and stages
+   reservation events.
 
 ### Provider Sync and Catalog Import
 
@@ -248,9 +249,14 @@ API helpers.
 - Background jobs are coordinated by `scheduler-service`; live user actions
   remain synchronous and are not queued through RabbitMQ.
 - Startup table creation is used for local MVP development instead of full
-  Alembic migration management.
+  Alembic migration management. Existing development volumes that predate new
+  tables or constraints may require explicit recreation or a service-local
+  migration before relying on the fresh-schema guarantees.
 - Billing uses mock payments only. There is no real payment gateway, tax
   accounting, refunds, partial payments, or subscriptions.
+- `.env.example` intentionally contains local placeholders. Production-like
+  runs should enable strict placeholder rejection with `SAASPLUG_STRICT_SECRETS`
+  or a production-like `APP_ENV`.
 - Docker runtime and authenticated gateway smoke checks require Docker Desktop
   Linux engine availability on the host.
 

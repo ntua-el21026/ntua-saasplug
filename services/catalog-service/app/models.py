@@ -79,6 +79,15 @@ class CatalogImportRun(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class CatalogImportLock(Base):
+    __tablename__ = "catalog_import_locks"
+
+    provider_code: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class CatalogPointChange(Base):
     __tablename__ = "catalog_point_changes"
 

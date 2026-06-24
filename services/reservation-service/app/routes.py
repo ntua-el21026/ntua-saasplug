@@ -10,6 +10,7 @@ from app.models import Reservation, ReservationAttempt, ReservationEventOutbox
 from app.provider_client import ProviderServiceClient
 from app.reservation_logic import (
     ReservationFlowError,
+    ReservationReplay,
     attempt_response,
     create_reservation,
     outbox_response,
@@ -70,12 +71,27 @@ def reserve_point(
     provider_code: str,
     external_point_id: str,
     request: ReservationCreateRequest | None = None,
+    idempotency_key_header: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> ReservationResponse:
     ensure_reservation_creator(principal)
     duration_minutes = request.duration_minutes if request is not None else 60
+    request_idempotency_key = request.idempotency_key if request is not None else None
+    if (
+        idempotency_key_header
+        and request_idempotency_key
+        and idempotency_key_header.strip() != request_idempotency_key.strip()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error_type": "idempotency_key_conflict",
+                "message": "Idempotency key header and request body value differ",
+            },
+        )
+    idempotency_key = idempotency_key_header or request_idempotency_key
     try:
         validate_provider_code(provider_code)
     except ValueError as exc:
@@ -92,8 +108,11 @@ def reserve_point(
             duration_minutes,
             catalog_client,
             provider_client,
+            idempotency_key,
         )
         return reservation_response(reservation)
+    except ReservationReplay as replay:
+        return reservation_response(replay.reservation)
     except ReservationFlowError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     finally:

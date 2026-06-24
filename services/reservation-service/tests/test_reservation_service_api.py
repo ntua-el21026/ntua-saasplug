@@ -1,14 +1,25 @@
+from datetime import timedelta
+
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
+from app import reservation_logic
 from app import routes
 from app.catalog_client import CatalogServiceError
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.event_publisher import outbox_row_to_envelope, publish_pending_outbox
 from app.main import app
-from app.models import Reservation, ReservationAttempt, ReservationEventOutbox
+from app.models import (
+    Reservation,
+    ReservationAttempt,
+    ReservationEventOutbox,
+    ReservationIdempotencyRecord,
+    ReservationPointLock,
+    utcnow,
+)
 from app.provider_client import ProviderServiceError
 from app.schemas import CatalogPointDTO, ProviderReservationDTO
 
@@ -40,7 +51,7 @@ def provider_reservation(provider_code: str = "redPlug", external_point_id: str 
         "normalized_point_id": f"{provider_code}:{external_point_id}",
         "provider_reservation_id": f"{provider_code}-{external_point_id}-reservation",
         "status": "reserved",
-        "reservation_ends_at": "2026-06-12T12:00:00Z",
+        "reservation_ends_at": "2099-06-12T12:00:00Z",
         "price_per_kwh_eur": 0.31,
         "raw_payload": {"providerReservationId": "raw-id", "api_key": "secret-provider-key"},
     }
@@ -148,6 +159,8 @@ def scheduler_headers() -> dict[str, str]:
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'reservation-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "reservation-service")
     monkeypatch.setenv("JWT_SECRET", "reservation-test-secret")
@@ -188,7 +201,7 @@ def create_db_reservation(
             status="succeeded",
             provider_status="reserved",
             provider_reservation_id=f"{provider_code}-{external_point_id}-reservation",
-            reservation_ends_at="2026-06-12T12:00:00Z",
+            reservation_ends_at="2099-06-12T12:00:00Z",
         )
         db.add(reservation)
         db.commit()
@@ -205,6 +218,26 @@ def test_health_endpoint_still_works(test_context) -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+
+
+def test_strict_secret_validation_rejects_scheduler_and_rabbitmq_placeholders(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "true")
+    monkeypatch.setenv("JWT_SECRET", "strict-reservation-jwt-secret")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
+    monkeypatch.setenv("RABBITMQ_URL", "amqp://strict-user:strict-password@rabbitmq:5672/")
+
+    with pytest.raises(RuntimeError, match="SCHEDULER_INTERNAL_TOKEN"):
+        get_settings()
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "strict-scheduler-token")
+    monkeypatch.setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+
+    with pytest.raises(RuntimeError, match="RABBITMQ_URL"):
+        get_settings()
+
+    get_settings.cache_clear()
 
 
 def test_scheduler_internal_freshness_requires_scheduler_token(test_context) -> None:
@@ -274,6 +307,139 @@ def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) 
         assert event.payload["estimated_cost_eur"] == 5.12
     finally:
         db.close()
+
+
+def test_duplicate_idempotency_key_returns_same_reservation(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    headers = {**ev_headers(), "Idempotency-Key": "reservation-key-1"}
+
+    first_response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 45},
+        headers=headers,
+    )
+    second_response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 45},
+        headers=headers,
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    assert second_response.json()["id"] == first_response.json()["id"]
+    assert fake_provider.calls == [("redPlug", "101", 45)]
+    db = get_session_factory()()
+    try:
+        assert db.query(Reservation).count() == 1
+        assert db.query(ReservationAttempt).count() == 1
+        assert db.query(ReservationEventOutbox).count() == 1
+        record = db.query(ReservationIdempotencyRecord).one()
+        assert record.status == "succeeded"
+        assert record.reservation_id == first_response.json()["id"]
+    finally:
+        db.close()
+
+
+def test_same_idempotency_key_with_different_request_returns_conflict(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    headers = {**ev_headers(), "Idempotency-Key": "reservation-key-2"}
+    assert client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 45},
+        headers=headers,
+    ).status_code == 201
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 60},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "idempotency_key_conflict"
+    assert fake_provider.calls == [("redPlug", "101", 45)]
+
+
+def test_duplicate_in_progress_idempotency_key_does_not_call_provider(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    db = get_session_factory()()
+    try:
+        db.add(
+            ReservationIdempotencyRecord(
+                idempotency_key="reservation-key-in-progress",
+                request_fingerprint=reservation_logic.reservation_request_fingerprint(
+                    reservation_logic.CurrentPrincipal(
+                        sub="user-evuser@saasplug.local",
+                        email="evuser@saasplug.local",
+                        roles=["EV_USER"],
+                    ),
+                    "redPlug",
+                    "101",
+                    60,
+                ),
+                user_id="user-evuser@saasplug.local",
+                provider_code="redPlug",
+                external_point_id="101",
+                requested_duration_minutes=60,
+                status="in_progress",
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        headers={**ev_headers(), "Idempotency-Key": "reservation-key-in-progress"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "reservation_request_in_progress"
+    assert fake_provider.calls == []
+
+
+def test_existing_active_local_reservation_prevents_provider_call(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    create_db_reservation("redPlug", "101")
+
+    response = client.post("/points/redPlug/101/reservations", headers=ev_headers())
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "reservation_already_active"
+    assert fake_provider.calls == []
+    db = get_session_factory()()
+    try:
+        assert db.query(Reservation).count() == 1
+        attempt = db.query(ReservationAttempt).one()
+        assert attempt.provider_called is False
+        assert attempt.provider_error_type == "reservation_already_active"
+    finally:
+        db.close()
+
+
+def test_existing_point_lock_guards_near_simultaneous_same_point_requests(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    db = get_session_factory()()
+    try:
+        db.add(
+            ReservationPointLock(
+                normalized_point_id="redPlug:101",
+                provider_code="redPlug",
+                external_point_id="101",
+                owner_id="in-flight-request",
+                acquired_at=utcnow(),
+                expires_at=utcnow() + timedelta(seconds=60),
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post("/points/redPlug/101/reservations", headers=ev_headers())
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error_type"] == "reservation_request_in_progress"
+    assert fake_provider.calls == []
 
 
 def test_successful_reservation_falls_back_to_catalog_price_for_estimate(test_context) -> None:
@@ -400,6 +566,36 @@ def test_provider_failure_is_persisted_and_returns_safe_error(test_context) -> N
         db.close()
 
 
+def test_provider_already_reserved_rejection_returns_conflict_and_failed_event(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    fake_provider.failures[("redPlug", "101")] = ProviderServiceError(
+        "redPlug",
+        "provider_http_error",
+        "provider says point is reserved",
+        status_code=409,
+        external_status_code=409,
+    )
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 30},
+        headers=ev_headers(),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["message"] == "This charger is no longer available. Refresh status or choose another point."
+    db = get_session_factory()()
+    try:
+        reservation = db.query(Reservation).one()
+        event = db.query(ReservationEventOutbox).one()
+        assert reservation.status == "failed"
+        assert reservation.failure_reason == "This charger is no longer available. Refresh status or choose another point."
+        assert event.event_type == "reservation.failed"
+        assert event.payload["error_type"] == "provider_http_error"
+    finally:
+        db.close()
+
+
 def test_provider_timeout_records_unknown_outcome(test_context) -> None:
     client, _, fake_provider, _ = test_context
     fake_provider.failures[("redPlug", "101")] = ProviderServiceError(
@@ -420,6 +616,36 @@ def test_provider_timeout_records_unknown_outcome(test_context) -> None:
         assert reservation.status == "unknown"
         assert attempt.result_status == "unknown"
         assert attempt.provider_called is True
+    finally:
+        db.close()
+
+
+def test_provider_success_then_local_persistence_failure_marks_ambiguous_attempt(test_context, monkeypatch) -> None:
+    client, _, fake_provider, _ = test_context
+
+    def fail_after_provider_success(*args, **kwargs):
+        raise SQLAlchemyError("simulated local persistence failure")
+
+    monkeypatch.setattr(reservation_logic, "create_successful_reservation", fail_after_provider_success)
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        headers={**ev_headers(), "Idempotency-Key": "persistence-failure-key"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["error_type"] == "local_persistence_failed_after_provider_success"
+    assert fake_provider.calls == [("redPlug", "101", 60)]
+    db = get_session_factory()()
+    try:
+        assert db.query(Reservation).count() == 0
+        assert db.query(ReservationEventOutbox).count() == 0
+        attempt = db.query(ReservationAttempt).one()
+        assert attempt.provider_called is True
+        assert attempt.result_status == "unknown"
+        assert attempt.provider_error_type == "local_persistence_failed_after_provider_success"
+        idempotency_record = db.query(ReservationIdempotencyRecord).one()
+        assert idempotency_record.status == "persistence_failed"
     finally:
         db.close()
 

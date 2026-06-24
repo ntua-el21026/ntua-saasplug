@@ -372,13 +372,12 @@ def refresh_provider_billing_endpoint(
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> ProviderBillingRefreshResponse:
-    ensure_provider_admin_or_operator(principal)
-    resolved_provider_code = resolve_provider_scope(principal, provider_code)
-    assert resolved_provider_code is not None
+    ensure_operator(principal)
+    validate_provider_code(provider_code)
     effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
     result = consume_billing_events(settings, db, effective_limit)
     return ProviderBillingRefreshResponse(
-        provider_code=resolved_provider_code,
+        provider_code=provider_code,
         drained=DrainResponse(**result.__dict__),
     )
 
