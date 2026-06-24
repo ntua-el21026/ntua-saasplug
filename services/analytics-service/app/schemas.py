@@ -56,8 +56,7 @@ class AggregateRefreshResponse(BaseModel):
     refreshed_at: str
 
 
-class ProviderAnalyticsRefreshResponse(BaseModel):
-    provider_code: str
+class AnalyticsRefreshResponse(BaseModel):
     consumed: ConsumeResponse
     aggregates: AggregateRefreshResponse
 

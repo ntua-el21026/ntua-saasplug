@@ -181,7 +181,6 @@ GET /provider/trends/daily
 GET /provider/top-points
 GET /provider/status-distribution
 GET /provider/freshness
-POST /provider/refresh
 GET /exports/usage.csv?providerCode=redPlug&from=2026-06-01&to=2026-06-30
 ```
 
@@ -194,12 +193,8 @@ parameters in `YYYY-MM-DD` format. The date range is inclusive and filters the
 precomputed provider, point, and status daily aggregate rows returned to the
 frontend.
 
-`POST /provider/refresh` is a provider-scoped manual refresh trigger used by
-the provider analytics page. It drains a bounded batch from the shared
-analytics queue, rebuilds analytics-owned aggregate tables, and then the
-frontend reloads the provider summary/trend endpoints. The queue is
-service-level, so the drain may ingest events for multiple providers, but the
-caller receives and can read only data allowed by its provider scope.
+Provider-admin analytics endpoints are read-only. Provider pages do not trigger
+queue consumption or aggregate refresh.
 
 ## Operator analytics endpoints
 
@@ -211,10 +206,26 @@ GET /operator/provider-comparison
 GET /operator/trends/daily
 GET /operator/catalog-health
 GET /operator/freshness
+POST /operator/refresh?limit=100
 ```
 
 Operator dashboards are projection-limited to events that analytics has
 ingested and aggregates that have been refreshed.
+
+`POST /operator/refresh` is operator-only. It consumes at most the smaller of
+the requested limit and `ANALYTICS_RABBITMQ_CONSUME_BATCH_SIZE`, persists new
+events, acknowledges duplicates through ingestion idempotency, and rejects
+invalid or unsupported messages according to queue policy. It then rebuilds
+analytics-owned aggregates from `usage_events`. It does not publish RabbitMQ
+events.
+
+`observed_amount`, displayed as `Tracked revenue`, sums estimated EV charging
+payments from `reservation.succeeded` events. Analytics prefers the event's
+explicit `estimated_cost_eur`; otherwise it computes
+`price_per_kwh_eur * charger_capacity_kw * requested_duration_minutes / 60`
+when all inputs are valid. Failed reservations and `billing.*` events are
+excluded. Billing-service separately calculates the SaaS fees charged by the
+operator to providers.
 
 ## EV reservation analytics endpoint
 

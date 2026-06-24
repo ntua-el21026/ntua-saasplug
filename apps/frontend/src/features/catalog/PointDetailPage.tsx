@@ -66,31 +66,29 @@ export function PointDetailPage() {
 
   useEffect(() => {
     if (session?.accessToken && isOwnProviderPoint) {
-      lookupStatus(false);
+      lookupStatus();
     }
   }, [session?.accessToken, isOwnProviderPoint, providerCode, externalPointId]);
 
-  async function lookupStatus(forceRefresh: boolean) {
+  async function lookupStatus() {
     setStatusLoading(true);
     setStatusError(null);
     try {
       const payload = await requestJson<StatusLookupResponse>(
-        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=${forceRefresh}`,
+        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=false`,
         { accessToken: session?.accessToken },
       );
       setStatus(payload);
     } catch (caught) {
       setStatusError(messageFromUnknownError(caught));
-      if (!forceRefresh) {
-        try {
-          const cached = await requestJson<StatusCacheResponse>(
-            `/api/status/cache/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}`,
-            { accessToken: session?.accessToken },
-          );
-          setStatus(cached);
-        } catch {
-          return;
-        }
+      try {
+        const cached = await requestJson<StatusCacheResponse>(
+          `/api/status/cache/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}`,
+          { accessToken: session?.accessToken },
+        );
+        setStatus(cached);
+      } catch {
+        return;
       }
     } finally {
       setStatusLoading(false);
@@ -203,9 +201,6 @@ export function PointDetailPage() {
                     <h2>Status</h2>
                     <p>Latest known charger availability and update timing.</p>
                   </div>
-                  <button className="button-secondary" type="button" onClick={() => lookupStatus(true)} disabled={statusLoading}>
-                    Refresh status
-                  </button>
                 </div>
                 {statusLoading ? <LoadingBlock label="Checking status" /> : null}
                 {statusError ? (
@@ -281,12 +276,12 @@ export function PointDetailPage() {
                   <ReservationModal open={reservationDialogOpen} title="Reservation status" onClose={() => setReservationDialogOpen(false)}>
                     {reservationLoading ? <LoadingBlock label="Checking provider availability" /> : null}
                     {reservation ? (
-                      <Alert tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">
+                      <Alert dismissible={false} tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">
                         Reservation {reservation.status}. <Link to="/reservations">Open reservation history</Link>.
                       </Alert>
                     ) : null}
                     {reservationError ? (
-                      <Alert tone="danger" title={reservationError.toLowerCase().includes("timeout") ? "Provider timeout" : "Reservation failed"}>
+                      <Alert dismissible={false} tone="danger" title={reservationError.toLowerCase().includes("timeout") ? "Provider timeout" : "Reservation failed"}>
                         {reservationError}
                       </Alert>
                     ) : null}

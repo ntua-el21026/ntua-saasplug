@@ -388,8 +388,7 @@ export interface QueueDrainResponse {
   invalid_count?: number;
 }
 
-export interface ProviderAnalyticsRefreshResponse {
-  provider_code: ProviderCode;
+export interface AnalyticsRefreshResponse {
   consumed: QueueDrainResponse;
   aggregates: AggregateRefreshResponse;
 }

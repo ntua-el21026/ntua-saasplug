@@ -164,30 +164,6 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
   -d '{"email":"operator@saasplug.local","password":"change-me-demo-password"}'
 ```
 
-## Core Flows
-
-- Login/register/logout use `auth-service` through `/api/auth/...`.
-- EV map search uses viewport/bounds queries through
-  `GET /api/catalog/points`.
-- Point details read cached normalized catalog data through `catalog-service`.
-- Live status lookup goes through `status-service`, which uses a 5-minute cache
-  and falls back to last known cached status on provider timeout/error.
-- Reservations are synchronous:
-  `frontend -> nginx-gateway -> reservation-service -> provider service`.
-- Successful/failed reservation events are staged in an outbox and published to
-  RabbitMQ for analytics and billing propagation.
-- Catalog searches, point-detail views, status checks, and completed catalog
-  imports publish best-effort analytics events after the user-facing service
-  work succeeds.
-- Analytics dashboards read precomputed aggregate/cache tables.
-- Billing owns pricing, charges, invoices, and mock full-invoice payments.
-- Scheduler background jobs are coordinated by `scheduler-service`, which
-  stores only job metadata/run history and calls service-owned internal job
-  endpoints. Operators can manually run jobs, pause/resume jobs, and edit
-  interval cadences from the Sync page. Operators can also trigger one ordered
-  maintenance sequence that refreshes catalog data, publishes reservation and
-  billing events, drains analytics, and refreshes dashboard aggregates.
-
 ## Provider API Integration
 
 The three external provider APIs are represented by provider-specific internal

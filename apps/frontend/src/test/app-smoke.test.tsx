@@ -204,8 +204,10 @@ describe("App", () => {
           );
         }
         if (path === "/api/analytics/ev/reservations/summary") {
+          const summary = reservationSummaryFixture(reservations.length);
+          summary.missing_estimate_count = 2;
           return new Response(
-            JSON.stringify(reservationSummaryFixture(reservations.length)),
+            JSON.stringify(summary),
             { headers: { "Content-Type": "application/json" }, status: 200 },
           );
         }
@@ -218,6 +220,8 @@ describe("App", () => {
 
     expect(await screen.findByText("Showing 20 of 45")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /open point/i })).toHaveLength(20);
+    expect(screen.queryByText(/successful reservations are missing cost/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /refresh/i })).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText(/show/i), "40");
     expect(await screen.findByText("Showing 40 of 45")).toBeInTheDocument();

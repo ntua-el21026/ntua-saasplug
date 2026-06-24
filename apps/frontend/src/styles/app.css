@@ -2681,6 +2681,12 @@ dd {
   align-self: end;
 }
 
+.admin-form-centered-action {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-width: 180px;
+}
+
 .admin-inline-form {
   grid-template-columns: minmax(0, 1fr) auto;
   margin-top: var(--space-4);
@@ -2732,6 +2738,42 @@ dd {
   display: grid;
   min-width: 0;
   gap: var(--space-4);
+}
+
+.provider-date-toolbar {
+  grid-template-columns: repeat(2, minmax(170px, 170px));
+  justify-content: start;
+}
+
+.provider-date-toolbar .catalog-page-size {
+  width: 170px;
+  min-width: 0;
+}
+
+.provider-date-toolbar input {
+  min-height: 38px;
+}
+
+.operator-refresh-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+}
+
+.operator-refresh-toolbar > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.operator-refresh-toolbar span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
 }
 
 .analytics-explorer-toolbar {
@@ -3418,6 +3460,11 @@ dd {
   }
 
   .analytics-explorer-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .operator-refresh-toolbar {
     align-items: stretch;
     flex-direction: column;
   }

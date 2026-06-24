@@ -268,11 +268,12 @@ def apply_provider_event(bucket: dict, event: UsageEvent) -> None:
         bucket["status_checks"] += 1
     elif event.event_type == EventType.RESERVATION_SUCCEEDED.value:
         bucket["successful_reservations"] += 1
+        estimate = estimated_cost_components(event.payload)
+        if estimate["estimated_cost_eur"] is not None:
+            bucket["observed_amount"] += estimate["estimated_cost_eur"]
+            bucket["currency"] = estimate["currency"] or bucket["currency"] or "EUR"
     elif event.event_type == EventType.RESERVATION_FAILED.value:
         bucket["failed_reservations"] += 1
-    if event.amount is not None and event.event_type.startswith("billing."):
-        bucket["observed_amount"] += event.amount
-        bucket["currency"] = event.currency or bucket["currency"]
 
 
 def apply_operator_event(bucket: dict, event: UsageEvent) -> None:

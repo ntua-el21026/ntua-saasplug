@@ -181,6 +181,31 @@ metric is backed by analytics-service aggregates and uses only points with at
 least one valid estimate, so missing cost/kWh or capacity fields do not depress
 the average.
 
+The UI does not show the missing-input count as a separate sentence. Missing
+estimate inputs remain excluded by analytics-service and unavailable values
+remain explicit in reservation cards.
+
+Reservation result dialogs have one close control in the modal header. Alerts
+inside the dialog are non-dismissible so a second close icon is not rendered.
+
+## Refresh ownership
+
+EV-user and provider-admin pages do not expose refresh buttons. This includes
+point status, reservation statistics, provider analytics, and provider billing
+pages. These views read the latest projections maintained by status-service,
+analytics-service, and billing-service.
+
+Operator Analytics exposes `Refresh stats`. It calls
+`POST /api/analytics/operator/refresh?limit=100`, which asks analytics-service
+to consume a bounded RabbitMQ batch and then rebuild all analytics aggregates.
+Existing Operator Sync controls remain available for separate queue drains,
+aggregate refreshes, and the full ordered maintenance sequence.
+
+Provider `Tracked revenue` is estimated EV charging revenue, not the provider's
+SaaS invoice amount. It totals successful-reservation charging estimates using
+the reservation's explicit estimate or cost/kWh, charger power, and duration.
+Provider invoice pages separately show fees charged by the operator.
+
 ## Commands
 
 Run frontend checks locally inside `apps/frontend/`:

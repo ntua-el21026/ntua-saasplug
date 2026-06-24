@@ -276,6 +276,58 @@ def test_billing_events_create_summary_snapshots_with_amounts(test_context) -> N
         db.close()
 
 
+def test_provider_tracked_revenue_uses_successful_reservation_charging_cost(test_context) -> None:
+    events = [
+        envelope(
+            "reservation.succeeded",
+            provider_code="redPlug",
+            payload={
+                "reservation_id": "reservation-explicit",
+                "status": "succeeded",
+                "estimated_cost_eur": 5.12,
+                "estimated_cost_currency": "EUR",
+            },
+        ),
+        envelope(
+            "reservation.succeeded",
+            provider_code="redPlug",
+            payload={
+                "reservation_id": "reservation-calculated",
+                "status": "succeeded",
+                "requested_duration_minutes": 60,
+                "price_per_kwh_eur": 0.5,
+                "charger_capacity_kw": 22,
+            },
+        ),
+        envelope(
+            "reservation.failed",
+            provider_code="redPlug",
+            payload={
+                "reservation_id": "reservation-failed",
+                "status": "failed",
+                "estimated_cost_eur": 99,
+            },
+        ),
+        envelope(
+            "billing.charge_created",
+            provider_code="redPlug",
+            payload={"amount": 50, "currency": "EUR"},
+        ),
+    ]
+
+    assert ingest(test_context, events).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    response = test_context.get("/provider/summary?providerCode=redPlug", headers=operator_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["successful_reservations"] == 2
+    assert payload["failed_reservations"] == 1
+    assert payload["observed_amount"] == 16.12
+    assert payload["currency"] == "EUR"
+
+
 def test_catalog_import_event_creates_catalog_health_snapshot(test_context) -> None:
     catalog_event = envelope(
         "catalog.points.imported",
@@ -570,7 +622,7 @@ def test_provider_admin_can_access_only_own_provider_analytics(test_context) -> 
     assert other_response.status_code == 403
 
 
-def test_provider_admin_can_refresh_own_analytics_data(test_context, monkeypatch) -> None:
+def test_operator_can_refresh_analytics_data(test_context, monkeypatch) -> None:
     captured: dict[str, int] = {}
 
     def fake_consume_analytics_events(settings, db, limit):
@@ -584,17 +636,16 @@ def test_provider_admin_can_refresh_own_analytics_data(test_context, monkeypatch
 
     monkeypatch.setattr(routes, "consume_analytics_events", fake_consume_analytics_events)
 
-    response = test_context.post("/provider/refresh?limit=100", headers=red_admin_headers())
-    other_provider_response = test_context.post("/provider/refresh?providerCode=greenPlug", headers=red_admin_headers())
-    ev_response = test_context.post("/provider/refresh", headers=ev_headers())
+    response = test_context.post("/operator/refresh?limit=100", headers=operator_headers())
+    provider_response = test_context.post("/operator/refresh", headers=red_admin_headers())
+    ev_response = test_context.post("/operator/refresh", headers=ev_headers())
 
     assert response.status_code == 200
     assert captured["limit"] == 50
     payload = response.json()
-    assert payload["provider_code"] == "redPlug"
     assert payload["consumed"]["ack_count"] == 1
     assert payload["aggregates"]["usage_event_count"] == 0
-    assert other_provider_response.status_code == 403
+    assert provider_response.status_code == 403
     assert ev_response.status_code == 403
 
 
