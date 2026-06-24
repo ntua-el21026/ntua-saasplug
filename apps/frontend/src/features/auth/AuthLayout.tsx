@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AuthLayoutFrame, BrandLockup } from "../../components/layout";
+import evChargingMapHero from "../../assets/auth/ev-charging-map-hero.png";
 
 export function AuthLayout({
   title,
@@ -19,17 +20,15 @@ export function AuthLayout({
           <h1 id="auth-title">{title}</h1>
           <p>{subtitle}</p>
         </div>
-        <div className="auth-showcase" aria-label="Platform preview">
-          <div className="auth-showcase-map">
-            <span className="mock-road mock-road-a" />
-            <span className="mock-road mock-road-b" />
-            <span className="mock-marker mock-marker-energy" />
-            <span className="mock-marker mock-marker-warning" />
-            <span className="mock-marker mock-marker-selected" />
-          </div>
+        <div className="auth-showcase" aria-label="EV charging map preview">
+          <img
+            className="auth-showcase-map"
+            src={evChargingMapHero}
+            alt="Map of nearby EV charging points in Athens"
+          />
           <div className="auth-showcase-copy">
-            <strong>Gateway-only SaaS cockpit</strong>
-            <span>Catalog, reservations, analytics, invoices, and sync controls in one role-aware frontend.</span>
+            <strong>Power your drive, wherever the road takes you.</strong>
+            <span>Find nearby chargers, check live availability, and reserve your next stop in seconds.</span>
           </div>
         </div>
       </section>

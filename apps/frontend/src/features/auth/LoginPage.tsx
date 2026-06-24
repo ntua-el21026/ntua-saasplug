@@ -147,7 +147,6 @@ export function LoginPage() {
 
       <div className="demo-accounts" aria-label="Account shortcuts">
         <p>Try a role</p>
-        <small>Enter the presenter-provided password once; role shortcuts keep the current password field value.</small>
         {DEMO_ACCOUNTS.map((account) => (
           <button
             className={email === account.email ? "is-selected" : undefined}

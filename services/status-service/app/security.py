@@ -59,6 +59,11 @@ def ensure_log_reader(principal: CurrentPrincipal) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 
 
+def ensure_operator(principal: CurrentPrincipal) -> None:
+    if "OPERATOR" not in principal.roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operator role required")
+
+
 def ensure_can_query_point_status(principal: CurrentPrincipal, provider_code: str) -> None:
     if "OPERATOR" in principal.roles or "EV_USER" in principal.roles:
         return

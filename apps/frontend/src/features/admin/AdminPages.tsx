@@ -46,6 +46,7 @@ import type {
   SchedulerJob,
   SchedulerRun,
   SchedulerSequenceRun,
+  StatusCachePolicy,
   StatusProviderFreshness,
 } from "../../lib/types";
 import {
@@ -142,6 +143,11 @@ type SyncOperationState = {
   detail: string;
 };
 
+type SchedulerPresetApplication = {
+  scheduler: SchedulerIntervalPresetResponse;
+  statusCachePolicy: StatusCachePolicy;
+};
+
 const SCHEDULER_JOB_COPY: Record<string, SchedulerJobCopy> = {
   "catalog.import.all": {
     title: "Import all provider catalogs",
@@ -232,6 +238,13 @@ function formatCronSchedule(job: SchedulerJob): string {
 }
 
 function describeOperationResult(response: unknown): string {
+  if (isSchedulerPresetApplication(response)) {
+    const jobCount = formatNumber(response.scheduler.updated_count);
+    const cacheTtl = `${response.statusCachePolicy.ttl_seconds}s`;
+    return response.scheduler.preset === "minimum"
+      ? `Applied the minimum interval to ${jobCount} jobs and set the status cache to ${cacheTtl}.`
+      : `Restored defaults for ${jobCount} jobs and set the status cache to ${cacheTtl}.`;
+  }
   if (isSchedulerIntervalPresetResponse(response)) {
     if (response.preset === "minimum") {
       return `Applied the 30-second minimum to ${formatNumber(response.updated_count)} interval ${response.updated_count === 1 ? "job" : "jobs"}.`;
@@ -283,6 +296,13 @@ function isSchedulerIntervalPresetResponse(value: unknown): value is SchedulerIn
     && (value.preset === "minimum" || value.preset === "defaults")
     && typeof value.updated_count === "number"
     && Array.isArray(value.jobs);
+}
+
+function isSchedulerPresetApplication(value: unknown): value is SchedulerPresetApplication {
+  return isRecord(value)
+    && isSchedulerIntervalPresetResponse(value.scheduler)
+    && isRecord(value.statusCachePolicy)
+    && typeof value.statusCachePolicy.ttl_seconds === "number";
 }
 
 function isCatalogImportAllResponse(value: unknown): value is CatalogImportAllResponse {
@@ -808,7 +828,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "status" ? (
-                <DashboardPanel title="Status distribution" description="Availability mix from your charging-point checks in the selected period.">
+                <DashboardPanel title="Status distribution" description="Latest observed availability for each charging point in the selected period.">
                   <DistributionChart
                     rows={Object.entries(statusDistribution).map(([status, value]) => ({
                       label: statusLabel(status),
@@ -860,6 +880,7 @@ export function ProviderAnalyticsPage() {
                     getValue={(row) => row.observed_amount}
                     valueLabel="Tracked revenue"
                     color="#f59e0b"
+                    formatValue={(value) => formatMoney(value, "EUR")}
                   />
                 </DashboardPanel>
               ) : null}
@@ -1434,6 +1455,7 @@ export function OperatorAnalyticsPage() {
                     getValue={(row) => row.observed_amount}
                     valueLabel="Tracked revenue"
                     color="#f59e0b"
+                    formatValue={(value) => formatMoney(value, "EUR")}
                   />
                 </DashboardPanel>
               ) : null}
@@ -1943,13 +1965,35 @@ export function OperatorSyncPage() {
   const [operation, setOperation] = useState<SyncOperationState | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const schedulerState = useDashboardLoad(async () => {
-    const [jobs, runs] = await Promise.all([
+    const [jobs, runs, statusCachePolicy] = await Promise.all([
       requestJson<SchedulerJob[]>("/api/scheduler/jobs", { accessToken }),
       requestJson<SchedulerRun[]>("/api/scheduler/runs?limit=10", { accessToken }),
+      requestJson<StatusCachePolicy>("/api/status/cache/policy", { accessToken }),
     ]);
-    return { jobs, runs };
+    return { jobs, runs, statusCachePolicy };
   }, [accessToken, refreshKey]);
   const operationRunning = operation?.status === "running";
+
+  async function applySchedulerPreset(preset: "minimum" | "defaults"): Promise<SchedulerPresetApplication> {
+    if (!schedulerState.data) {
+      throw new Error("Scheduler configuration is still loading.");
+    }
+    const cacheTtlSeconds = preset === "minimum"
+      ? schedulerState.data.statusCachePolicy.minimum_ttl_seconds
+      : schedulerState.data.statusCachePolicy.default_ttl_seconds;
+    const [scheduler, statusCachePolicy] = await Promise.all([
+      requestJson<SchedulerIntervalPresetResponse>(
+        `/api/scheduler/jobs/intervals/${preset === "minimum" ? "apply-minimum" : "reset-defaults"}`,
+        { method: "POST", accessToken },
+      ),
+      requestJson<StatusCachePolicy>("/api/status/cache/policy", {
+        method: "PATCH",
+        accessToken,
+        bodyJson: { ttl_seconds: cacheTtlSeconds },
+      }),
+    ]);
+    return { scheduler, statusCachePolicy };
+  }
 
   async function runAction(label: string, action: () => Promise<unknown>, after?: () => void) {
     setMessage(null);
@@ -2014,22 +2058,22 @@ export function OperatorSyncPage() {
           value={activeTab}
           onValueChange={setActiveTab}
           label="Synchronization views"
-          meta={schedulerState.data ? `${schedulerState.data.jobs.length} jobs` : undefined}
+          meta={schedulerState.data ? `${schedulerState.data.jobs.length} jobs · status cache ${schedulerState.data.statusCachePolicy.ttl_seconds}s` : undefined}
         >
           {activeTab === "jobs" ? (
             <DashboardPanel
               title="Scheduler control plane"
-              description="Manage scheduled jobs, manual runs, pause controls, and job intervals."
+              description="Manage scheduled jobs, manual runs, pause controls, job intervals, and status cache timing."
               actions={(
                 <div className="scheduler-preset-actions" aria-label="Scheduler interval presets">
                   <button
                     className="button-secondary"
                     type="button"
-                    title="Apply the 30-second minimum interval to every interval job"
+                    title="Apply the minimum operator policy to interval jobs and the status cache"
                     disabled={operationRunning || schedulerState.loading || !schedulerState.data}
                     onClick={() => runAction(
-                      "apply minimum intervals",
-                      () => requestJson<SchedulerIntervalPresetResponse>("/api/scheduler/jobs/intervals/apply-minimum", { method: "POST", accessToken }),
+                      "apply minimum refresh policy",
+                      () => applySchedulerPreset("minimum"),
                       () => setRefreshKey((value) => value + 1),
                     )}
                   >
@@ -2038,11 +2082,11 @@ export function OperatorSyncPage() {
                   <button
                     className="button-primary"
                     type="button"
-                    title="Restore the documented default interval for every interval job"
+                    title="Restore documented defaults for interval jobs and the status cache"
                     disabled={operationRunning || schedulerState.loading || !schedulerState.data}
                     onClick={() => runAction(
-                      "reset default intervals",
-                      () => requestJson<SchedulerIntervalPresetResponse>("/api/scheduler/jobs/intervals/reset-defaults", { method: "POST", accessToken }),
+                      "reset default refresh policy",
+                      () => applySchedulerPreset("defaults"),
                       () => setRefreshKey((value) => value + 1),
                     )}
                   >

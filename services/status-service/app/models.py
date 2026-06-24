@@ -44,6 +44,19 @@ class StatusCache(Base):
     )
 
 
+class StatusCachePolicy(Base):
+    __tablename__ = "status_cache_policy"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+
 class StatusCheckLog(Base):
     __tablename__ = "status_check_logs"
 

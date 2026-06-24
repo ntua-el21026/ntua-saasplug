@@ -150,6 +150,13 @@ Aggregates include:
 - operator daily metrics,
 - EV reservation daily metrics.
 
+Status-distribution rows represent the latest normalized observation for each
+provider point in a day, rather than the number of status requests. A
+`reservation.succeeded` event contributes a `reserved` observation and
+supersedes an older same-day status check for that point when it is newer. This
+keeps the provider/operator status mix aligned with completed reservations
+after the normal event-drain and aggregate-refresh cycle.
+
 EV reservation daily metrics are scoped by `user_id` and include total
 reservations, successful/failed counts, successful reserved duration, distinct
 point keys, estimated-reservation counts, missing-estimate counts, total

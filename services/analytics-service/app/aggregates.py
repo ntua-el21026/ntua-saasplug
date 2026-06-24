@@ -39,7 +39,7 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
     provider_hourly: dict[tuple[str, datetime], dict] = {}
     provider_daily: dict[tuple[str, object], dict] = {}
     point_daily: dict[tuple[str, object, str | None, str | None], dict] = {}
-    provider_status_daily: dict[tuple[str, object, str], int] = {}
+    point_status_observations: dict[tuple[str, object, str], tuple[datetime, str]] = {}
     operator_daily: dict[object, dict] = {}
     ev_reservation_daily: dict[tuple[str, object], dict] = {}
 
@@ -96,10 +96,18 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
                     point_bucket["point_name"] = event.point_name
                 apply_point_event(point_bucket, event)
 
-            if event.event_type == EventType.STATUS_POINT_CHECKED.value:
-                status_value = event.status or "unknown"
-                status_key = (event.provider_code, event_day, status_value)
-                provider_status_daily[status_key] = provider_status_daily.get(status_key, 0) + 1
+            status_value = status_observation_from_event(event)
+            point_identifier = event.internal_point_id or event.external_point_id
+            if status_value is not None and point_identifier:
+                observation_key = (event.provider_code, event_day, point_identifier)
+                previous_observation = point_status_observations.get(observation_key)
+                if previous_observation is None or event.occurred_at >= previous_observation[0]:
+                    point_status_observations[observation_key] = (event.occurred_at, status_value)
+
+    provider_status_daily: dict[tuple[str, object, str], int] = {}
+    for (provider_code, day_bucket, _), (_, status_value) in point_status_observations.items():
+        status_key = (provider_code, day_bucket, status_value)
+        provider_status_daily[status_key] = provider_status_daily.get(status_key, 0) + 1
 
     for bucket in provider_hourly.values():
         db.add(
@@ -298,6 +306,21 @@ def apply_point_event(bucket: dict, event: UsageEvent) -> None:
         bucket["successful_reservations"] += 1
     elif event.event_type == EventType.RESERVATION_FAILED.value:
         bucket["failed_reservations"] += 1
+
+
+def status_observation_from_event(event: UsageEvent) -> str | None:
+    if event.event_type == EventType.STATUS_POINT_CHECKED.value:
+        return normalized_status(event.status)
+    if event.event_type == EventType.RESERVATION_SUCCEEDED.value:
+        return normalized_status(string_value(event.payload, "provider_status", "providerStatus")) or "reserved"
+    return None
+
+
+def normalized_status(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    return normalized if normalized in {"available", "charging", "reserved", "malfunction", "offline", "unknown"} else "unknown"
 
 
 def apply_ev_reservation_event(bucket: dict, event: UsageEvent) -> None:

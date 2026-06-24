@@ -15,6 +15,7 @@ Tables created by the service at MVP startup:
 | Table | Purpose |
 |---|---|
 | `status_cache` | Last known normalized status per `(provider_code, external_point_id)` with TTL metadata |
+| `status_cache_policy` | Operator-owned persisted cache TTL policy |
 | `status_check_logs` | Status lookup audit/log records with requester, cache, provider, and error metadata |
 
 ## Exposure
@@ -27,6 +28,8 @@ Gateway route behavior strips `/api/status/`, so service-local routes are:
 GET /points/{provider_code}/{external_point_id}/status
 GET /points/{provider_code}/{external_point_id}
 GET /cache/{provider_code}/{external_point_id}
+GET /cache/policy
+PATCH /cache/policy
 GET /logs
 GET /freshness
 ```
@@ -97,6 +100,13 @@ unknown
 
 Missing or unrecognized status values normalize to `unknown`.
 
+The configured environment value is the documented default. The active TTL is
+persisted in `status_cache_policy` and can be read or changed only by an
+operator through `GET`/`PATCH /cache/policy`. The minimum accepted TTL is 30
+seconds. Updating the policy recalculates `expires_at` for existing cache rows
+immediately, so lowering the value does not leave rows valid under an earlier
+five-minute expiry. New provider responses use the active policy as well.
+
 ## Authorization
 
 `status-service` validates auth-service-compatible HS256 JWT access tokens with
@@ -109,6 +119,8 @@ the shared `JWT_SECRET`.
 | `GET /cache/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider; never calls provider services |
 | `GET /logs` | `OPERATOR` all logs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |
 | `GET /freshness` | Public non-sensitive provider-level metadata |
+| `GET /cache/policy` | `OPERATOR` only; active/default/minimum TTL policy |
+| `PATCH /cache/policy` | `OPERATOR` only; update active TTL and existing cache expiries |
 
 Provider-admin log responses are provider-scoped and omit direct requester
 user IDs, requester emails, raw requester roles, and requester provider claims.

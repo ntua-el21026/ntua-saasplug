@@ -431,6 +431,13 @@ export interface SchedulerIntervalPresetResponse {
   jobs: SchedulerJob[];
 }
 
+export interface StatusCachePolicy {
+  ttl_seconds: number;
+  minimum_ttl_seconds: number;
+  default_ttl_seconds: number;
+  updated_at: string;
+}
+
 export interface SchedulerRun {
   id: string;
   job_id: string;

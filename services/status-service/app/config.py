@@ -2,6 +2,8 @@ import os
 from functools import lru_cache
 from urllib.parse import urlparse
 
+from app.schemas import MINIMUM_CACHE_TTL_SECONDS
+
 
 PROVIDER_CODES = ("redPlug", "greenPlug", "bluePlug")
 
@@ -44,7 +46,10 @@ class Settings:
             "postgresql://saasplug:saasplug@status-postgres:5432/status",
         )
         self.jwt_secret = os.getenv("JWT_SECRET", "change-me-in-local-env")
-        self.cache_ttl_seconds = int(os.getenv("STATUS_CACHE_TTL_SECONDS", "300"))
+        self.cache_ttl_seconds = max(
+            MINIMUM_CACHE_TTL_SECONDS,
+            int(os.getenv("STATUS_CACHE_TTL_SECONDS", "300")),
+        )
         self.provider_timeout_seconds = float(os.getenv("STATUS_PROVIDER_TIMEOUT_SECONDS", "10"))
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
         self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")

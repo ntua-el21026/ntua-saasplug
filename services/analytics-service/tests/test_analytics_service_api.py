@@ -604,13 +604,36 @@ def test_repeated_aggregate_refresh_updates_existing_metric_rows(test_context) -
         db.close()
 
 
-def test_status_checked_events_update_status_distribution(test_context) -> None:
+def test_latest_point_observations_update_status_distribution(test_context) -> None:
     seed_analytics_events(test_context)
 
     response = test_context.get("/provider/status-distribution?providerCode=redPlug", headers=operator_headers())
 
     assert response.status_code == 200
-    assert response.json()["status_distribution"] == {"available": 1}
+    assert response.json()["status_distribution"] == {"reserved": 1}
+
+
+def test_reservation_success_replaces_an_older_point_status_observation(test_context) -> None:
+    events = [
+        envelope(
+            "status.point_checked",
+            payload={"status": "available"},
+            occurred_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        ),
+        envelope(
+            "reservation.succeeded",
+            payload={"reservation_id": "reservation-1", "status": "succeeded", "provider_status": "reserved"},
+            occurred_at=datetime(2026, 6, 12, 10, 1, tzinfo=UTC),
+        ),
+    ]
+
+    assert ingest(test_context, events).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    response = test_context.get("/provider/status-distribution?providerCode=redPlug", headers=operator_headers())
+
+    assert response.status_code == 200
+    assert response.json()["status_distribution"] == {"reserved": 1}
 
 
 def test_provider_admin_can_access_only_own_provider_analytics(test_context) -> None:

@@ -454,7 +454,11 @@ Provider services must store:
 
 ## SPEC-2.9 Status strategy
 
-Status lookup is real-time from the user's perspective, but cached for 5 minutes.
+Status lookup is real-time from the user's perspective, but cached for 5
+minutes by default. The active TTL is an operator-owned persistent policy with
+a 30-second minimum; the operator Sync control-plane presets update this policy
+alongside interval jobs. A policy change recalculates expiry for existing cache
+rows immediately.
 
 Flow:
 
@@ -474,6 +478,11 @@ unknown
 ```
 
 Provider-specific unknown or missing status maps to `unknown`.
+
+If the cached/local catalog reports `reserved` while a non-live status cache
+response reports `available`, the frontend must keep the reservation visible
+and request a single backend-mediated forced status refresh. Only a confirmed
+live provider response may replace that reservation status in point details.
 
 ## SPEC-2.10 Reservation strategy
 
@@ -644,7 +653,7 @@ It does not own live status truth or reservations.
 
 `status-service` owns:
 
-- 5-minute status cache,
+- default-five-minute, operator-configurable status cache,
 - status check logs,
 - last known status,
 - fallback behavior for timeouts,
@@ -874,7 +883,9 @@ point_status_cache
 status_check_log
 ```
 
-Cache TTL is 5 minutes.
+Cache TTL defaults to 5 minutes and has a 30-second operator-configurable
+minimum. The active policy is stored by `status-service` and applies to both
+new cache writes and already cached rows after policy updates.
 
 The cache stores:
 
