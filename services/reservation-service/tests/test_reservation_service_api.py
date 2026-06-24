@@ -648,7 +648,6 @@ def test_unknown_outcome_replays_same_idempotency_result_without_provider_retry(
     [
         None,
         "not-a-date",
-        "2099-06-12T12:00:00",
         "2000-06-12T12:00:00Z",
     ],
 )
@@ -679,6 +678,37 @@ def test_invalid_provider_reservation_expiry_creates_unknown_nonbillable_record(
         assert idempotency_record.status == "unknown"
         assert idempotency_record.reservation_id == reservation.id
         assert db.query(ReservationEventOutbox).count() == 0
+    finally:
+        db.close()
+
+
+def test_provider_future_naive_reservation_expiry_is_treated_as_utc_success(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    fake_provider.reservations[("redPlug", "101")]["reservation_ends_at"] = "2099-06-12T12:00:00"
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        json={"duration_minutes": 60},
+        headers={**ev_headers(), "Idempotency-Key": "naive-expiry-key"},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "succeeded"
+    assert payload["reservation_ends_at"] == "2099-06-12T12:00:00+00:00"
+    assert payload["estimated_cost_eur"] == 6.82
+    db = get_session_factory()()
+    try:
+        reservation = db.query(Reservation).one()
+        attempt = db.query(ReservationAttempt).one()
+        event = db.query(ReservationEventOutbox).one()
+        idempotency_record = db.query(ReservationIdempotencyRecord).one()
+        assert reservation.status == "succeeded"
+        assert attempt.result_status == "succeeded"
+        assert event.event_type == "reservation.succeeded"
+        assert event.payload["estimated_cost_eur"] == 6.82
+        assert idempotency_record.status == "succeeded"
+        assert idempotency_record.reservation_id == reservation.id
     finally:
         db.close()
 

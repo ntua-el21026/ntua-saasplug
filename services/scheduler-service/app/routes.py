@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.executor import JobNotFoundError, get_job_or_raise, run_job
-from app.jobs import ORDERED_MAINTENANCE_JOB_KEYS, calculate_next_run
+from app.jobs import DEFAULT_JOBS, ORDERED_MAINTENANCE_JOB_KEYS, calculate_next_run
 from app.models import JobRun, ScheduledJob
 from app.schemas import (
     CurrentPrincipal,
@@ -14,6 +14,8 @@ from app.schemas import (
     JobSequenceRunResponse,
     MaintenanceSequenceRequest,
     ManualRunRequest,
+    MINIMUM_INTERVAL_SECONDS,
+    SchedulerIntervalPresetResponse,
     ScheduledJobResponse,
     SchedulerHealthResponse,
 )
@@ -30,6 +32,24 @@ def list_jobs(
     ensure_operator(principal)
     jobs = db.scalars(select(ScheduledJob).order_by(ScheduledJob.job_key.asc())).all()
     return [job_response(job) for job in jobs]
+
+
+@router.post("/jobs/intervals/apply-minimum", response_model=SchedulerIntervalPresetResponse)
+def apply_minimum_interval_preset(
+    db: Session = Depends(get_db),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> SchedulerIntervalPresetResponse:
+    ensure_operator(principal)
+    return apply_interval_preset(db, preset="minimum")
+
+
+@router.post("/jobs/intervals/reset-defaults", response_model=SchedulerIntervalPresetResponse)
+def reset_default_interval_preset(
+    db: Session = Depends(get_db),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> SchedulerIntervalPresetResponse:
+    ensure_operator(principal)
+    return apply_interval_preset(db, preset="defaults")
 
 
 @router.get("/jobs/{job_key}", response_model=ScheduledJobResponse)
@@ -220,6 +240,48 @@ def health(db: Session = Depends(get_db)) -> SchedulerHealthResponse:
         enabled_job_count=enabled_jobs,
         running_job_count=running_jobs,
         last_run_status=last_run.status if last_run else None,
+    )
+
+
+def apply_interval_preset(
+    db: Session,
+    *,
+    preset: str,
+) -> SchedulerIntervalPresetResponse:
+    jobs = db.scalars(
+        select(ScheduledJob)
+        .where(ScheduledJob.schedule_type == "interval")
+        .order_by(ScheduledJob.job_key.asc()),
+    ).all()
+    default_intervals = {
+        seed.job_key: seed.interval_seconds
+        for seed in DEFAULT_JOBS
+        if seed.schedule_type == "interval" and seed.interval_seconds is not None
+    }
+
+    if preset == "defaults":
+        missing_defaults = [job.job_key for job in jobs if job.job_key not in default_intervals]
+        if missing_defaults:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"No seeded interval default exists for: {', '.join(missing_defaults)}",
+            )
+
+    for job in jobs:
+        job.interval_seconds = (
+            MINIMUM_INTERVAL_SECONDS
+            if preset == "minimum"
+            else default_intervals[job.job_key]
+        )
+        job.next_run_at = calculate_next_run(job)
+
+    db.commit()
+    for job in jobs:
+        db.refresh(job)
+    return SchedulerIntervalPresetResponse(
+        preset=preset,
+        updated_count=len(jobs),
+        jobs=[job_response(job) for job in jobs],
     )
 
 

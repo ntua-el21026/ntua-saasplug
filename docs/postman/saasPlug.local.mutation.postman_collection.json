@@ -1,0 +1,2210 @@
+{
+  "info": {
+    "name": "saasPlug.local.mutation",
+    "description": "Small safe local mutation checks plus a manual folder that is skipped unless explicitly enabled.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Local Auth Mutations",
+      "item": [
+        {
+          "name": "Register disposable EV user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman-{{uniqueSuffix}}@saasplug.local\",\n  \"password\": \"{{disposablePassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('disposablePassword')) {",
+                  "  pm.environment.set('disposablePassword', 'PostmanLocal!' + pm.environment.get('uniqueSuffix'));",
+                  "}",
+                  "if (!pm.environment.get('disposableNewPassword')) {",
+                  "  pm.environment.set('disposableNewPassword', 'PostmanChanged!' + pm.environment.get('uniqueSuffix'));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('disposable registration succeeds or already exists for reused suffix', function () {",
+                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "  if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.user.roles).to.include('EV_USER');",
+                  "    pm.environment.set('disposableAccessToken', json.access_token);",
+                  "    pm.environment.set('disposableRefreshToken', json.refresh_token);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login disposable EV user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman-{{uniqueSuffix}}@saasplug.local\",\n  \"password\": \"{{disposablePassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('disposable login succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('disposableAccessToken', json.access_token);",
+                  "  pm.environment.set('disposableRefreshToken', json.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disposable me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{disposableAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('profile contains expected role EV_USER', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json.roles).to.include('EV_USER');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh disposable token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{disposableRefreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('refresh returns a new access token', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('disposableAccessToken', json.access_token);",
+                  "  pm.environment.set('disposableRefreshToken', json.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change disposable password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{disposableAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{disposablePassword}}\",\n  \"new_password\": \"{{disposableNewPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login disposable with changed password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman-{{uniqueSuffix}}@saasplug.local\",\n  \"password\": \"{{disposableNewPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('changed password login succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('disposableAccessToken', json.access_token);",
+                  "  pm.environment.set('disposableRefreshToken', json.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout disposable refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{disposableRefreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reversible Provider Metadata",
+      "item": [
+        {
+          "name": "Read provider before metadata patch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{providerCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('provider read captures original display name', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('originalProviderDisplayName', json.display_name);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patch provider display name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{providerCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"{{providerCode}} Postman {{uniqueSuffix}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify provider metadata patch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{providerCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('provider display name contains Postman suffix', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().display_name).to.include('Postman');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revert provider display name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{providerCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"{{originalProviderDisplayName}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pricing Local Mutations",
+      "item": [
+        {
+          "name": "Create inactive provider pricing rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/pricing/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_code\": \"{{providerCode}}\",\n  \"name\": \"Postman inactive {{uniqueSuffix}}\",\n  \"active\": false,\n  \"currency\": \"EUR\",\n  \"reservation_success_fee\": \"0.50\",\n  \"point_view_fee\": \"0.01\",\n  \"point_view_fee_enabled\": true,\n  \"reservation_failure_fee\": \"0.00\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('inactive pricing rule is created without changing active pricing', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.active).to.eql(false);",
+                  "  pm.environment.set('ruleId', json.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patch inactive pricing rule name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/pricing/rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman inactive patched {{uniqueSuffix}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scheduler Reversible Mutations",
+      "item": [
+        {
+          "name": "Read scheduler jobs before pause resume",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('scheduler jobs list is readable by operator', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const jobs = pm.response.json();",
+                  "  pm.expect(jobs).to.be.an('array');",
+                  "  const selected = jobs.find(function (job) { return job.schedule_type === 'manual'; }) || jobs[0];",
+                  "  if (selected && selected.job_key) {",
+                  "    pm.environment.set('jobKey', selected.job_key);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read selected scheduler job",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{jobPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let jobKey = pm.environment.get('jobKey') || pm.iterationData.get('jobKey') || 'analytics.refresh-aggregates.manual';",
+                  "pm.environment.set('jobKey', jobKey);",
+                  "pm.variables.set('jobPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey));",
+                  "pm.variables.set('jobRunPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/run');",
+                  "pm.variables.set('jobPausePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/pause');",
+                  "pm.variables.set('jobResumePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/resume');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pause selected scheduler job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{jobPausePath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let jobKey = pm.environment.get('jobKey') || pm.iterationData.get('jobKey') || 'analytics.refresh-aggregates.manual';",
+                  "pm.environment.set('jobKey', jobKey);",
+                  "pm.variables.set('jobPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey));",
+                  "pm.variables.set('jobRunPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/run');",
+                  "pm.variables.set('jobPausePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/pause');",
+                  "pm.variables.set('jobResumePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/resume');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resume selected scheduler job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{jobResumePath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let jobKey = pm.environment.get('jobKey') || pm.iterationData.get('jobKey') || 'analytics.refresh-aggregates.manual';",
+                  "pm.environment.set('jobKey', jobKey);",
+                  "pm.variables.set('jobPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey));",
+                  "pm.variables.set('jobRunPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/run');",
+                  "pm.variables.set('jobPausePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/pause');",
+                  "pm.variables.set('jobResumePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/resume');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manual External Or Broad Side-Effect Mutations",
+      "item": [
+        {
+          "name": "Manual provider usage CSV export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/analytics/exports/usage.csv?providerCode={{providerCode}}&from=2026-01-01&to=2026-12-31');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual CSV export skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual CSV export returns CSV or documented error', function () { pm.expect([200, 400, 403]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual catalog import provider",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/catalog/imports/providers/{{providerCode}}');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual catalog import all providers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/catalog/imports/all');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual single reservation creation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 45\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const providerCode = pm.environment.get('providerCode');",
+                  "const externalPointId = pm.environment.get('externalPointId');",
+                  "if (providerCode && externalPointId) {",
+                  "  pm.variables.set('pointReady', 'true');",
+                  "  pm.variables.set('pointDetailPath', '/api/catalog/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('statusLookupPath', '/api/status/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/status?forceRefresh=false');",
+                  "  pm.variables.set('statusCachePath', '/api/status/cache/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('reservationPath', '/api/reservations/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/reservations');",
+                  "} else {",
+                  "  pm.variables.set('pointReady', 'false');",
+                  "  pm.variables.set('pointDetailPath', '/health');",
+                  "  pm.variables.set('statusLookupPath', '/health');",
+                  "  pm.variables.set('statusCachePath', '/health');",
+                  "  pm.variables.set('reservationPath', '/health');",
+                  "}",
+                  "pm.variables.set('manualTargetPath', pm.variables.get('reservationPath'));",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual issue invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_code\": \"{{providerCode}}\",\n  \"period_start\": \"2026-01-01T00:00:00Z\",\n  \"period_end\": \"2026-01-31T23:59:59Z\",\n  \"tax_amount\": \"0.00\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/billing/invoices/issue');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual pay captured invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mock_payment_reference\": \"postman-{{uniqueSuffix}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const invoiceId = pm.environment.get('invoiceId');",
+                  "if (invoiceId) {",
+                  "  pm.variables.set('invoiceReady', 'true');",
+                  "  pm.variables.set('invoiceDetailPath', '/api/billing/invoices/' + encodeURIComponent(invoiceId));",
+                  "  pm.variables.set('invoicePayPath', '/api/billing/invoices/' + encodeURIComponent(invoiceId) + '/pay');",
+                  "} else {",
+                  "  pm.variables.set('invoiceReady', 'false');",
+                  "  pm.variables.set('invoiceDetailPath', '/health');",
+                  "  pm.variables.set('invoicePayPath', '/health');",
+                  "}",
+                  "pm.variables.set('manualTargetPath', pm.variables.get('invoicePayPath'));",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual scheduler run selected job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_body\": {}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let jobKey = pm.environment.get('jobKey') || pm.iterationData.get('jobKey') || 'analytics.refresh-aggregates.manual';",
+                  "pm.environment.set('jobKey', jobKey);",
+                  "pm.variables.set('jobPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey));",
+                  "pm.variables.set('jobRunPath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/run');",
+                  "pm.variables.set('jobPausePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/pause');",
+                  "pm.variables.set('jobResumePath', '/api/scheduler/jobs/' + encodeURIComponent(jobKey) + '/resume');",
+                  "pm.variables.set('manualTargetPath', pm.variables.get('jobRunPath'));",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual scheduler ordered maintenance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_code\": \"{{providerCode}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/scheduler/jobs/run-maintenance');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual analytics consume events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/analytics/events/consume?limit=10');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual analytics refresh aggregates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/analytics/aggregates/refresh');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual billing drain events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/billing/events/drain?limit=10');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual billing publish outbox",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/billing/events/outbox/publish-pending?limit=10');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual reservation publish outbox",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{manualMutationPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('manualTargetPath', '/api/reservations/events/outbox/publish-pending?limit=10');",
+                  "const allowManual = pm.environment.get('allowManualMutations') === 'true';",
+                  "const targetPath = pm.variables.get('manualTargetPath');",
+                  "if (allowManual && targetPath) {",
+                  "  pm.variables.set('manualMutationPath', targetPath);",
+                  "  pm.variables.set('manualMutationReady', 'true');",
+                  "} else {",
+                  "  pm.variables.set('manualMutationPath', '/health');",
+                  "  pm.variables.set('manualMutationReady', 'false');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('manualMutationReady') === 'false') {",
+                  "  pm.test('manual mutation skipped by default', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('manual mutation returned a documented status', function () { pm.expect([200, 201, 202, 204, 400, 404, 409, 422, 502]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "These requests are safe-skipped unless allowManualMutations is true. They may call providers, issue invoices, publish/drain events, or mutate scheduler targets."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('runId')) {",
+          "  pm.environment.set('runId', String(Date.now()));",
+          "}",
+          "if (!pm.environment.get('uniqueSuffix')) {",
+          "  pm.environment.set('uniqueSuffix', pm.environment.get('runId') + '-' + Math.random().toString(16).slice(2, 8));",
+          "}"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,3095 @@
+{
+  "info": {
+    "name": "saasPlug.local.regression",
+    "description": "Read-heavy app-level functional regression through the local gateway. Runner scripts hydrate tokens with the smoke collection before executing data folders.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "EV Search Reads",
+      "item": [
+        {
+          "name": "Health read",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV profile read",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('profile contains expected role EV_USER', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json.roles).to.include('EV_USER');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog radius query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?centerLat={{centerLat}}&centerLng={{centerLng}}&radiusKm={{radiusKm}}&limit={{limit}}&offset={{offset}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog bounds query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?minLat={{minLat}}&maxLat={{maxLat}}&minLng={{minLng}}&maxLng={{maxLng}}&limit={{limit}}&offset={{offset}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog provider filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?providerCode={{caseProviderCode}}&limit={{limit}}&offset={{offset}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog status filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?status={{statusFilter}}&limit={{limit}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog text and connector query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?q={{textQuery}}&connector={{connector}}&limit={{limit}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog pagination query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?limit={{limit}}&offset={{offset}}&includeStale={{includeStale}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog point detail dynamic",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{pointDetailPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const providerCode = pm.environment.get('providerCode');",
+                  "const externalPointId = pm.environment.get('externalPointId');",
+                  "if (providerCode && externalPointId) {",
+                  "  pm.variables.set('pointReady', 'true');",
+                  "  pm.variables.set('pointDetailPath', '/api/catalog/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('statusLookupPath', '/api/status/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/status?forceRefresh=false');",
+                  "  pm.variables.set('statusCachePath', '/api/status/cache/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('reservationPath', '/api/reservations/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/reservations');",
+                  "} else {",
+                  "  pm.variables.set('pointReady', 'false');",
+                  "  pm.variables.set('pointDetailPath', '/health');",
+                  "  pm.variables.set('statusLookupPath', '/health');",
+                  "  pm.variables.set('statusCachePath', '/health');",
+                  "  pm.variables.set('reservationPath', '/health');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('pointReady') === 'false') {",
+                  "  pm.test('skipped point detail because no catalog point was captured', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('point detail returns captured point identity', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.provider_code).to.eql(pm.environment.get('providerCode'));",
+                  "    pm.expect(json.external_point_id).to.eql(pm.environment.get('externalPointId'));",
+                  "    pm.expect(json).to.have.property('raw_provider_payload');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV reservations list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/reservations/me?limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV reservation summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/ev/reservations/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog Status Reads",
+      "item": [
+        {
+          "name": "Catalog provider include stale",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?providerCode={{caseProviderCode}}&includeStale={{includeStale}}&limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('catalog list returns pagination metadata', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items').that.is.an('array');",
+                  "  pm.expect(json).to.have.property('total');",
+                  "  pm.expect(json).to.have.property('limit');",
+                  "  pm.expect(json).to.have.property('offset');",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "const point = (payload.items || []).find(function (item) {",
+                  "  return item && item.provider_code && item.external_point_id;",
+                  "});",
+                  "if (point) {",
+                  "  pm.environment.set('pointId', point.id || '');",
+                  "  pm.environment.set('normalizedPointId', point.normalized_point_id || '');",
+                  "  pm.environment.set('providerCode', point.provider_code || pm.environment.get('providerCode'));",
+                  "  pm.environment.set('externalPointId', point.external_point_id || '');",
+                  "  pm.test('captured a usable catalog point', function () {",
+                  "    pm.expect(pm.environment.get('providerCode')).to.not.be.empty;",
+                  "    pm.expect(pm.environment.get('externalPointId')).to.not.be.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('catalog may be empty on a fresh stack', function () {",
+                  "    pm.expect(payload.items.length).to.eql(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog freshness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog import run history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/imports/runs?limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status freshness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/status/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status logs provider scoped",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/status/logs?providerCode={{caseProviderCode}}&limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status cache dynamic",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{statusCachePath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const providerCode = pm.environment.get('providerCode');",
+                  "const externalPointId = pm.environment.get('externalPointId');",
+                  "if (providerCode && externalPointId) {",
+                  "  pm.variables.set('pointReady', 'true');",
+                  "  pm.variables.set('pointDetailPath', '/api/catalog/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('statusLookupPath', '/api/status/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/status?forceRefresh=false');",
+                  "  pm.variables.set('statusCachePath', '/api/status/cache/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('reservationPath', '/api/reservations/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/reservations');",
+                  "} else {",
+                  "  pm.variables.set('pointReady', 'false');",
+                  "  pm.variables.set('pointDetailPath', '/health');",
+                  "  pm.variables.set('statusLookupPath', '/health');",
+                  "  pm.variables.set('statusCachePath', '/health');",
+                  "  pm.variables.set('reservationPath', '/health');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('pointReady') === 'false') {",
+                  "  pm.test('skipped status cache because no catalog point was captured', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('status cache returns cached status or documented miss', function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "    if (pm.response.code === 200) {",
+                  "      const json = pm.response.json();",
+                  "      pm.expect(json.provider_code).to.eql(pm.environment.get('providerCode'));",
+                  "      pm.expect(json.external_point_id).to.eql(pm.environment.get('externalPointId'));",
+                  "    }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider catalog detail dynamic",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{pointDetailPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const providerCode = pm.environment.get('providerCode');",
+                  "const externalPointId = pm.environment.get('externalPointId');",
+                  "if (providerCode && externalPointId) {",
+                  "  pm.variables.set('pointReady', 'true');",
+                  "  pm.variables.set('pointDetailPath', '/api/catalog/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('statusLookupPath', '/api/status/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/status?forceRefresh=false');",
+                  "  pm.variables.set('statusCachePath', '/api/status/cache/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId));",
+                  "  pm.variables.set('reservationPath', '/api/reservations/points/' + encodeURIComponent(providerCode) + '/' + encodeURIComponent(externalPointId) + '/reservations');",
+                  "} else {",
+                  "  pm.variables.set('pointReady', 'false');",
+                  "  pm.variables.set('pointDetailPath', '/health');",
+                  "  pm.variables.set('statusLookupPath', '/health');",
+                  "  pm.variables.set('statusCachePath', '/health');",
+                  "  pm.variables.set('reservationPath', '/health');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('pointReady') === 'false') {",
+                  "  pm.test('skipped provider point detail because no catalog point was captured', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('provider point detail is readable for own provider or forbidden across scope', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservation detail dynamic",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{reservationDetailPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const reservationId = pm.environment.get('reservationId');",
+                  "if (reservationId) {",
+                  "  pm.variables.set('reservationReady', 'true');",
+                  "  pm.variables.set('reservationDetailPath', '/api/reservations/reservations/' + encodeURIComponent(reservationId));",
+                  "} else {",
+                  "  pm.variables.set('reservationReady', 'false');",
+                  "  pm.variables.set('reservationDetailPath', '/health');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "if (pm.variables.get('reservationReady') === 'false') {",
+                  "  pm.test('skipped reservation detail because no reservationId is available', function () { pm.response.to.have.status(200); });",
+                  "} else {",
+                  "  pm.test('reservation detail returns requested reservation', function () {",
+                  "    pm.expect([200, 403, 404]).to.include(pm.response.code);",
+                  "    if (pm.response.code === 200) {",
+                  "      pm.expect(pm.response.json().id).to.eql(pm.environment.get('reservationId'));",
+                  "    }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Provider Read Cases",
+      "item": [
+        {
+          "name": "Provider profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('profile contains expected role PROVIDER_ADMIN', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json.roles).to.include('PROVIDER_ADMIN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider registry own provider",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{caseProviderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider integration config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{caseProviderCode}}/integration-config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider audit logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{caseProviderCode}}/audit-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200 for own provider or 403 for provider-scope mismatch', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.text()) {",
+                  "  pm.test('response body is valid JSON', function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider catalog points",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?providerCode={{caseProviderCode}}&includeStale=true&limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/summary?providerCode={{caseProviderCode}}&from={{fromDate}}&to={{toDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider daily trends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/trends/daily?providerCode={{caseProviderCode}}&from={{fromDate}}&to={{toDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200 for own provider or 403 for provider-scope mismatch', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.text()) {",
+                  "  pm.test('response body is valid JSON', function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider top points by views",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/top-points?providerCode={{caseProviderCode}}&metric=views&limit={{metricLimit}}&from={{fromDate}}&to={{toDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200 for own provider or 403 for provider-scope mismatch', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.text()) {",
+                  "  pm.test('response body is valid JSON', function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider top points by reservations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/top-points?providerCode={{caseProviderCode}}&metric=reservations&limit={{metricLimit}}&from={{fromDate}}&to={{toDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200 for own provider or 403 for provider-scope mismatch', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.text()) {",
+                  "  pm.test('response body is valid JSON', function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider status distribution",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/status-distribution?providerCode={{caseProviderCode}}&from={{fromDate}}&to={{toDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider analytics freshness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/freshness?providerCode={{caseProviderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider billing invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/invoices?providerCode={{caseProviderCode}}&status={{invoiceStatus}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200 for own provider or 403 for provider-scope mismatch', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.text()) {",
+                  "  pm.test('response body is valid JSON', function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider billing overview and pricing",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/providers/{{caseProviderCode}}/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is one of [200, 403]', function () { pm.expect([200, 403]).to.include(pm.response.code); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Operator Read Cases",
+      "item": [
+        {
+          "name": "Operator profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('profile contains expected role OPERATOR', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json.roles).to.include('OPERATOR');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator provider comparison",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/provider-comparison",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator trends daily",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/trends/daily",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator catalog health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/catalog-health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator analytics freshness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider registry list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog import run history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/imports/runs?limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog freshness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status freshness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/status/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Billing overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Billing invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/invoices?providerCode={{caseProviderCode}}&status={{invoiceStatus}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Billing charges",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/charges?providerCode={{caseProviderCode}}&status={{chargeStatus}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pricing rules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/pricing/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scheduler health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 204 && pm.response.text()) {",
+                  "  pm.test('response body is JSON object', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scheduler jobs capture jobKey",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('scheduler jobs list is readable by operator', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const jobs = pm.response.json();",
+                  "  pm.expect(jobs).to.be.an('array');",
+                  "  const selected = jobs.find(function (job) { return job.schedule_type === 'manual'; }) || jobs[0];",
+                  "  if (selected && selected.job_key) {",
+                  "    pm.environment.set('jobKey', selected.job_key);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scheduler runs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/runs?limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response body is JSON array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('runId')) {",
+          "  pm.environment.set('runId', String(Date.now()));",
+          "}",
+          "if (!pm.environment.get('uniqueSuffix')) {",
+          "  pm.environment.set('uniqueSuffix', pm.environment.get('runId') + '-' + Math.random().toString(16).slice(2, 8));",
+          "}"
+        ]
+      }
+    }
+  ]
+}

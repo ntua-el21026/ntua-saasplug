@@ -700,6 +700,11 @@ textarea:hover,
   padding: var(--space-6);
 }
 
+.ui-modal .button-row {
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
 .logout-confirmation-actions {
   justify-content: center;
   margin-top: var(--space-5);
@@ -1717,7 +1722,7 @@ textarea:hover,
 
 .charging-point-card {
   position: relative;
-  height: 148px;
+  min-height: 148px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1732,7 +1737,7 @@ textarea:hover,
 
 .charging-point-card-button {
   display: flex;
-  height: 100%;
+  min-height: 148px;
   width: 100%;
   align-items: stretch;
   gap: var(--space-3);
@@ -1808,17 +1813,25 @@ textarea:hover,
 
 .point-card-main small,
 .point-card-meta {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
 }
 
 .point-card-main small {
-  -webkit-line-clamp: 2;
+  display: block;
 }
 
 .point-card-meta {
-  -webkit-line-clamp: 1;
+  display: block;
+}
+
+.point-card-reservation {
+  display: block;
+  margin-top: 2px;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  overflow-wrap: anywhere;
 }
 
 .point-card-side {
@@ -2217,6 +2230,11 @@ dd {
 
 .reservation-box label {
   max-width: 260px;
+}
+
+.reservation-box > .button-primary {
+  width: min(280px, 100%);
+  justify-self: center;
 }
 
 .reservation-page {
@@ -2619,8 +2637,21 @@ dd {
   padding: 5px 9px;
 }
 
+.scheduler-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.scheduler-preset-actions .button-primary,
+.scheduler-preset-actions .button-secondary {
+  min-height: 40px;
+}
+
 .scheduler-table .button-row {
   align-items: stretch;
+  justify-content: flex-start;
 }
 
 .scheduler-table .button-row button {
@@ -2685,6 +2716,10 @@ dd {
   grid-column: 1 / -1;
   justify-self: center;
   min-width: 180px;
+}
+
+.admin-panel > .button-row {
+  justify-content: center;
 }
 
 .admin-inline-form {
@@ -3014,6 +3049,35 @@ dd {
   overflow: hidden;
 }
 
+.analytics-explanation-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  padding: var(--space-4);
+}
+
+.analytics-explanation-card div {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid var(--color-primary);
+  padding-left: var(--space-3);
+}
+
+.analytics-explanation-card strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.analytics-explanation-card span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 .analytics-grouped-chart {
   display: grid;
   min-width: 0;
@@ -3286,6 +3350,10 @@ dd {
   }
 
   .sync-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-explanation-card {
     grid-template-columns: 1fr;
   }
 

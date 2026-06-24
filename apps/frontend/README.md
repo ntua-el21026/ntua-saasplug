@@ -76,7 +76,7 @@ Implemented frontend routes:
 | `/operator/invoices/new` | Operator invoice issuance |
 | `/operator/invoices/:invoiceId` | Operator invoice detail view |
 | `/operator/pricing` | Pricing rule creation and activation controls |
-| `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, interval editing, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
+| `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, individual interval editing, bulk minimum/default interval presets, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
 | `/operator/system` | Service health, scheduler health, freshness, and run-history overview |
 
 Authenticated EV routes require `EV_USER`. Provider routes require
@@ -185,6 +185,11 @@ only when the backend has all required inputs: cost/kWh, charger capacity in
 kW, and requested duration. Missing, negative, or non-finite inputs render as
 unavailable rather than `0` or a malformed currency value.
 
+Reserved points show reservation timing wherever the frontend has that data:
+map/list point cards and point detail/status panels show the reserved-until
+time, while reservation history and successful reservation dialogs show the
+created-to-end reservation window.
+
 The top summary metrics prioritize average estimated cost per point. That
 metric is backed by analytics-service aggregates and uses only points with at
 least one valid estimate, so missing cost/kWh or capacity fields do not depress
@@ -201,8 +206,8 @@ Reservation submissions send a generated `Idempotency-Key` header to
 prevents duplicate in-flight form submissions. A completed failed request gets
 a new key when the EV user explicitly retries it. Ambiguous provider outcomes,
 such as timeouts or invalid provider success payloads, do not expose immediate
-fresh-key retry. The dialog asks the user to refresh status or check
-reservation history before sending a new provider mutation.
+fresh-key retry. The dialog directs the user to reservation history before
+sending a new provider mutation.
 
 ## Refresh ownership
 

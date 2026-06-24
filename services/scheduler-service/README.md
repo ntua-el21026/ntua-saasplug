@@ -34,6 +34,8 @@ Public through `nginx-gateway` under `/api/scheduler/...`.
 | `GET /jobs` | `/api/scheduler/jobs` | `OPERATOR` only |
 | `GET /jobs/{job_key}` | `/api/scheduler/jobs/{job_key}` | `OPERATOR` only |
 | `PATCH /jobs/{job_key}` | `/api/scheduler/jobs/{job_key}` | `OPERATOR` only |
+| `POST /jobs/intervals/apply-minimum` | `/api/scheduler/jobs/intervals/apply-minimum` | `OPERATOR` only |
+| `POST /jobs/intervals/reset-defaults` | `/api/scheduler/jobs/intervals/reset-defaults` | `OPERATOR` only |
 | `POST /jobs/{job_key}/run` | `/api/scheduler/jobs/{job_key}/run` | `OPERATOR` only |
 | `POST /jobs/{job_key}/pause` | `/api/scheduler/jobs/{job_key}/pause` | `OPERATOR` only |
 | `POST /jobs/{job_key}/resume` | `/api/scheduler/jobs/{job_key}/resume` | `OPERATOR` only |
@@ -81,6 +83,12 @@ state.
 Operator-edited intervals are stored in `scheduler-postgres`. Startup seeding
 creates missing jobs and updates structural metadata, but it preserves custom
 operator interval edits instead of resetting them to code defaults.
+
+The operator Sync page also exposes bulk interval presets. `Apply minimum`
+sets every interval job to the API minimum of 30 seconds for live testing.
+`Reset defaults` restores those same interval jobs from `DEFAULT_JOBS`.
+Neither action changes cron/manual jobs or enabled/paused state; each affected
+job receives a recalculated next-run time.
 
 Each job's `timeout_seconds` is applied to the actual HTTP request deadline.
 When a job has no usable timeout value, the service falls back to

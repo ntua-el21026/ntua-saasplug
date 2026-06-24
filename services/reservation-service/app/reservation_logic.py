@@ -427,7 +427,7 @@ def parse_timezone_aware_future_expiry(value: str | None) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return None
+        parsed = parsed.replace(tzinfo=timezone.utc)
     parsed = parsed.astimezone(timezone.utc)
     return parsed if parsed > utcnow() else None
 

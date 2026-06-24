@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, type ReactNode } from "react";
 
 import { Button, Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
-import { formatCapacity, formatCostPerKwh, formatDateTime, formatMoney, providerLabel } from "../../../lib/formatting";
+import { formatCapacity, formatCostPerKwh, formatDateTime, formatMoney, formatReservationWindow, formatReservedUntil, providerLabel } from "../../../lib/formatting";
 import { pointPath, type CatalogResultLimit } from "../../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPoint, ProviderCode, Reservation, StatusValue } from "../../../lib/types";
 import { ProviderBadge } from "../provider";
@@ -46,6 +46,9 @@ export function ChargingPointCard({
           <span className="point-card-meta">
             {providerLabel(point.provider_code)} · {point.connector ?? "Connector unknown"} · {formatCapacity(point.capacity)}
           </span>
+          {point.status === "reserved" && point.reservation_ends_at ? (
+            <span className="point-card-reservation">{formatReservedUntil(point.reservation_ends_at)}</span>
+          ) : null}
         </span>
         <span className="point-card-side">
           <ChargingPointStatusBadge status={point.status} />
@@ -85,6 +88,12 @@ export function ChargingPointDrawer({
             <dt>Status</dt>
             <dd><ChargingPointStatusBadge status={point.status} /></dd>
           </div>
+          {point.status === "reserved" && point.reservation_ends_at ? (
+            <div>
+              <dt>Reservation</dt>
+              <dd>{formatReservedUntil(point.reservation_ends_at)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Last updated</dt>
             <dd>{formatDateTime(point.last_catalog_sync_at)}</dd>
@@ -149,6 +158,10 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
         <div>
           <dt>Duration</dt>
           <dd>{reservation.requested_duration_minutes} min</dd>
+        </div>
+        <div>
+          <dt>Reserved window</dt>
+          <dd>{formatReservationWindow(reservation.created_at, reservation.reservation_ends_at)}</dd>
         </div>
         <div>
           <dt>Provider status</dt>

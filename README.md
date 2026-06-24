@@ -219,8 +219,11 @@ The 2026-06-24 safe-finalization pass added targeted regression coverage for
 reservation idempotency/locking, provider-status scoping, catalog import locks,
 catalog radius limits, billing payment duplication, provider CSV privacy,
 demo-user seed preservation, strict placeholder rejection, and frontend
-reservation idempotency headers. It also keeps RabbitMQ management bound to
-`127.0.0.1:15672`.
+reservation idempotency headers. Follow-up reservation coverage verifies that
+provider success with a timezone-naive future expiry is normalized as UTC,
+returns a succeeded reservation, stages a revenue-bearing success event, and
+renders reservation timing in the EV/provider/operator UI. It also keeps
+RabbitMQ management bound to `127.0.0.1:15672`.
 
 Existing local Docker volumes that predate new database constraints or lock
 tables may need recreation or service-local migrations for a fresh schema

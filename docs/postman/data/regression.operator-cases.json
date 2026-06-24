@@ -1,0 +1,162 @@
+[
+  {
+    "caseName": "operator-read-01",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "",
+    "limit": 5,
+    "jobKey": "catalog.import.all"
+  },
+  {
+    "caseName": "operator-read-02",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "unbilled",
+    "limit": 10,
+    "jobKey": "analytics.consume-events"
+  },
+  {
+    "caseName": "operator-read-03",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "invoiced",
+    "limit": 20,
+    "jobKey": "analytics.refresh-aggregates"
+  },
+  {
+    "caseName": "operator-read-04",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "paid",
+    "limit": 50,
+    "jobKey": "billing.drain-events"
+  },
+  {
+    "caseName": "operator-read-05",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "",
+    "limit": 100,
+    "jobKey": "reservation.publish-outbox"
+  },
+  {
+    "caseName": "operator-read-06",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "unbilled",
+    "limit": 5,
+    "jobKey": "catalog.import.all"
+  },
+  {
+    "caseName": "operator-read-07",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "invoiced",
+    "limit": 10,
+    "jobKey": "analytics.consume-events"
+  },
+  {
+    "caseName": "operator-read-08",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "paid",
+    "limit": 20,
+    "jobKey": "analytics.refresh-aggregates"
+  },
+  {
+    "caseName": "operator-read-09",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "",
+    "limit": 50,
+    "jobKey": "billing.drain-events"
+  },
+  {
+    "caseName": "operator-read-10",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "unbilled",
+    "limit": 100,
+    "jobKey": "reservation.publish-outbox"
+  },
+  {
+    "caseName": "operator-read-11",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "invoiced",
+    "limit": 5,
+    "jobKey": "catalog.import.all"
+  },
+  {
+    "caseName": "operator-read-12",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "paid",
+    "limit": 10,
+    "jobKey": "analytics.consume-events"
+  },
+  {
+    "caseName": "operator-read-13",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "",
+    "limit": 20,
+    "jobKey": "analytics.refresh-aggregates"
+  },
+  {
+    "caseName": "operator-read-14",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "unbilled",
+    "limit": 50,
+    "jobKey": "billing.drain-events"
+  },
+  {
+    "caseName": "operator-read-15",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "invoiced",
+    "limit": 100,
+    "jobKey": "reservation.publish-outbox"
+  },
+  {
+    "caseName": "operator-read-16",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "paid",
+    "limit": 5,
+    "jobKey": "catalog.import.all"
+  },
+  {
+    "caseName": "operator-read-17",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "",
+    "limit": 10,
+    "jobKey": "analytics.consume-events"
+  },
+  {
+    "caseName": "operator-read-18",
+    "caseProviderCode": "bluePlug",
+    "invoiceStatus": "paid",
+    "chargeStatus": "unbilled",
+    "limit": 20,
+    "jobKey": "analytics.refresh-aggregates"
+  },
+  {
+    "caseName": "operator-read-19",
+    "caseProviderCode": "redPlug",
+    "invoiceStatus": "",
+    "chargeStatus": "invoiced",
+    "limit": 50,
+    "jobKey": "billing.drain-events"
+  },
+  {
+    "caseName": "operator-read-20",
+    "caseProviderCode": "greenPlug",
+    "invoiceStatus": "issued",
+    "chargeStatus": "paid",
+    "limit": 100,
+    "jobKey": "reservation.publish-outbox"
+  }
+]

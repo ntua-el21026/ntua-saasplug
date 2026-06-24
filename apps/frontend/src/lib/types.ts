@@ -425,6 +425,12 @@ export interface SchedulerJob {
   updated_at: string;
 }
 
+export interface SchedulerIntervalPresetResponse {
+  preset: "minimum" | "defaults";
+  updated_count: number;
+  jobs: SchedulerJob[];
+}
+
 export interface SchedulerRun {
   id: string;
   job_id: string;
