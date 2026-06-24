@@ -28,13 +28,13 @@ from app.schemas import (
     AggregateRefreshResponse,
     ConsumeResponse,
     CurrentPrincipal,
+    AnalyticsRefreshResponse,
     EvReservationSummaryResponse,
     FreshnessResponse,
     IngestResponse,
     IngestResultResponse,
     OperatorSummaryResponse,
     PointMetricResponse,
-    ProviderAnalyticsRefreshResponse,
     ProviderDailyTrendResponse,
     ProviderSummaryResponse,
     StatusDistributionResponse,
@@ -102,23 +102,18 @@ def refresh_aggregates_endpoint(
     return aggregate_refresh_response(result)
 
 
-@router.post("/provider/refresh", response_model=ProviderAnalyticsRefreshResponse)
-def refresh_provider_analytics_endpoint(
-    provider_code: str | None = Query(default=None, alias="providerCode"),
+@router.post("/operator/refresh", response_model=AnalyticsRefreshResponse)
+def refresh_operator_analytics_endpoint(
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> ProviderAnalyticsRefreshResponse:
-    ensure_provider_admin_or_operator(principal)
-    resolved_provider_code = resolve_provider_scope(principal, provider_code)
-    if resolved_provider_code is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provider code is required")
+) -> AnalyticsRefreshResponse:
+    ensure_operator(principal)
     effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
     consume_result = consume_analytics_events(settings, db, effective_limit)
     aggregate_result = refresh_aggregates(db)
-    return ProviderAnalyticsRefreshResponse(
-        provider_code=resolved_provider_code,
+    return AnalyticsRefreshResponse(
         consumed=ConsumeResponse(**consume_result.__dict__),
         aggregates=aggregate_refresh_response(aggregate_result),
     )

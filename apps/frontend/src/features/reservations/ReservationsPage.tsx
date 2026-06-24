@@ -145,11 +145,6 @@ function ReservationSummaryStrip({ summary }: { summary: EvReservationSummary })
       <MetricCard label="Total estimate" value={formatMoney(summary.total_estimated_cost_eur, summary.currency ?? "EUR")} hint="Rated-power estimate" />
       <MetricCard label="Reservations" value={formatNumber(summary.total_reservations)} hint={`${formatNumber(summary.successful_reservations)} succeeded`} />
       <MetricCard label="Reserved duration" value={formatDurationMinutes(summary.total_duration_minutes)} hint={`${formatNumber(summary.distinct_points)} unique points`} />
-      {summary.missing_estimate_count > 0 ? (
-        <p className="ev-reservation-summary-note">
-          {formatNumber(summary.missing_estimate_count)} successful reservations are missing cost/kWh or charger power, so they are excluded from cost estimates.
-        </p>
-      ) : null}
       {summary.analytics_delay_notice && summary.analytics_delay_notice !== "aggregates_current" ? (
         <p className="ev-reservation-summary-note">
           Analytics status: {summary.analytics_delay_notice.replace(/_/g, " ")}.

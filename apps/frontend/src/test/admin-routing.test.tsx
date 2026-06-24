@@ -100,6 +100,31 @@ function responseFor(url: URL, role: Role): unknown {
   if (pathname === "/api/analytics/operator/freshness") {
     return analyticsFreshness();
   }
+  if (pathname === "/api/analytics/operator/refresh") {
+    return {
+      consumed: {
+        requested_limit: 50,
+        received_count: 2,
+        ack_count: 2,
+        reject_count: 0,
+        requeue_count: 0,
+        created_count: 2,
+        duplicate_count: 0,
+        unsupported_count: 0,
+        invalid_count: 0,
+      },
+      aggregates: {
+        usage_event_count: 2,
+        provider_hourly_rows: 1,
+        provider_daily_rows: 1,
+        point_daily_rows: 1,
+        provider_status_daily_rows: 1,
+        operator_daily_rows: 1,
+        ev_reservation_daily_rows: 1,
+        refreshed_at: "2026-06-23T12:10:00Z",
+      },
+    };
+  }
   if (pathname === "/api/providers/providers") {
     return [];
   }
@@ -628,6 +653,7 @@ describe("admin role routing", () => {
     expect(await screen.findByText("€0.00")).toBeInTheDocument();
     expect(screen.getByText("Red provider admin")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /provider activity bar chart/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /update analytics|refresh stats/i })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: /status distribution/i }));
     expect(await screen.findByRole("img", { name: /charging point status distribution/i })).toBeInTheDocument();
@@ -689,6 +715,7 @@ describe("admin role routing", () => {
     expect(screen.getByRole("heading", { name: /charging point details/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /reservation availability/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create reservation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /refresh status/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /access denied/i })).not.toBeInTheDocument();
   });
 
@@ -709,6 +736,9 @@ describe("admin role routing", () => {
     await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
 
     expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /refresh status/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /close reservation status/i })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /close reservation response/i })).not.toBeInTheDocument();
     await waitFor(() => {
       const reservationCall = vi.mocked(fetch).mock.calls.find(([input, options]) => {
         const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -769,6 +799,11 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /operator command center/i })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /provider comparison/i })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("tab", { name: /catalog health/i }));
+    expect(await screen.findByRole("heading", { name: /catalog health/i })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("tab", { name: /billing/i }));
+    expect(await screen.findByRole("heading", { name: /billing by provider/i })).toBeInTheDocument();
     expect(screen.queryByText(/operator workspace/i)).not.toBeInTheDocument();
   });
 
@@ -780,6 +815,8 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /operator analytics/i })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /refresh stats/i }));
+    expect(await screen.findByText(/2 analytics events processed/i)).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /platform activity bar chart/i })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("tab", { name: /provider reservations/i }));
     expect(await screen.findByRole("img", { name: /successful reservations bar chart/i })).toBeInTheDocument();

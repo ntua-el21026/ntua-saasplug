@@ -74,6 +74,8 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 046 | 2026-06-23 | Direct UI polish prompt | N/A | UI Final Polish pass 3 provider pages, analytics date ranges, and title styling | `completed` | `docs/ai/codex-runs/046-ui-final-polish-pass-3.md` |
 | 047 | 2026-06-23 | Direct UI polish prompt | N/A | UI Final Polish pass 4 metric-card typography alignment | `completed` | `docs/ai/codex-runs/047-ui-final-polish-pass-4.md` |
 | 048 | 2026-06-23 | Direct UI polish prompt | N/A | Operator sync and catalog health polish | `completed_with_warnings` | `docs/ai/codex-runs/048-operator-sync-catalog-health-polish.md` |
+| 049 | 2026-06-24 | Direct UI polish and project closure prompt | N/A | EV reservations scroll polish and UI Final Polish project closure | `completed` | `docs/ai/codex-runs/049-ev-reservations-scroll-and-project-closure.md` |
+| 050 | 2026-06-24 | Direct UI polish prompt | N/A | Final UI polish for date filters, centered actions, and operator overview tabs | `completed` | `docs/ai/codex-runs/050-final-ui-polish-date-actions-operator-tabs.md` |
 
 ---
 

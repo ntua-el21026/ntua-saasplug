@@ -6,10 +6,12 @@ export function Alert({
   tone = "info",
   title,
   children,
+  dismissible = true,
 }: {
   tone?: "info" | "success" | "warning" | "danger";
   title?: string;
   children: ReactNode;
+  dismissible?: boolean;
 }) {
   const [visible, setVisible] = useState(true);
 
@@ -27,9 +29,11 @@ export function Alert({
         {title ? <strong>{title}</strong> : null}
         <div>{children}</div>
       </div>
-      <button className="ui-message-close" type="button" aria-label={title ? `Close ${title}` : "Close message"} onClick={() => setVisible(false)}>
-        x
-      </button>
+      {dismissible ? (
+        <button className="ui-message-close" type="button" aria-label={title ? `Close ${title}` : "Close message"} onClick={() => setVisible(false)}>
+          x
+        </button>
+      ) : null}
     </Toast>
   );
 }

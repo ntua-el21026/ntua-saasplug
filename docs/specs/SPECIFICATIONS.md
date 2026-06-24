@@ -277,6 +277,20 @@ Operators may manually run these jobs and may adjust interval-job cadences from
 the UI without bypassing service ownership. The scheduler persists operator
 schedule edits in `scheduler-postgres`.
 
+Manual refresh controls are operator-only. EV-user and provider-admin pages do
+not expose status, analytics, reservation-statistics, or billing refresh
+buttons. Operator Analytics provides `Refresh stats`, which consumes one
+bounded `analytics.events` batch through analytics-service and then rebuilds
+all analytics aggregates. The operation does not republish events; normal
+analytics ingestion deduplication handles duplicate deliveries.
+
+Analytics `Tracked revenue` is estimated provider charging revenue from
+successful EV reservations. It uses `estimated_cost_eur` when supplied by the
+reservation event, otherwise
+`price_per_kwh_eur × charger_capacity_kw × duration_minutes / 60`. Failed
+reservations and SaaS billing events are excluded. Billing-service remains a
+separate concern and calculates fees owed by providers to the operator.
+
 Operators may also run the ordered maintenance sequence from the Sync page. The
 sequence runs existing service-owned jobs in this order: `catalog.import.all`,
 `reservation.publish-outbox`, `billing.drain-events`,
@@ -1490,7 +1504,13 @@ Operator sees:
 
 ## SPEC-7.11 Billing and analytics relationship
 
-Billing is financial source of truth. Analytics may display financial summaries only through billing events/snapshots.
+Billing is the source of truth for SaaS charges, invoices, balances, and
+payments between the operator and providers. Analytics may display those
+financial summaries only through billing events/snapshots.
+
+Provider `Tracked revenue` is a separate reservation-performance estimate. It
+is derived from successful reservation events and represents estimated EV
+charging payments to the provider; it is not a billing balance or invoice.
 
 Forbidden:
 

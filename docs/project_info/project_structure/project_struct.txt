@@ -150,6 +150,8 @@ NTUA-saasPlug/
 │   │   │   ├── 046-ui-final-polish-pass-3.md
 │   │   │   ├── 047-ui-final-polish-pass-4.md
 │   │   │   ├── 048-operator-sync-catalog-health-polish.md
+│   │   │   ├── 049-ev-reservations-scroll-and-project-closure.md
+│   │   │   ├── 050-final-ui-polish-date-actions-operator-tabs.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -597,4 +599,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 98, Total files: 500
+Total directories: 98, Total files: 502

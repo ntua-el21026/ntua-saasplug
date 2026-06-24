@@ -19,6 +19,7 @@ import {
 } from "../../lib/formatting";
 import type {
   AggregateRefreshResponse,
+  AnalyticsRefreshResponse,
   BillingOverview,
   CatalogImportAllResponse,
   CatalogImportRun,
@@ -31,8 +32,6 @@ import type {
   OperatorSummary,
   PointMetric,
   PricingRule,
-  ProviderAnalyticsRefreshResponse,
-  ProviderBillingRefreshResponse,
   ProviderAuditLog,
   ProviderCode,
   ProviderDailyTrend,
@@ -87,6 +86,13 @@ const OPERATOR_ANALYTICS_TABS = [
   { value: "comparison", label: "Comparison table" },
 ] as const;
 type OperatorAnalyticsTab = (typeof OPERATOR_ANALYTICS_TABS)[number]["value"];
+const OPERATOR_OVERVIEW_TABS = [
+  { value: "providers", label: "Provider comparison" },
+  { value: "catalog", label: "Catalog health" },
+  { value: "imports", label: "Recent imports" },
+  { value: "billing", label: "Billing" },
+] as const;
+type OperatorOverviewTab = (typeof OPERATOR_OVERVIEW_TABS)[number]["value"];
 
 const CATALOG_TABS = [
   { value: "inventory", label: "Point inventory" },
@@ -701,9 +707,6 @@ export function ProviderAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("activity");
   const [fromDate, setFromDate] = useState(firstDayOfMonth());
   const [toDate, setToDate] = useState(todayDate());
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
     const params = new URLSearchParams({ providerCode: code, from: fromDate, to: toDate });
@@ -716,30 +719,10 @@ export function ProviderAnalyticsPage() {
       requestJson<ProviderSummary["data_freshness"]>(`/api/analytics/provider/freshness?${query}`, { accessToken }),
     ]);
     return { summary, trends, topViews, topReservations, freshness };
-  }, [accessToken, providerCode, refreshKey, fromDate, toDate]);
+  }, [accessToken, providerCode, fromDate, toDate]);
   const summary = state.data?.summary ?? null;
   const currency = summary?.currency ?? "EUR";
   const statusDistribution = summary?.status_distribution ?? {};
-
-  const refreshAnalytics = async () => {
-    const code = requireProvider(providerCode);
-    setRefreshing(true);
-    setRefreshMessage(null);
-    try {
-      const payload = await requestJson<ProviderAnalyticsRefreshResponse>(
-        `/api/analytics/provider/refresh?providerCode=${encodeURIComponent(code)}&limit=${DEFAULT_LIMIT}`,
-        { method: "POST", accessToken },
-      );
-      setRefreshMessage(
-        `Analytics updated. ${formatNumber(payload.consumed.ack_count)} recent activity updates applied; dashboard updated ${formatDateTime(payload.aggregates.refreshed_at)}.`,
-      );
-      setRefreshKey((current) => current + 1);
-    } catch (error) {
-      setRefreshMessage(messageFromUnknownError(error));
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   return (
     <AppShell>
@@ -747,11 +730,7 @@ export function ProviderAnalyticsPage() {
         title="Your performance"
         description="Review demand, reservations, availability checks, and revenue signals for your charging network."
       >
-        <section className="admin-toolbar">
-          <div className="admin-toolbar-copy">
-            <strong>Update your performance data</strong>
-            <span className="muted">Bring the latest charging activity into this dashboard.</span>
-          </div>
+        <section className="admin-toolbar provider-date-toolbar">
           <label className="catalog-page-size">
             From
             <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
@@ -760,11 +739,7 @@ export function ProviderAnalyticsPage() {
             To
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </label>
-          <button className="button-primary" type="button" onClick={refreshAnalytics} disabled={refreshing || !providerCode}>
-            {refreshing ? "Updating" : "Update analytics"}
-          </button>
         </section>
-        <InlineResult message={refreshMessage} tone={refreshMessage?.startsWith("Analytics updated") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {summary ? (
           <>
@@ -772,7 +747,7 @@ export function ProviderAnalyticsPage() {
               <MetricCard label="Searches" value={formatNumber(summary.total_searches)} />
               <MetricCard label="Status checks" value={formatNumber(summary.total_status_checks)} />
               <MetricCard label="Failed reservations" value={formatNumber(summary.failed_reservations)} />
-              <MetricCard label="Tracked revenue" value={formatMoney(summary.observed_amount, currency)} />
+              <MetricCard label="Tracked revenue" value={formatMoney(summary.observed_amount, currency)} hint="Estimated EV charging payments" />
             </MetricGrid>
             <DashboardTabs
               items={[...ANALYTICS_TABS]}
@@ -842,7 +817,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "revenue" ? (
-                <DashboardPanel title="Tracked revenue" description="Daily revenue signals from completed billable activity.">
+                <DashboardPanel title="Tracked revenue" description="Estimated EV charging payments from successful reservations, based on duration, charger power, and cost/kWh.">
                   <ColumnChart
                     rows={state.data?.trends ?? []}
                     getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
@@ -863,9 +838,6 @@ export function ProviderAnalyticsPage() {
 export function ProviderInvoicesPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
     const query = providerQuery(code);
@@ -874,26 +846,8 @@ export function ProviderInvoicesPage() {
       requestJson<BillingOverview>(`/api/billing/providers/${code}/overview`, { accessToken }),
     ]);
     return { invoices, overview };
-  }, [accessToken, providerCode, refreshKey]);
+  }, [accessToken, providerCode]);
   const currency = effectiveCurrency(state.data?.overview ?? null);
-
-  const refreshBilling = async () => {
-    const code = requireProvider(providerCode);
-    setRefreshing(true);
-    setRefreshMessage(null);
-    try {
-      const payload = await requestJson<ProviderBillingRefreshResponse>(
-        `/api/billing/providers/${encodeURIComponent(code)}/refresh?limit=${DEFAULT_LIMIT}`,
-        { method: "POST", accessToken },
-      );
-      setRefreshMessage(`Billing updated. ${formatNumber(payload.drained.ack_count)} recent billing updates applied.`);
-      setRefreshKey((current) => current + 1);
-    } catch (error) {
-      setRefreshMessage(messageFromUnknownError(error));
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   return (
     <AppShell>
@@ -901,16 +855,6 @@ export function ProviderInvoicesPage() {
         title="Your invoices"
         description="Review issued invoices, payment status, and outstanding balances."
       >
-        <section className="admin-toolbar">
-          <div className="admin-toolbar-copy">
-            <strong>Update your billing view</strong>
-            <span className="muted">Bring recent charges into your invoice balances.</span>
-          </div>
-          <button className="button-primary" type="button" onClick={refreshBilling} disabled={refreshing || !providerCode}>
-            {refreshing ? "Updating" : "Update billing"}
-          </button>
-        </section>
-        <InlineResult message={refreshMessage} tone={refreshMessage?.startsWith("Billing updated") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <>
@@ -1067,7 +1011,7 @@ export function ProviderExportPage() {
               To
               <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
             </label>
-            <button className="button-primary" type="submit">Download CSV</button>
+            <button className="button-primary admin-form-centered-action" type="submit">Download CSV</button>
           </form>
           <InlineResult message={message} tone={message?.includes("downloaded") ? "success" : "warning"} />
         </DashboardPanel>
@@ -1195,6 +1139,7 @@ export function ProviderSettingsPage() {
 
 export function OperatorDashboardPage() {
   const accessToken = useAccessToken();
+  const [activeTab, setActiveTab] = useState<OperatorOverviewTab>("providers");
   const state = useDashboardLoad(async () => {
     const [summary, billing, providers, imports] = await Promise.all([
       requestJson<OperatorSummary>("/api/analytics/operator/summary", { accessToken }),
@@ -1222,42 +1167,55 @@ export function OperatorDashboardPage() {
               <MetricCard label="Global conversion" value={formatPercent(data.summary.global_conversion_rate)} />
               <MetricCard label="Unpaid amount" value={formatMoney(data.billing.unpaid_amount, currency)} />
             </MetricGrid>
-            <DashboardGrid>
-              <DashboardPanel title="Provider comparison" description="Reservation conversion by provider.">
-                <BarList
-                  rows={data.summary.provider_comparison}
-                  getLabel={(row) => providerLabel(row.provider_code)}
-                  getValue={(row) => row.successful_reservations}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Catalog health" description="Active and stale catalog records by provider.">
-                <DataTable
-                  rows={data.summary.catalog_health}
-                  getRowKey={(row) => row.provider_code}
-                  columns={[
-                    { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                    { key: "active", label: "Active", render: (row) => formatNumber(row.active_count) },
-                    { key: "stale", label: "Stale", render: (row) => formatNumber(row.stale_count) },
-                    { key: "import", label: "Last import", render: (row) => formatDateTime(row.last_successful_import_at) },
-                  ]}
-                />
-              </DashboardPanel>
-              <DashboardPanel title="Recent import runs" description="Latest catalog refresh attempts across providers.">
-                <ImportRunTable rows={data.imports} />
-              </DashboardPanel>
-              <DashboardPanel title="Billing by provider" description="Outstanding and billed amounts by provider.">
-                <DataTable
-                  rows={data.billing.provider_rows}
-                  getRowKey={(row) => row.provider_code}
-                  columns={[
-                    { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
-                    { key: "unpaid", label: "Unpaid", render: (row) => formatMoney(row.unpaid_amount, currency) },
-                    { key: "unbilled", label: "Unbilled", render: (row) => formatMoney(row.unbilled_amount, currency) },
-                    { key: "issued", label: "Issued", render: (row) => formatNumber(row.issued_invoice_count) },
-                  ]}
-                />
-              </DashboardPanel>
-            </DashboardGrid>
+            <DashboardTabs
+              items={[...OPERATOR_OVERVIEW_TABS]}
+              value={activeTab}
+              onValueChange={setActiveTab}
+              label="Operator overview detail views"
+            >
+              {activeTab === "providers" ? (
+                <DashboardPanel title="Provider comparison" description="Reservation conversion by provider.">
+                  <BarList
+                    rows={data.summary.provider_comparison}
+                    getLabel={(row) => providerLabel(row.provider_code)}
+                    getValue={(row) => row.successful_reservations}
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "catalog" ? (
+                <DashboardPanel title="Catalog health" description="Active and stale catalog records by provider.">
+                  <DataTable
+                    rows={data.summary.catalog_health}
+                    getRowKey={(row) => row.provider_code}
+                    columns={[
+                      { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
+                      { key: "active", label: "Active", render: (row) => formatNumber(row.active_count) },
+                      { key: "stale", label: "Stale", render: (row) => formatNumber(row.stale_count) },
+                      { key: "import", label: "Last import", render: (row) => formatDateTime(row.last_successful_import_at) },
+                    ]}
+                  />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "imports" ? (
+                <DashboardPanel title="Recent import runs" description="Latest catalog refresh attempts across providers.">
+                  <ImportRunTable rows={data.imports} />
+                </DashboardPanel>
+              ) : null}
+              {activeTab === "billing" ? (
+                <DashboardPanel title="Billing by provider" description="Outstanding and billed amounts by provider.">
+                  <DataTable
+                    rows={data.billing.provider_rows}
+                    getRowKey={(row) => row.provider_code}
+                    columns={[
+                      { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
+                      { key: "unpaid", label: "Unpaid", render: (row) => formatMoney(row.unpaid_amount, currency) },
+                      { key: "unbilled", label: "Unbilled", render: (row) => formatMoney(row.unbilled_amount, currency) },
+                      { key: "issued", label: "Issued", render: (row) => formatNumber(row.issued_invoice_count) },
+                    ]}
+                  />
+                </DashboardPanel>
+              ) : null}
+            </DashboardTabs>
           </>
         ) : null}
       </DashboardPage>
@@ -1329,6 +1287,9 @@ export function OperatorProvidersPage() {
 export function OperatorAnalyticsPage() {
   const accessToken = useAccessToken();
   const [activeTab, setActiveTab] = useState<OperatorAnalyticsTab>("activity");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const state = useDashboardLoad(async () => {
     const [summary, comparison, trends, freshness] = await Promise.all([
       requestJson<OperatorSummary>("/api/analytics/operator/summary", { accessToken }),
@@ -1337,8 +1298,27 @@ export function OperatorAnalyticsPage() {
       requestJson("/api/analytics/operator/freshness", { accessToken }),
     ]);
     return { summary, comparison, trends, freshness };
-  }, [accessToken]);
+  }, [accessToken, refreshKey]);
   const summary = state.data?.summary ?? null;
+
+  async function refreshStats() {
+    setRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      const response = await requestJson<AnalyticsRefreshResponse>("/api/analytics/operator/refresh?limit=100", {
+        method: "POST",
+        accessToken,
+      });
+      setRefreshMessage(
+        `Stats refreshed. ${formatNumber(response.consumed.ack_count)} analytics events processed; summaries rebuilt ${formatDateTime(response.aggregates.refreshed_at)}.`,
+      );
+      setRefreshKey((current) => current + 1);
+    } catch (caught) {
+      setRefreshMessage(messageFromUnknownError(caught));
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <AppShell>
@@ -1346,6 +1326,16 @@ export function OperatorAnalyticsPage() {
         title="Operator analytics"
         description="Review platform-wide demand, usage, and provider performance."
       >
+        <section className="operator-refresh-toolbar">
+          <div>
+            <strong>Analytics statistics</strong>
+            <span>Process the current analytics queue batch, then rebuild all dashboard summaries.</span>
+          </div>
+          <button className="button-primary" disabled={refreshing} onClick={refreshStats} type="button">
+            {refreshing ? "Refreshing stats..." : "Refresh stats"}
+          </button>
+        </section>
+        <InlineResult message={refreshMessage} tone={refreshMessage?.startsWith("Stats refreshed") ? "success" : "warning"} />
         <LoadState loading={state.loading} error={state.error} />
         {summary ? (
           <>
@@ -1400,7 +1390,7 @@ export function OperatorAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "revenue" ? (
-                <DashboardPanel title="Tracked revenue" description="Revenue signals from completed billable activity by provider.">
+                <DashboardPanel title="Tracked revenue" description="Estimated EV charging payments from successful reservations by provider.">
                   <ColumnChart
                     rows={state.data?.comparison ?? []}
                     getLabel={(row) => providerLabel(row.provider_code)}
@@ -1772,7 +1762,7 @@ export function OperatorIssueInvoicePage() {
               Tax amount
               <input type="number" min="0" step="0.01" value={taxAmount} onChange={(event) => setTaxAmount(event.target.value)} />
             </label>
-            <button className="button-primary" type="submit">Issue invoice</button>
+            <button className="button-primary admin-form-centered-action" type="submit">Issue invoice</button>
           </form>
           <InlineResult message={message} tone={invoice ? "success" : "warning"} />
           {invoice ? (
