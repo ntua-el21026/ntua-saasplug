@@ -126,6 +126,23 @@ export function formatDurationMinutes(value: number | null | undefined): string 
   return `${number} min`;
 }
 
+export function formatReservationWindow(start: string | null | undefined, end: string | null | undefined): string {
+  if (!end) {
+    return "Reservation window unavailable";
+  }
+  if (!start) {
+    return `Reserved until ${formatDateTime(end)}`;
+  }
+  return `${formatDateTime(start)} to ${formatDateTime(end)}`;
+}
+
+export function formatReservedUntil(value: string | null | undefined): string {
+  if (!value) {
+    return "Reservation end unavailable";
+  }
+  return `Reserved until ${formatDateTime(value)}`;
+}
+
 export function statusLabel(status: string | null | undefined): string {
   if (!status) {
     return "unknown";

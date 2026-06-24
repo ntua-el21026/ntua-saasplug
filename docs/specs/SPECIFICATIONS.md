@@ -277,6 +277,10 @@ Operators may manually run these jobs and may adjust interval-job cadences from
 the UI without bypassing service ownership. The scheduler persists operator
 schedule edits in `scheduler-postgres`.
 
+For controlled live testing, the operator Sync page may apply the validated
+30-second minimum to every interval job or restore the `DEFAULT_JOBS` interval
+cadence. These bulk presets do not change cron/manual jobs or enabled state.
+
 Manual refresh controls are operator-only. EV-user and provider-admin pages do
 not expose status, analytics, reservation-statistics, or billing refresh
 buttons. Operator Analytics provides `Refresh stats`, which consumes one
@@ -490,11 +494,12 @@ events for analytics and billing.
 Ambiguous provider outcomes, including provider timeouts and invalid provider
 success payloads, must be represented as `unknown` rather than retried as a
 fresh mutation immediately. The API response should include machine-readable
-unknown/reconciliation metadata, and the frontend must require status/history
-reconciliation before sending a new provider mutation. Confirmed successful
-reservations require a timezone-aware future expiry; missing, malformed,
-timezone-naive, or past expiry values must not create indefinitely active local
-reservations or successful billing events.
+unknown/reconciliation metadata, and the frontend must require reservation
+history review before sending a new provider mutation. Confirmed successful
+reservations require a future expiry. Timezone-aware provider timestamps are
+preserved in UTC, and timezone-naive future timestamps are normalized as UTC.
+Missing, malformed, or past expiry values must not create indefinitely active
+local reservations or successful billing events.
 
 ## SPEC-2.11 Missing values and timeout policy
 
@@ -1294,6 +1299,10 @@ Estimated cost is a projection, not an EV payment flow. It is computed only when
 the reservation event has valid cost/kWh, charger kW, and requested duration.
 Missing values remain unavailable and are excluded from cost totals and
 averages.
+
+Reserved-point timing is displayed wherever the owning read model contains it.
+Catalog/status point views show the reserved-until timestamp, while reservation
+records show the created-to-end reservation window.
 
 ## SPEC-6.8 Aggregate tables
 

@@ -171,6 +171,41 @@ def test_default_job_intervals_match_operational_cadence(test_context) -> None:
     assert jobs["reservation.publish-outbox"]["interval_seconds"] == 60
 
 
+def test_operator_can_apply_minimum_and_restore_default_interval_presets(test_context) -> None:
+    denied_response = test_context.post("/jobs/intervals/apply-minimum", headers=ev_headers())
+    minimum_response = test_context.post("/jobs/intervals/apply-minimum", headers=operator_headers())
+
+    assert denied_response.status_code == 403
+    assert minimum_response.status_code == 200
+    minimum_payload = minimum_response.json()
+    assert minimum_payload["preset"] == "minimum"
+    assert minimum_payload["updated_count"] == 6
+    assert {job["interval_seconds"] for job in minimum_payload["jobs"]} == {30}
+    assert {job["job_key"] for job in minimum_payload["jobs"]} == {
+        "analytics.consume-events",
+        "analytics.refresh-aggregates",
+        "billing.drain-events",
+        "billing.publish-outbox",
+        "catalog.import.all",
+        "reservation.publish-outbox",
+    }
+
+    reset_response = test_context.post("/jobs/intervals/reset-defaults", headers=operator_headers())
+
+    assert reset_response.status_code == 200
+    reset_payload = reset_response.json()
+    assert reset_payload["preset"] == "defaults"
+    defaults = {job["job_key"]: job["interval_seconds"] for job in reset_payload["jobs"]}
+    assert defaults == {
+        "analytics.consume-events": 7200,
+        "analytics.refresh-aggregates": 86400,
+        "billing.drain-events": 43200,
+        "billing.publish-outbox": 43200,
+        "catalog.import.all": 86400,
+        "reservation.publish-outbox": 60,
+    }
+
+
 def test_seed_refresh_migrates_previous_analytics_aggregate_defaults(test_context) -> None:
     session = get_session_factory()()
     try:

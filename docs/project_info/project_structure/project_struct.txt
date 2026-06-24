@@ -157,6 +157,7 @@ NTUA-saasPlug/
 │   │   │   ├── 051-verified-audit-fixes-safe-finalization.md
 │   │   │   ├── 052-frontend-reservation-retry-idempotency.md
 │   │   │   ├── 053-final-audit-fixes-f001-f018.md
+│   │   │   ├── 053-operator-scheduler-interval-presets.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -334,6 +335,22 @@ NTUA-saasPlug/
 │   │   ├── 8.3 Astro Intro.pdf
 │   │   ├── 9.1 Virtualization, Virtual Machines, Containers & Orchestration Systems.pdf
 │   │   └── 9.2 Docker Lab.pdf
+│   ├── postman/
+│   │   ├── data/
+│   │   │   ├── mutation.safe-local-cases.json
+│   │   │   ├── regression.catalog-status-cases.json
+│   │   │   ├── regression.ev-search-cases.json
+│   │   │   ├── regression.operator-cases.json
+│   │   │   ├── regression.provider-cases.json
+│   │   │   └── security.negative-cases.json
+│   │   ├── newman/
+│   │   │   └── README.md
+│   │   ├── README.md
+│   │   ├── saasPlug.local.mutation.postman_collection.json
+│   │   ├── saasPlug.local.postman_environment.json
+│   │   ├── saasPlug.local.regression.postman_collection.json
+│   │   ├── saasPlug.local.security.postman_collection.json
+│   │   └── saasPlug.local.smoke.postman_collection.json
 │   ├── project_info/
 │   │   ├── project_analytics/
 │   │   │   ├── project_analytics.py
@@ -378,6 +395,12 @@ NTUA-saasPlug/
 │   │   └── README.md
 │   └── README.md
 ├── scripts/
+│   ├── postman/
+│   │   ├── run-all-local.sh
+│   │   ├── run-mutation.sh
+│   │   ├── run-regression.sh
+│   │   ├── run-security.sh
+│   │   └── run-smoke.sh
 │   └── README.md
 ├── services/
 │   ├── analytics-service/
@@ -604,4 +627,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 98, Total files: 507
+Total directories: 102, Total files: 526

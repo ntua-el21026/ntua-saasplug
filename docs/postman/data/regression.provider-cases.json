@@ -1,0 +1,252 @@
+[
+  {
+    "caseName": "provider-read-01",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-01-01",
+    "toDate": "2026-12-31",
+    "limit": 5,
+    "offset": 0,
+    "metricLimit": 3,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-02",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "2026-03-01",
+    "toDate": "2026-06-30",
+    "limit": 10,
+    "offset": 5,
+    "metricLimit": 5,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-03",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "2026-06-01",
+    "toDate": "2026-06-24",
+    "limit": 25,
+    "offset": 10,
+    "metricLimit": 8,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-04",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2025-01-01",
+    "toDate": "",
+    "limit": 50,
+    "offset": 0,
+    "metricLimit": 10,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-05",
+    "caseProviderCode": "redPlug",
+    "fromDate": "",
+    "toDate": "2027-01-01",
+    "limit": 5,
+    "offset": 5,
+    "metricLimit": 3,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-06",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "2026-01-01",
+    "toDate": "2026-12-31",
+    "limit": 10,
+    "offset": 10,
+    "metricLimit": 5,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-07",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-03-01",
+    "toDate": "2026-06-30",
+    "limit": 25,
+    "offset": 0,
+    "metricLimit": 8,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-08",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "2026-06-01",
+    "toDate": "2026-06-24",
+    "limit": 50,
+    "offset": 5,
+    "metricLimit": 10,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-09",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2025-01-01",
+    "toDate": "",
+    "limit": 5,
+    "offset": 10,
+    "metricLimit": 3,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-10",
+    "caseProviderCode": "redPlug",
+    "fromDate": "",
+    "toDate": "2027-01-01",
+    "limit": 10,
+    "offset": 0,
+    "metricLimit": 5,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-11",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "2026-01-01",
+    "toDate": "2026-12-31",
+    "limit": 25,
+    "offset": 5,
+    "metricLimit": 8,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-12",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "2026-03-01",
+    "toDate": "2026-06-30",
+    "limit": 50,
+    "offset": 10,
+    "metricLimit": 10,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-13",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-06-01",
+    "toDate": "2026-06-24",
+    "limit": 5,
+    "offset": 0,
+    "metricLimit": 3,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-14",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "2025-01-01",
+    "toDate": "",
+    "limit": 10,
+    "offset": 5,
+    "metricLimit": 5,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-15",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "",
+    "toDate": "2027-01-01",
+    "limit": 25,
+    "offset": 10,
+    "metricLimit": 8,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-16",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-01-01",
+    "toDate": "2026-12-31",
+    "limit": 50,
+    "offset": 0,
+    "metricLimit": 10,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-17",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-03-01",
+    "toDate": "2026-06-30",
+    "limit": 5,
+    "offset": 5,
+    "metricLimit": 3,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-18",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "2026-06-01",
+    "toDate": "2026-06-24",
+    "limit": 10,
+    "offset": 10,
+    "metricLimit": 5,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-19",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2025-01-01",
+    "toDate": "",
+    "limit": 25,
+    "offset": 0,
+    "metricLimit": 8,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-20",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "",
+    "toDate": "2027-01-01",
+    "limit": 50,
+    "offset": 5,
+    "metricLimit": 10,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-21",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-01-01",
+    "toDate": "2026-12-31",
+    "limit": 5,
+    "offset": 10,
+    "metricLimit": 3,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-22",
+    "caseProviderCode": "redPlug",
+    "fromDate": "2026-03-01",
+    "toDate": "2026-06-30",
+    "limit": 10,
+    "offset": 0,
+    "metricLimit": 5,
+    "invoiceStatus": ""
+  },
+  {
+    "caseName": "provider-read-23",
+    "caseProviderCode": "greenPlug",
+    "fromDate": "2026-06-01",
+    "toDate": "2026-06-24",
+    "limit": 25,
+    "offset": 5,
+    "metricLimit": 8,
+    "invoiceStatus": "issued"
+  },
+  {
+    "caseName": "provider-read-24",
+    "caseProviderCode": "bluePlug",
+    "fromDate": "2025-01-01",
+    "toDate": "",
+    "limit": 50,
+    "offset": 10,
+    "metricLimit": 10,
+    "invoiceStatus": "paid"
+  },
+  {
+    "caseName": "provider-read-25",
+    "caseProviderCode": "redPlug",
+    "fromDate": "",
+    "toDate": "2027-01-01",
+    "limit": 5,
+    "offset": 0,
+    "metricLimit": 3,
+    "invoiceStatus": ""
+  }
+]

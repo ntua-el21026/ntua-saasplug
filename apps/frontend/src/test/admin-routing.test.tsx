@@ -146,6 +146,12 @@ function responseFor(url: URL, role: Role): unknown {
   if (pathname === "/api/scheduler/jobs") {
     return [schedulerJob(), invoicePreparationJob()];
   }
+  if (pathname === "/api/scheduler/jobs/intervals/apply-minimum") {
+    return schedulerIntervalPreset("minimum");
+  }
+  if (pathname === "/api/scheduler/jobs/intervals/reset-defaults") {
+    return schedulerIntervalPreset("defaults");
+  }
   if (pathname === "/api/scheduler/runs") {
     return [schedulerRun()];
   }
@@ -544,6 +550,17 @@ function schedulerJob() {
   };
 }
 
+function schedulerIntervalPreset(preset: "minimum" | "defaults") {
+  return {
+    preset,
+    updated_count: 1,
+    jobs: [{
+      ...schedulerJob(),
+      interval_seconds: preset === "minimum" ? 30 : 86400,
+    }],
+  };
+}
+
 function invoicePreparationJob() {
   return {
     ...schedulerJob(),
@@ -838,16 +855,16 @@ describe("admin role routing", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /^retry$/i }));
     expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/jun 13, 2026, 3:00 am to jun 13, 2026, 3:35 am/i)).toBeInTheDocument();
     expect(idempotencyKeys).toHaveLength(2);
     expect(idempotencyKeys[0]).toBeTruthy();
     expect(idempotencyKeys[1]).toBeTruthy();
     expect(idempotencyKeys[1]).not.toBe(idempotencyKeys[0]);
   });
 
-  it("blocks fresh-key retry after an ambiguous reservation timeout until status refresh", async () => {
+  it("blocks fresh-key retry after an ambiguous reservation timeout and directs the user to history", async () => {
     storeSession("EV_USER");
     let reservationRequestCount = 0;
-    let forcedStatusRefreshCount = 0;
     const idempotencyKeys: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -862,7 +879,7 @@ describe("admin role routing", () => {
             return Promise.resolve(new Response(JSON.stringify({
               detail: {
                 error_type: "provider_timeout",
-                message: "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.",
+                message: "The reservation outcome is uncertain. Check reservation history before trying again.",
                 outcome_status: "unknown",
                 retry_allowed: false,
                 reconciliation_required: true,
@@ -876,9 +893,6 @@ describe("admin role routing", () => {
             headers: { "Content-Type": "application/json" },
             status: 200,
           }));
-        }
-        if (url.pathname === "/api/status/points/redPlug/1515489/status" && url.searchParams.get("forceRefresh") === "true") {
-          forcedStatusRefreshCount += 1;
         }
         return Promise.resolve(new Response(JSON.stringify(responseFor(url, "EV_USER")), {
           headers: { "Content-Type": "application/json" },
@@ -894,15 +908,10 @@ describe("admin role routing", () => {
     await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
     expect(await screen.findByText(/reservation outcome is uncertain/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^retry$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /refresh status before retrying/i })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: /^refresh status$/i }));
-    await waitFor(() => expect(forcedStatusRefreshCount).toBe(1));
+    expect(screen.queryByRole("button", { name: /^refresh status$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /check history before retrying/i })).toBeDisabled();
+    expect(screen.getByRole("link", { name: /check reservation history/i })).toHaveAttribute("href", "/reservations");
     expect(idempotencyKeys).toHaveLength(1);
-
-    await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
-    expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
-    expect(idempotencyKeys).toHaveLength(2);
-    expect(idempotencyKeys[1]).not.toBe(idempotencyKeys[0]);
   });
 
   it("blocks provider admins from opening another provider point detail", async () => {
@@ -1035,6 +1044,34 @@ describe("admin role routing", () => {
     expect(screen.getByDisplayValue("86400")).toBeInTheDocument();
     expect(screen.getAllByText(/^s$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/every day/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /apply minimum/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /reset defaults/i })).toBeEnabled();
+  });
+
+  it("lets operators apply minimum intervals and restore documented defaults", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /apply minimum/i }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/intervals/apply-minimum",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByText(/applied the 30-second minimum to 1 interval job/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /reset defaults/i }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/intervals/reset-defaults",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByText(/restored the documented defaults for 1 interval job/i)).toBeInTheDocument();
   });
 
   it("lets operators update an interval job schedule", async () => {

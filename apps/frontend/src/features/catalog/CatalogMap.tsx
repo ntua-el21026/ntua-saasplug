@@ -5,7 +5,7 @@ import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { AvailabilityLegend } from "../../components/domain/ev";
 import { ProviderBadge } from "../../components/domain/provider";
 import { ChargingPointStatusBadge } from "../../components/domain/status";
-import { formatCapacity, formatCostPerKwh, formatDateTime, providerLabel } from "../../lib/formatting";
+import { formatCapacity, formatCostPerKwh, formatDateTime, formatReservedUntil, providerLabel } from "../../lib/formatting";
 import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, boundsCenter, boundsFromCenter, catalogQueryRadiusKm, pointPath } from "../../lib/routing";
 import type { Bounds, CatalogPoint } from "../../lib/types";
 
@@ -269,6 +269,12 @@ function ChargingPointMapPanel({
           <dt>Provider</dt>
           <dd>{providerLabel(point.provider_code)}</dd>
         </div>
+        {point.status === "reserved" && point.reservation_ends_at ? (
+          <div>
+            <dt>Reservation</dt>
+            <dd>{formatReservedUntil(point.reservation_ends_at)}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Last updated</dt>
           <dd>{formatDateTime(point.last_catalog_sync_at)}</dd>

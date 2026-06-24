@@ -1,0 +1,2070 @@
+{
+  "info": {
+    "name": "saasPlug.local.security",
+    "description": "Auth, authorization, validation, and gateway-hardening negative tests through the local gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Negative Security Cases",
+      "item": [
+        {
+          "name": "Missing bearer on auth me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid bearer on auth me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid-token-value"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed bearer on auth me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer abc.def.ghi"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing bearer on providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV denied provider registry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV denied operator summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EV denied scheduler jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied operator summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/operator/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied scheduler jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied pricing rule list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/pricing/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other provider registry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{otherProviderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other integration config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/providers/{{otherProviderCode}}/integration-config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other catalog filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?providerCode={{otherProviderCode}}&includeStale=true&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other analytics summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/provider/summary?providerCode={{otherProviderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other billing overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/providers/{{otherProviderCode}}/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provider denied other status cache",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/status/cache/{{otherProviderCode}}/{{invalidPointId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid status provider code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/status/points/{{invalidProviderCode}}/{{invalidPointId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 400', function () { pm.response.to.have.status(400); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid billing provider code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/pricing/effective/{{invalidProviderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 400', function () { pm.response.to.have.status(400); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog partial bounds rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?minLat={{minLat}}&maxLat={{maxLat}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 400', function () { pm.response.to.have.status(400); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog inverted bounds rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?minLat={{maxLat}}&maxLat={{minLat}}&minLng={{maxLng}}&maxLng={{minLng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 400', function () { pm.response.to.have.status(400); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog radius too high rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?centerLat={{centerLat}}&centerLng={{centerLng}}&radiusKm={{tooHighRadiusKm}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 422', function () { pm.response.to.have.status(422); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog invalid limit rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/points?limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 422', function () { pm.response.to.have.status(422); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservation zero duration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/points/{{providerCode}}/{{invalidPointId}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 422', function () { pm.response.to.have.status(422); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservation negative duration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/points/{{providerCode}}/{{invalidPointId}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": -1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 422', function () { pm.response.to.have.status(422); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservation excessive duration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/points/{{providerCode}}/{{invalidPointId}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 1441\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 422', function () { pm.response.to.have.status(422); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservation idempotency mismatch rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "header-{{uniqueSuffix}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/points/{{providerCode}}/{{invalidPointId}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 45,\n  \"idempotency_key\": \"body-{{uniqueSuffix}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 409', function () { pm.response.to.have.status(409); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked auth docs route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked catalog openapi route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked catalog internal route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/internal/jobs/catalog/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked analytics internal route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/internal/jobs/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked billing internal route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/internal/jobs/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked reservations internal route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservations/internal/jobs/freshness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported method on auth me",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{evAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 405', function () { pm.response.to.have.status(405); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bad login rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{evEmail}}\",\n  \"password\": \"definitely-not-the-demo-password\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request URL uses baseUrl variable', function () {",
+                  "  pm.expect(pm.request.url.toString()).to.match(/^\\{\\{baseUrl\\}\\}/);",
+                  "});",
+                  "const forbiddenHosts = [",
+                  "  'davinci.softlab.ntua.gr',",
+                  "  'auth-service',",
+                  "  'catalog-service',",
+                  "  'status-service',",
+                  "  'reservation-service',",
+                  "  'analytics-service',",
+                  "  'billing-service',",
+                  "  'scheduler-service',",
+                  "  'provider-registry-service',",
+                  "  'red-provider-service',",
+                  "  'green-provider-service',",
+                  "  'blue-provider-service'",
+                  "];",
+                  "pm.test('request URL does not use forbidden hosts', function () {",
+                  "  const rawUrl = pm.request.url.toString();",
+                  "  forbiddenHosts.forEach(function (host) {",
+                  "    pm.expect(rawUrl, host).to.not.include(host);",
+                  "  });",
+                  "});",
+                  "pm.test('security case returns expected status 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.text()) {",
+                  "  pm.test('error response is parseable when present', function () {",
+                  "    const bodyText = pm.response.text();",
+                  "    pm.expect(bodyText.length).to.be.greaterThan(0);",
+                  "    try { JSON.parse(bodyText); } catch (error) { pm.expect(pm.response.code).to.eql(405); }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('runId')) {",
+          "  pm.environment.set('runId', String(Date.now()));",
+          "}",
+          "if (!pm.environment.get('uniqueSuffix')) {",
+          "  pm.environment.set('uniqueSuffix', pm.environment.get('runId') + '-' + Math.random().toString(16).slice(2, 8));",
+          "}"
+        ]
+      }
+    }
+  ]
+}

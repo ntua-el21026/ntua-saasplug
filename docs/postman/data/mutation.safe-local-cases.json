@@ -1,0 +1,7 @@
+[
+  {
+    "caseName": "safe-local-mutation",
+    "providerCode": "redPlug",
+    "jobKey": "analytics.refresh-aggregates.manual"
+  }
+]

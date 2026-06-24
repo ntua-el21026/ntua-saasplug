@@ -1,0 +1,212 @@
+[
+  {
+    "caseName": "catalog-status-01",
+    "caseProviderCode": "redPlug",
+    "includeStale": "false",
+    "limit": 5,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-02",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "true",
+    "limit": 10,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-03",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "false",
+    "limit": 20,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-04",
+    "caseProviderCode": "redPlug",
+    "includeStale": "true",
+    "limit": 25,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-05",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "false",
+    "limit": 50,
+    "offset": 12
+  },
+  {
+    "caseName": "catalog-status-06",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "true",
+    "limit": 75,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-07",
+    "caseProviderCode": "redPlug",
+    "includeStale": "false",
+    "limit": 5,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-08",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "true",
+    "limit": 10,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-09",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "false",
+    "limit": 20,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-10",
+    "caseProviderCode": "redPlug",
+    "includeStale": "true",
+    "limit": 25,
+    "offset": 12
+  },
+  {
+    "caseName": "catalog-status-11",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "false",
+    "limit": 50,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-12",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "true",
+    "limit": 75,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-13",
+    "caseProviderCode": "redPlug",
+    "includeStale": "false",
+    "limit": 5,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-14",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "true",
+    "limit": 10,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-15",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "false",
+    "limit": 20,
+    "offset": 12
+  },
+  {
+    "caseName": "catalog-status-16",
+    "caseProviderCode": "redPlug",
+    "includeStale": "true",
+    "limit": 25,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-17",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "false",
+    "limit": 50,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-18",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "true",
+    "limit": 75,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-19",
+    "caseProviderCode": "redPlug",
+    "includeStale": "false",
+    "limit": 5,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-20",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "true",
+    "limit": 10,
+    "offset": 12
+  },
+  {
+    "caseName": "catalog-status-21",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "false",
+    "limit": 20,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-22",
+    "caseProviderCode": "redPlug",
+    "includeStale": "true",
+    "limit": 25,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-23",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "false",
+    "limit": 50,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-24",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "true",
+    "limit": 75,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-25",
+    "caseProviderCode": "redPlug",
+    "includeStale": "false",
+    "limit": 5,
+    "offset": 12
+  },
+  {
+    "caseName": "catalog-status-26",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "true",
+    "limit": 10,
+    "offset": 0
+  },
+  {
+    "caseName": "catalog-status-27",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "false",
+    "limit": 20,
+    "offset": 2
+  },
+  {
+    "caseName": "catalog-status-28",
+    "caseProviderCode": "redPlug",
+    "includeStale": "true",
+    "limit": 25,
+    "offset": 4
+  },
+  {
+    "caseName": "catalog-status-29",
+    "caseProviderCode": "greenPlug",
+    "includeStale": "false",
+    "limit": 50,
+    "offset": 8
+  },
+  {
+    "caseName": "catalog-status-30",
+    "caseProviderCode": "bluePlug",
+    "includeStale": "true",
+    "limit": 75,
+    "offset": 12
+  }
+]

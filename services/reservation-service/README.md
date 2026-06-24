@@ -62,12 +62,14 @@ point with an active local successful reservation returns HTTP 409.
 Provider-side unavailable/reserved/missing-point failures are normalized to
 HTTP 409 with a user-safe message. Provider timeouts remain HTTP 504 with an
 unknown reservation/attempt state, `retry_allowed=false`, and
-`reconciliation_required=true`. If the provider reports success but returns a
-missing, malformed, timezone-naive, or past `reservation_ends_at`, the service
-records an `unknown` non-billable reservation with no active expiry instead of
-creating an indefinitely active local reservation. If the provider reports
-success but local persistence fails, the pre-provider-call attempt journal is
-marked `unknown` with failure metadata; the service does not perform live
+`reconciliation_required=true`. If the provider reports success with a future
+`reservation_ends_at`, the service accepts both timezone-aware timestamps and
+timezone-naive timestamps; timezone-naive values are normalized as UTC.
+Missing, malformed, or past `reservation_ends_at` values are recorded as
+`unknown` non-billable reservations with no active expiry instead of creating
+indefinitely active local reservations. If the provider reports success but
+local persistence fails, the pre-provider-call attempt journal is marked
+`unknown` with failure metadata; the service does not perform live
 compensating provider mutations.
 
 RabbitMQ publishing for staged outbox rows is triggered separately from the

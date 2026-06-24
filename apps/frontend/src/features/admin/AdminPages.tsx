@@ -13,6 +13,7 @@ import {
   formatMoney,
   formatNumber,
   formatPercent,
+  formatReservedUntil,
   providerLabel,
   PROVIDERS,
   statusLabel,
@@ -41,6 +42,7 @@ import type {
   ProviderSummary,
   QueueDrainResponse,
   SchedulerHealth,
+  SchedulerIntervalPresetResponse,
   SchedulerJob,
   SchedulerRun,
   SchedulerSequenceRun,
@@ -230,6 +232,12 @@ function formatCronSchedule(job: SchedulerJob): string {
 }
 
 function describeOperationResult(response: unknown): string {
+  if (isSchedulerIntervalPresetResponse(response)) {
+    if (response.preset === "minimum") {
+      return `Applied the 30-second minimum to ${formatNumber(response.updated_count)} interval ${response.updated_count === 1 ? "job" : "jobs"}.`;
+    }
+    return `Restored the documented defaults for ${formatNumber(response.updated_count)} interval ${response.updated_count === 1 ? "job" : "jobs"}.`;
+  }
   if (isSchedulerSequenceRun(response)) {
     return `${formatNumber(response.runs.length)} scheduled ${response.runs.length === 1 ? "job" : "jobs"} finished with ${statusLabel(response.status)} status.`;
   }
@@ -268,6 +276,13 @@ function isSchedulerRun(value: unknown): value is SchedulerRun {
 
 function isSchedulerJob(value: unknown): value is SchedulerJob {
   return isRecord(value) && typeof value.job_key === "string" && typeof value.enabled === "boolean" && "schedule_type" in value;
+}
+
+function isSchedulerIntervalPresetResponse(value: unknown): value is SchedulerIntervalPresetResponse {
+  return isRecord(value)
+    && (value.preset === "minimum" || value.preset === "defaults")
+    && typeof value.updated_count === "number"
+    && Array.isArray(value.jobs);
 }
 
 function isCatalogImportAllResponse(value: unknown): value is CatalogImportAllResponse {
@@ -412,6 +427,25 @@ function HealthPill({ ok, label }: { ok: boolean; label: string }) {
 
 function InvoiceStatus({ status }: { status: string }) {
   return <InvoiceStatusBadge status={status} />;
+}
+
+function ActivityMetricExplanation() {
+  return (
+    <div className="analytics-explanation-card" aria-label="Activity metric explanations">
+      <div>
+        <strong>Searches</strong>
+        <span>EV users submitting catalog searches for nearby charging options.</span>
+      </div>
+      <div>
+        <strong>Point views</strong>
+        <span>Charging-point detail views, a signal of driver interest before reservation.</span>
+      </div>
+      <div>
+        <strong>Successful reservations</strong>
+        <span>Confirmed provider reservations that count toward conversion and tracked charging revenue.</span>
+      </div>
+    </div>
+  );
 }
 
 function changedFieldSummary(changedFields: ProviderAuditLog["changed_fields"] | null | undefined): string {
@@ -689,6 +723,7 @@ export function ProviderPointsPage() {
               columns={[
                 { key: "name", label: "Point", render: (row) => <Link className="text-link" to={`/points/${row.provider_code}/${row.external_point_id}`}>{row.display_name}</Link> },
                 { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+                { key: "reserved", label: "Reservation", render: (row) => row.status === "reserved" && row.reservation_ends_at ? formatReservedUntil(row.reservation_ends_at) : "Not reserved" },
                 { key: "connector", label: "Connector", render: (row) => row.connector ?? "Unknown" },
                 { key: "stale", label: "Freshness", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
                 { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
@@ -769,6 +804,7 @@ export function ProviderAnalyticsPage() {
                     ]}
                     label="Provider activity"
                   />
+                  <ActivityMetricExplanation />
                 </DashboardPanel>
               ) : null}
               {activeTab === "status" ? (
@@ -1365,6 +1401,7 @@ export function OperatorAnalyticsPage() {
                     ]}
                     label="Platform activity"
                   />
+                  <ActivityMetricExplanation />
                 </DashboardPanel>
               ) : null}
               {activeTab === "reservations" ? (
@@ -1594,6 +1631,7 @@ export function OperatorCatalogPage() {
                     { key: "provider", label: "Provider", render: (row) => providerLabel(row.provider_code) },
                     { key: "point", label: "Point", render: (row) => row.display_name },
                     { key: "status", label: "Operational status", render: (row) => <StatusBadge status={row.status} /> },
+                    { key: "reserved", label: "Reservation", render: (row) => row.status === "reserved" && row.reservation_ends_at ? formatReservedUntil(row.reservation_ends_at) : "Not reserved" },
                     { key: "freshness", label: "Catalog state", render: (row) => (row.is_stale ? "Stale" : "Fresh") },
                     { key: "synced", label: "Updated", render: (row) => formatDateTime(row.last_catalog_sync_at) },
                   ]}
@@ -1979,7 +2017,40 @@ export function OperatorSyncPage() {
           meta={schedulerState.data ? `${schedulerState.data.jobs.length} jobs` : undefined}
         >
           {activeTab === "jobs" ? (
-            <DashboardPanel title="Scheduler control plane" description="Manage scheduled jobs, manual runs, pause controls, and job intervals.">
+            <DashboardPanel
+              title="Scheduler control plane"
+              description="Manage scheduled jobs, manual runs, pause controls, and job intervals."
+              actions={(
+                <div className="scheduler-preset-actions" aria-label="Scheduler interval presets">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    title="Apply the 30-second minimum interval to every interval job"
+                    disabled={operationRunning || schedulerState.loading || !schedulerState.data}
+                    onClick={() => runAction(
+                      "apply minimum intervals",
+                      () => requestJson<SchedulerIntervalPresetResponse>("/api/scheduler/jobs/intervals/apply-minimum", { method: "POST", accessToken }),
+                      () => setRefreshKey((value) => value + 1),
+                    )}
+                  >
+                    Apply minimum
+                  </button>
+                  <button
+                    className="button-primary"
+                    type="button"
+                    title="Restore the documented default interval for every interval job"
+                    disabled={operationRunning || schedulerState.loading || !schedulerState.data}
+                    onClick={() => runAction(
+                      "reset default intervals",
+                      () => requestJson<SchedulerIntervalPresetResponse>("/api/scheduler/jobs/intervals/reset-defaults", { method: "POST", accessToken }),
+                      () => setRefreshKey((value) => value + 1),
+                    )}
+                  >
+                    Reset defaults
+                  </button>
+                </div>
+              )}
+            >
               <LoadState loading={schedulerState.loading} error={schedulerState.error} />
               {schedulerState.data ? (
                 <DataTable

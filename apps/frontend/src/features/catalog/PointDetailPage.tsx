@@ -10,8 +10,8 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { Button, PageHeader } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError, requestJson, messageFromUnknownError } from "../../lib/api";
-import { formatCapacity, formatCostPerKwh, formatDateTime } from "../../lib/formatting";
-import type { CatalogPointDetail, Reservation, StatusCacheResponse, StatusLookupResponse } from "../../lib/types";
+import { formatCapacity, formatCostPerKwh, formatDateTime, formatReservationWindow, formatReservedUntil } from "../../lib/formatting";
+import type { CatalogPointDetail, Reservation, StatusCacheResponse, StatusLookupResponse, StatusValue } from "../../lib/types";
 
 function newReservationIdempotencyKey() {
   if (globalThis.crypto?.randomUUID) {
@@ -20,7 +20,7 @@ function newReservationIdempotencyKey() {
   return `reservation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-const UNCERTAIN_RESERVATION_MESSAGE = "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.";
+const UNCERTAIN_RESERVATION_MESSAGE = "The reservation outcome is uncertain. Check reservation history before trying again.";
 
 interface ReservationErrorState {
   message: string;
@@ -84,7 +84,6 @@ export function PointDetailPage() {
   const [reservationLoading, setReservationLoading] = useState(false);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const reservationInFlightRef = useRef<{ idempotencyKey: string } | null>(null);
-  const ambiguousReservationKeyRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [reservationError, setReservationError] = useState<ReservationErrorState | null>(null);
@@ -200,27 +199,29 @@ export function PointDetailPage() {
         },
       );
       setReservation(payload);
+      if (payload.status === "succeeded") {
+        const nextStatus = (payload.provider_status ?? "reserved") as StatusValue;
+        setStatus((current) => current ? {
+          ...current,
+          status: nextStatus,
+          reservation_ends_at: payload.reservation_ends_at,
+        } : current);
+        setPoint((current) => current ? {
+          ...current,
+          status: nextStatus,
+          reservation_ends_at: payload.reservation_ends_at,
+        } : current);
+      }
       setReservationRetryBlocked(false);
-      ambiguousReservationKeyRef.current = null;
     } catch (caught) {
       const nextError = reservationErrorFromUnknown(caught);
       setReservationError(nextError);
       if (nextError.ambiguousOutcome) {
         setReservationRetryBlocked(true);
-        ambiguousReservationKeyRef.current = idempotencyKey;
       }
     } finally {
       reservationInFlightRef.current = null;
       setReservationLoading(false);
-    }
-  }
-
-  async function refreshStatusForReservationReconciliation() {
-    const refreshed = await lookupStatus(true);
-    if (refreshed) {
-      setReservationRetryBlocked(false);
-      ambiguousReservationKeyRef.current = null;
-      setReservationError(null);
     }
   }
 
@@ -315,6 +316,12 @@ export function PointDetailPage() {
                       <dt>Status</dt>
                       <dd><StatusBadge status={status.status} /></dd>
                     </div>
+                    {status.status === "reserved" && status.reservation_ends_at ? (
+                      <div>
+                        <dt>Reservation</dt>
+                        <dd>{formatReservedUntil(status.reservation_ends_at)}</dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt>Checked</dt>
                       <dd>{formatDateTime("checked_at" in status ? status.checked_at : status.last_checked_at)}</dd>
@@ -372,18 +379,18 @@ export function PointDetailPage() {
                     />
                   </label>
                   <button className="button-primary" type="submit" disabled={reservationLoading || reservationRetryBlocked}>
-                    {reservationLoading ? "Checking availability..." : reservationRetryBlocked ? "Refresh status before retrying" : "Create reservation"}
+                    {reservationLoading ? "Checking availability..." : reservationRetryBlocked ? "Check history before retrying" : "Create reservation"}
                   </button>
                   {reservationRetryBlocked ? (
                     <p className="muted">
-                      A previous reservation attempt has an uncertain outcome. Refresh status or check reservation history before sending a new request.
+                      A previous reservation attempt has an uncertain outcome. Check reservation history before sending a new request.
                     </p>
                   ) : null}
                   <ReservationModal open={reservationDialogOpen} title="Reservation status" onClose={closeReservationDialog}>
                     {reservationLoading ? <LoadingBlock label="Checking provider availability" /> : null}
                     {reservation ? (
                       <Alert dismissible={false} tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">
-                        Reservation {reservation.status}. <Link to="/reservations">Open reservation history</Link>.
+                        Reservation {reservation.status}. {reservation.status === "succeeded" ? formatReservationWindow(reservation.created_at, reservation.reservation_ends_at) : null} <Link to="/reservations">Open reservation history</Link>.
                       </Alert>
                     ) : null}
                     {reservationError ? (
@@ -399,14 +406,9 @@ export function PointDetailPage() {
                           </Button>
                         ) : null}
                         {reservationError?.ambiguousOutcome ? (
-                          <>
-                            <Button type="button" onClick={refreshStatusForReservationReconciliation}>
-                              Refresh status
-                            </Button>
-                            <Link className="button-secondary button-link" to="/reservations">
-                              Check reservation history
-                            </Link>
-                          </>
+                          <Link className="button-secondary button-link" to="/reservations">
+                            Check reservation history
+                          </Link>
                         ) : null}
                       </div>
                     ) : null}

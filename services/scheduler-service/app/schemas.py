@@ -3,6 +3,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+MINIMUM_INTERVAL_SECONDS = 30
+
+
 class CurrentPrincipal(BaseModel):
     sub: str
     email: str
@@ -34,6 +37,12 @@ class ScheduledJobResponse(BaseModel):
     last_finished_at: str | None
     created_at: str
     updated_at: str
+
+
+class SchedulerIntervalPresetResponse(BaseModel):
+    preset: Literal["minimum", "defaults"]
+    updated_count: int
+    jobs: list[ScheduledJobResponse]
 
 
 class JobRunResponse(BaseModel):
@@ -77,7 +86,7 @@ class JobPatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool | None = None
-    interval_seconds: int | None = Field(default=None, ge=30)
+    interval_seconds: int | None = Field(default=None, ge=MINIMUM_INTERVAL_SECONDS)
     cron_expression: str | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=600)
     max_retries: int | None = Field(default=None, ge=0, le=5)
