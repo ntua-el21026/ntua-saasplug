@@ -140,6 +140,9 @@ function friendlyErrorType(errorType: string): string {
     catalog_point_unavailable: "This point is not currently available for reservation.",
     provider_http_error: "The provider rejected the request.",
     provider_timeout: "The provider did not respond in time.",
+    invalid_provider_reservation_expiry: "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.",
+    local_persistence_failed_after_provider_success: "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.",
+    provider_unexpected_response: "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.",
   };
   return messages[errorType] ?? "The request could not be completed.";
 }

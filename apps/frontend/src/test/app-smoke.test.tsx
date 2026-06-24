@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ const STORAGE_KEY = "saasplug.ev.session";
 
 describe("App", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.history.pushState({}, "", "/");
@@ -32,6 +33,10 @@ describe("App", () => {
 
     const passwordInput = screen.getByLabelText("Password", { selector: "input" });
     expect(passwordInput).toHaveAttribute("type", "password");
+    expect(passwordInput).toHaveValue("");
+    await userEvent.type(passwordInput, "presenter-provided-password");
+    await userEvent.click(screen.getByRole("button", { name: /operator/i }));
+    expect(passwordInput).toHaveValue("presenter-provided-password");
     await userEvent.click(screen.getByRole("button", { name: /show password/i }));
     expect(passwordInput).toHaveAttribute("type", "text");
     view.unmount();
@@ -114,7 +119,7 @@ describe("App", () => {
       }
       if (path === "/api/auth/auth/password") {
         return new Response(
-          JSON.stringify({ status: "password_changed" }),
+          JSON.stringify({ status: "password_changed_relogin_required" }),
           { headers: { "Content-Type": "application/json" }, status: 200 },
         );
       }
@@ -131,7 +136,9 @@ describe("App", () => {
     await userEvent.type(screen.getByLabelText(/confirm new password/i), "new-provider-password");
     await userEvent.click(screen.getByRole("button", { name: /update password/i }));
 
-    expect(await screen.findByText("Your password has been updated.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
     const passwordCall = fetchMock.mock.calls.find(([input]) => String(input) === "/api/auth/auth/password");
     expect(passwordCall).toBeDefined();
     const passwordRequest = passwordCall?.[1] as RequestInit;
@@ -240,12 +247,13 @@ describe("App", () => {
       last_login_method: "google",
       password_change_supported: false,
     });
-    window.history.pushState({}, "", "/login/google/callback?code=google-code");
+    window.history.pushState({}, "", "/login/google/callback?code=google-code&state=oauth-state");
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path.startsWith("/api/auth/auth/google/callback?")) {
         const params = new URLSearchParams(path.split("?")[1]);
         expect(params.get("code")).toBe("google-code");
+        expect(params.get("state")).toBe("oauth-state");
         expect(params.get("redirect_uri")).toBe(`${window.location.origin}/login/google/callback`);
         return new Response(
           JSON.stringify({

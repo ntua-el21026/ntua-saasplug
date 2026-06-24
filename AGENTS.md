@@ -84,6 +84,7 @@ status-service
 reservation-service
 analytics-service
 billing-service
+scheduler-service
 rabbitmq
 auth-postgres
 provider-registry-postgres
@@ -95,6 +96,7 @@ status-postgres
 reservation-postgres
 analytics-postgres
 billing-postgres
+scheduler-postgres
 ```
 
 Do not use alternative names such as `PointService`, `StatsService`, `PaymentService`, `ProviderSyncService`, or `APIService` in final code/diagrams unless they are purely internal class names and do not conflict with the canonical architecture.
@@ -192,6 +194,7 @@ Each stateful service owns exactly one PostgreSQL container:
 | `reservation-service` | `reservation-postgres` |
 | `analytics-service` | `analytics-postgres` |
 | `billing-service` | `billing-postgres` |
+| `scheduler-service` | `scheduler-postgres` |
 
 Rules:
 

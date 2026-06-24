@@ -9,7 +9,7 @@ import { Alert, LoadingBlock } from "../../components/Feedback";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Button, PageHeader } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
-import { requestJson, messageFromUnknownError } from "../../lib/api";
+import { ApiError, requestJson, messageFromUnknownError } from "../../lib/api";
 import { formatCapacity, formatCostPerKwh, formatDateTime } from "../../lib/formatting";
 import type { CatalogPointDetail, Reservation, StatusCacheResponse, StatusLookupResponse } from "../../lib/types";
 
@@ -18,6 +18,58 @@ function newReservationIdempotencyKey() {
     return globalThis.crypto.randomUUID();
   }
   return `reservation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const UNCERTAIN_RESERVATION_MESSAGE = "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.";
+
+interface ReservationErrorState {
+  message: string;
+  retryAllowed: boolean;
+  ambiguousOutcome: boolean;
+}
+
+function reservationErrorFromUnknown(error: unknown): ReservationErrorState {
+  if (!(error instanceof ApiError)) {
+    return {
+      message: messageFromUnknownError(error),
+      retryAllowed: true,
+      ambiguousOutcome: false,
+    };
+  }
+  const detail = apiErrorDetail(error.detail);
+  const errorType = stringField(detail, "error_type");
+  const outcomeStatus = stringField(detail, "outcome_status");
+  const retryAllowed = booleanField(detail, "retry_allowed");
+  const reconciliationRequired = booleanField(detail, "reconciliation_required");
+  const ambiguousOutcome = outcomeStatus === "unknown" || reconciliationRequired === true || retryAllowed === false || [
+    "provider_timeout",
+    "local_persistence_failed_after_provider_success",
+    "invalid_provider_reservation_expiry",
+    "provider_unexpected_response",
+  ].includes(errorType ?? "");
+  return {
+    message: stringField(detail, "message") ?? (ambiguousOutcome ? UNCERTAIN_RESERVATION_MESSAGE : error.userMessage),
+    retryAllowed: ambiguousOutcome ? false : retryAllowed ?? true,
+    ambiguousOutcome,
+  };
+}
+
+function apiErrorDetail(payload: unknown): Record<string, unknown> | null {
+  if (!payload || typeof payload !== "object" || !("detail" in payload)) {
+    return null;
+  }
+  const detail = (payload as { detail: unknown }).detail;
+  return detail && typeof detail === "object" ? detail as Record<string, unknown> : null;
+}
+
+function stringField(payload: Record<string, unknown> | null, field: string): string | null {
+  const value = payload?.[field];
+  return typeof value === "string" ? value : null;
+}
+
+function booleanField(payload: Record<string, unknown> | null, field: string): boolean | null {
+  const value = payload?.[field];
+  return typeof value === "boolean" ? value : null;
 }
 
 export function PointDetailPage() {
@@ -32,9 +84,11 @@ export function PointDetailPage() {
   const [reservationLoading, setReservationLoading] = useState(false);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const reservationInFlightRef = useRef<{ idempotencyKey: string } | null>(null);
+  const ambiguousReservationKeyRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [reservationError, setReservationError] = useState<string | null>(null);
+  const [reservationError, setReservationError] = useState<ReservationErrorState | null>(null);
+  const [reservationRetryBlocked, setReservationRetryBlocked] = useState(false);
   const isEvUser = session?.user.roles.includes("EV_USER") ?? false;
   const isProviderAdmin = session?.user.roles.includes("PROVIDER_ADMIN") ?? false;
   const isOwnProviderPoint = !isProviderAdmin || session?.user.provider_code === providerCode;
@@ -78,15 +132,16 @@ export function PointDetailPage() {
     }
   }, [session?.accessToken, isOwnProviderPoint, providerCode, externalPointId]);
 
-  async function lookupStatus() {
+  async function lookupStatus(forceRefresh = false): Promise<boolean> {
     setStatusLoading(true);
     setStatusError(null);
     try {
       const payload = await requestJson<StatusLookupResponse>(
-        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=false`,
+        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=${forceRefresh ? "true" : "false"}`,
         { accessToken: session?.accessToken },
       );
       setStatus(payload);
+      return true;
     } catch (caught) {
       setStatusError(messageFromUnknownError(caught));
       try {
@@ -95,8 +150,9 @@ export function PointDetailPage() {
           { accessToken: session?.accessToken },
         );
         setStatus(cached);
+        return true;
       } catch {
-        return;
+        return false;
       }
     } finally {
       setStatusLoading(false);
@@ -108,13 +164,26 @@ export function PointDetailPage() {
     if (!isEvUser || reservationInFlightRef.current) {
       return;
     }
+    if (reservationRetryBlocked) {
+      setReservationDialogOpen(true);
+      setReservationError({
+        message: UNCERTAIN_RESERVATION_MESSAGE,
+        retryAllowed: false,
+        ambiguousOutcome: true,
+      });
+      return;
+    }
     setReservation(null);
     setReservationError(null);
     setReservationDialogOpen(true);
     setReservationLoading(true);
     const parsedDuration = Number.parseInt(durationMinutes, 10);
     if (!Number.isFinite(parsedDuration) || parsedDuration < 1 || parsedDuration > 1440) {
-      setReservationError("Enter a charging duration between 1 and 1440 minutes.");
+      setReservationError({
+        message: "Enter a charging duration between 1 and 1440 minutes.",
+        retryAllowed: true,
+        ambiguousOutcome: false,
+      });
       setReservationLoading(false);
       return;
     }
@@ -131,11 +200,27 @@ export function PointDetailPage() {
         },
       );
       setReservation(payload);
+      setReservationRetryBlocked(false);
+      ambiguousReservationKeyRef.current = null;
     } catch (caught) {
-      setReservationError(messageFromUnknownError(caught));
+      const nextError = reservationErrorFromUnknown(caught);
+      setReservationError(nextError);
+      if (nextError.ambiguousOutcome) {
+        setReservationRetryBlocked(true);
+        ambiguousReservationKeyRef.current = idempotencyKey;
+      }
     } finally {
       reservationInFlightRef.current = null;
       setReservationLoading(false);
+    }
+  }
+
+  async function refreshStatusForReservationReconciliation() {
+    const refreshed = await lookupStatus(true);
+    if (refreshed) {
+      setReservationRetryBlocked(false);
+      ambiguousReservationKeyRef.current = null;
+      setReservationError(null);
     }
   }
 
@@ -286,9 +371,14 @@ export function PointDetailPage() {
                       onChange={(event) => setDurationMinutes(event.target.value)}
                     />
                   </label>
-                  <button className="button-primary" type="submit" disabled={reservationLoading}>
-                    {reservationLoading ? "Checking availability..." : "Create reservation"}
+                  <button className="button-primary" type="submit" disabled={reservationLoading || reservationRetryBlocked}>
+                    {reservationLoading ? "Checking availability..." : reservationRetryBlocked ? "Refresh status before retrying" : "Create reservation"}
                   </button>
+                  {reservationRetryBlocked ? (
+                    <p className="muted">
+                      A previous reservation attempt has an uncertain outcome. Refresh status or check reservation history before sending a new request.
+                    </p>
+                  ) : null}
                   <ReservationModal open={reservationDialogOpen} title="Reservation status" onClose={closeReservationDialog}>
                     {reservationLoading ? <LoadingBlock label="Checking provider availability" /> : null}
                     {reservation ? (
@@ -297,16 +387,26 @@ export function PointDetailPage() {
                       </Alert>
                     ) : null}
                     {reservationError ? (
-                      <Alert dismissible={false} tone="danger" title={reservationError.toLowerCase().includes("timeout") ? "Provider timeout" : "Reservation failed"}>
-                        {reservationError}
+                      <Alert dismissible={false} tone={reservationError.ambiguousOutcome ? "warning" : "danger"} title={reservationError.ambiguousOutcome ? "Reservation outcome uncertain" : "Reservation failed"}>
+                        {reservationError.message}
                       </Alert>
                     ) : null}
                     {!reservationLoading ? (
                       <div className="button-row">
-                        {reservationError ? (
+                        {reservationError?.retryAllowed ? (
                           <Button type="submit">
                             Retry
                           </Button>
+                        ) : null}
+                        {reservationError?.ambiguousOutcome ? (
+                          <>
+                            <Button type="button" onClick={refreshStatusForReservationReconciliation}>
+                              Refresh status
+                            </Button>
+                            <Link className="button-secondary button-link" to="/reservations">
+                              Check reservation history
+                            </Link>
+                          </>
                         ) : null}
                       </div>
                     ) : null}

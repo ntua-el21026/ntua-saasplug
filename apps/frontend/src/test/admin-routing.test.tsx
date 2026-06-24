@@ -844,6 +844,67 @@ describe("admin role routing", () => {
     expect(idempotencyKeys[1]).not.toBe(idempotencyKeys[0]);
   });
 
+  it("blocks fresh-key retry after an ambiguous reservation timeout until status refresh", async () => {
+    storeSession("EV_USER");
+    let reservationRequestCount = 0;
+    let forcedStatusRefreshCount = 0;
+    const idempotencyKeys: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/reservations/points/redPlug/1515489/reservations") {
+          const headers = new Headers(options?.headers);
+          idempotencyKeys.push(headers.get("Idempotency-Key") ?? "");
+          reservationRequestCount += 1;
+          if (reservationRequestCount === 1) {
+            return Promise.resolve(new Response(JSON.stringify({
+              detail: {
+                error_type: "provider_timeout",
+                message: "The reservation outcome is uncertain. Refresh status or check reservation history before trying again.",
+                outcome_status: "unknown",
+                retry_allowed: false,
+                reconciliation_required: true,
+              },
+            }), {
+              headers: { "Content-Type": "application/json" },
+              status: 504,
+            }));
+          }
+          return Promise.resolve(new Response(JSON.stringify(reservationResponse()), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          }));
+        }
+        if (url.pathname === "/api/status/points/redPlug/1515489/status" && url.searchParams.get("forceRefresh") === "true") {
+          forcedStatusRefreshCount += 1;
+        }
+        return Promise.resolve(new Response(JSON.stringify(responseFor(url, "EV_USER")), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }));
+      }),
+    );
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
+    expect(await screen.findByText(/reservation outcome is uncertain/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^retry$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /refresh status before retrying/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /^refresh status$/i }));
+    await waitFor(() => expect(forcedStatusRefreshCount).toBe(1));
+    expect(idempotencyKeys).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: /create reservation/i }));
+    expect(await screen.findByText(/reservation succeeded/i)).toBeInTheDocument();
+    expect(idempotencyKeys).toHaveLength(2);
+    expect(idempotencyKeys[1]).not.toBe(idempotencyKeys[0]);
+  });
+
   it("blocks provider admins from opening another provider point detail", async () => {
     storeSession("PROVIDER_ADMIN");
     mockFetch("PROVIDER_ADMIN");

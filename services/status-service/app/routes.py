@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -36,7 +38,7 @@ def cache_response(cache: StatusCache) -> StatusCacheResponse:
     )
 
 
-def log_response(log: StatusCheckLog) -> StatusCheckLogResponse:
+def operator_log_response(log: StatusCheckLog) -> dict[str, Any]:
     return StatusCheckLogResponse(
         id=log.id,
         provider_code=log.provider_code,
@@ -55,7 +57,31 @@ def log_response(log: StatusCheckLog) -> StatusCheckLogResponse:
         provider_error_message=log.provider_error_message,
         external_status_code=log.external_status_code,
         checked_at=log.checked_at.isoformat(),
-    )
+    ).model_dump(mode="json")
+
+
+def provider_admin_log_response(log: StatusCheckLog) -> dict[str, Any]:
+    return {
+        "id": log.id,
+        "provider_code": log.provider_code,
+        "external_point_id": log.external_point_id,
+        "normalized_point_id": log.normalized_point_id,
+        "cache_hit": log.cache_hit,
+        "force_refresh": log.force_refresh,
+        "result_status": log.result_status,
+        "returned_stale": log.returned_stale,
+        "provider_called": log.provider_called,
+        "provider_error_type": log.provider_error_type,
+        "provider_error_message": log.provider_error_message,
+        "external_status_code": log.external_status_code,
+        "checked_at": log.checked_at.isoformat(),
+    }
+
+
+def log_response_for_principal(log: StatusCheckLog, principal: CurrentPrincipal) -> dict[str, Any]:
+    if "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
+        return provider_admin_log_response(log)
+    return operator_log_response(log)
 
 
 @router.get("/points/{provider_code}/{external_point_id}/status", response_model=StatusLookupResponse)
@@ -146,14 +172,14 @@ def read_cached_status(
     return cache_response(cache)
 
 
-@router.get("/logs", response_model=list[StatusCheckLogResponse])
+@router.get("/logs", response_model=None)
 def list_logs(
     provider_code: str | None = Query(default=None, alias="providerCode"),
     external_point_id: str | None = Query(default=None, alias="externalPointId"),
     limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> list[StatusCheckLogResponse]:
+) -> list[dict[str, Any]]:
     ensure_log_reader(principal)
     query = select(StatusCheckLog)
     if "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
@@ -167,7 +193,7 @@ def list_logs(
     if external_point_id:
         query = query.where(StatusCheckLog.external_point_id == external_point_id)
     logs = db.scalars(query.order_by(StatusCheckLog.checked_at.desc()).limit(limit)).all()
-    return [log_response(log) for log in logs]
+    return [log_response_for_principal(log, principal) for log in logs]
 
 
 @router.get("/freshness", response_model=list[ProviderFreshnessResponse])

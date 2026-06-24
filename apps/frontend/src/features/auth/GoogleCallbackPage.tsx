@@ -53,9 +53,14 @@ export function GoogleCallbackPage() {
         setErrorMessage("Google did not return the sign-in confirmation. Please try again.");
         return;
       }
+      const state = searchParams.get("state");
+      if (!state) {
+        setErrorMessage("Google did not return the sign-in state. Please try again.");
+        return;
+      }
 
       try {
-        await completeGoogleSignIn(code);
+        await completeGoogleSignIn(code, state);
         if (!cancelled) {
           navigate("/", { replace: true });
         }

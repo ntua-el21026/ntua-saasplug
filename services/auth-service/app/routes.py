@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import json
+import secrets
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -12,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_provider_admin_scope, require_roles
-from app.models import RefreshToken, User, utcnow
+from app.models import OAuthState, RefreshToken, User, utcnow
 from app.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -37,6 +39,8 @@ from app.security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+OAUTH_STATE_TTL_MINUTES = 10
 
 
 def user_response(user: User) -> UserResponse:
@@ -78,6 +82,53 @@ def invalid_credentials() -> HTTPException:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid email or password",
     )
+
+
+def oauth_state_digest(state: str) -> str:
+    return hashlib.sha256(state.encode("utf-8")).hexdigest()
+
+
+def generate_pkce_verifier() -> str:
+    return secrets.token_urlsafe(64)[:128]
+
+
+def pkce_challenge(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def create_oauth_state(db: Session) -> tuple[str, str, str]:
+    now = utcnow()
+    db.query(OAuthState).filter(OAuthState.expires_at <= now, OAuthState.consumed_at.is_(None)).delete()
+    state = secrets.token_urlsafe(32)
+    verifier = generate_pkce_verifier()
+    db.add(
+        OAuthState(
+            state_hash=oauth_state_digest(state),
+            code_verifier=verifier,
+            expires_at=now + timedelta(minutes=OAUTH_STATE_TTL_MINUTES),
+        ),
+    )
+    db.commit()
+    return state, verifier, pkce_challenge(verifier)
+
+
+def consume_oauth_state(db: Session, state: str | None) -> str:
+    if not state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing OAuth state",
+        )
+    state_record = db.scalar(select(OAuthState).where(OAuthState.state_hash == oauth_state_digest(state)))
+    now = utcnow()
+    if state_record is None or state_record.consumed_at is not None or state_record.expires_at <= now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state",
+        )
+    state_record.consumed_at = now
+    db.commit()
+    return state_record.code_verifier
 
 
 @router.post("/register", response_model=AuthTokenResponse, status_code=status.HTTP_201_CREATED)
@@ -186,10 +237,15 @@ def change_password(
             detail="Current password is incorrect",
         )
 
+    now = utcnow()
     current_user.password_hash = hash_password(request.new_password)
     current_user.last_login_method = "local"
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == current_user.id,
+        RefreshToken.revoked_at.is_(None),
+    ).update({"revoked_at": now}, synchronize_session=False)
     db.commit()
-    return ChangePasswordResponse(status="password_changed")
+    return ChangePasswordResponse(status="password_changed_relogin_required")
 
 
 @router.get("/me", response_model=UserResponse)
@@ -213,6 +269,7 @@ def require_provider_admin(
 
 @router.get("/google/login", response_model=GoogleOAuthStatus)
 def google_login(
+    db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> GoogleOAuthStatus:
     if not settings.google_oauth_configured:
@@ -222,6 +279,8 @@ def google_login(
             message="Google OAuth credentials are placeholders or missing in local demo mode.",
         )
 
+    state, verifier, challenge = create_oauth_state(db)
+    _ = verifier
     query = urlencode(
         {
             "client_id": settings.google_client_id,
@@ -230,6 +289,9 @@ def google_login(
             "scope": "openid email profile",
             "access_type": "offline",
             "prompt": "select_account",
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
         },
     )
     return GoogleOAuthStatus(
@@ -237,6 +299,8 @@ def google_login(
         configured=True,
         message="Google OAuth authorization URL is ready.",
         authorization_url=f"https://accounts.google.com/o/oauth2/v2/auth?{query}",
+        state=state,
+        code_challenge=challenge,
     )
 
 
@@ -263,6 +327,7 @@ def google_local_sign_in(
 def google_callback(
     code: str | None = None,
     error: str | None = None,
+    state: str | None = None,
     redirect_uri: str | None = None,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -273,6 +338,7 @@ def google_callback(
             configured=False,
             message="Google OAuth callback reached, but local demo credentials are not configured.",
         )
+    code_verifier = consume_oauth_state(db, state)
     if error is not None and redirect_uri is None:
         return RedirectResponse(f"{settings.google_frontend_callback_uri}#error={error}")
     if code is None:
@@ -281,7 +347,7 @@ def google_callback(
             detail="Missing Google OAuth authorization code",
         )
 
-    identity = fetch_google_identity(code, settings, redirect_uri=redirect_uri)
+    identity = fetch_google_identity(code, settings, redirect_uri=redirect_uri, code_verifier=code_verifier)
     auth_payload = issue_google_sign_in(
         db=db,
         settings=settings,
@@ -337,7 +403,12 @@ def issue_google_sign_in(db: Session, settings: Settings, email: str, google_sub
     return issue_tokens(db, user, settings, login_method="google")
 
 
-def fetch_google_identity(code: str, settings: Settings, redirect_uri: str | None = None) -> dict[str, str]:
+def fetch_google_identity(
+    code: str,
+    settings: Settings,
+    redirect_uri: str | None = None,
+    code_verifier: str | None = None,
+) -> dict[str, str]:
     token_payload = {
         "code": code,
         "client_id": settings.google_client_id,
@@ -345,6 +416,8 @@ def fetch_google_identity(code: str, settings: Settings, redirect_uri: str | Non
         "redirect_uri": redirect_uri or settings.google_redirect_uri,
         "grant_type": "authorization_code",
     }
+    if code_verifier:
+        token_payload["code_verifier"] = code_verifier
     try:
         with httpx.Client(timeout=10) as client:
             token_response = client.post("https://oauth2.googleapis.com/token", data=token_payload)

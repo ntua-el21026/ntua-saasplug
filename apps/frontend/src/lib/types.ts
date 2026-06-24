@@ -24,6 +24,8 @@ export interface GoogleOAuthStatus {
   configured: boolean;
   message: string;
   authorization_url?: string | null;
+  state?: string | null;
+  code_challenge?: string | null;
   code_received?: boolean | null;
 }
 

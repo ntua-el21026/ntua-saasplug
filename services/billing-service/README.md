@@ -99,6 +99,11 @@ with `charged`, `skipped`, `duplicate`, `unsupported`, or `failed` results.
 Only operators can issue invoices. Invoice issuance selects unbilled charges for
 one provider and billing period, creates invoice lines, marks charges
 `invoiced`, and stages a `billing.invoice_issued` outbox event.
+Candidate charges are selected with row locking where supported and filtered by
+`invoice_id IS NULL`. A fresh-database uniqueness constraint on
+`invoice_lines.charge_id` ensures a charge can appear in at most one invoice;
+overlapping issuance either finds no eligible charges or fails cleanly with a
+conflict.
 
 Provider admins can view and pay issued invoices only for their own provider.
 The payment flow is mock and full-invoice only: it creates one payment record,
@@ -129,17 +134,14 @@ GET  /invoices/{invoice_id}
 POST /invoices/{invoice_id}/pay
 GET  /overview
 GET  /providers/{provider_code}/overview
-POST /providers/{provider_code}/refresh
 POST /events/ingest
 POST /events/drain
 POST /events/outbox/publish-pending
 ```
 
-`POST /providers/{provider_code}/refresh` is operator-only. It performs a
-bounded billing queue drain for administrative refresh workflows. It does not
-issue invoices, publish the billing outbox, or expose another provider's invoice
-data. Provider-admin invoice pages are read-only projection views and cannot
-trigger queue drains.
+Provider-admin `/charges` responses are scoped to the provider in the JWT and
+omit direct EV user IDs, reservation IDs, and raw event payloads. Operators
+retain the richer internal charge shape.
 
 ## RabbitMQ
 
@@ -148,9 +150,11 @@ The service uses the shared `packages/events` topology. The
 `usage.point_viewed` so the billing service can consume point-view events
 without a new runtime queue or container.
 
-`POST /events/drain` is an operator-only bounded manual queue drain for local
-demo and testing. There is no separate worker container, orchestrator, or
-distributed transaction mechanism.
+`POST /events/drain` is an operator-only global bounded manual queue drain for
+local demo and testing. Provider admins cannot trigger it. There is no
+provider-scoped refresh route because the queue drain processes the shared
+billing queue, not a provider-filtered queue. There is no separate worker
+container, orchestrator, or distributed transaction mechanism.
 
 `POST /events/outbox/publish-pending` publishes pending billing outbox rows to
 the configured `saasplug.events` exchange and preserves failed rows as pending
@@ -223,10 +227,10 @@ Out of scope:
 - analytics aggregate ownership,
 - frontend screens.
 
-Existing local Docker volumes created before the `payments.invoice_id` unique
-constraint will not be altered by SQLAlchemy `create_all`; recreate development
-volumes or add a service-local migration before relying on that database-level
-constraint in an older local database.
+Existing local Docker volumes created before the `payments.invoice_id` or
+`invoice_lines.charge_id` unique constraints will not be altered by SQLAlchemy
+`create_all`; recreate development volumes or add a service-local migration
+before relying on those database-level constraints in an older local database.
 
 ## References
 

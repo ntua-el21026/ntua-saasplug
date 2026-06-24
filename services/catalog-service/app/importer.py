@@ -275,16 +275,17 @@ def import_provider_catalog(
         provider_points = provider_client.list_points(provider_code)
         seen_external_ids: set[str] = set()
         changed_count = 0
-        for provider_point in provider_points:
-            if provider_point.provider_code != provider_code:
-                raise ProviderServiceError(provider_code, "Provider point list contained wrong provider code")
-            if provider_point.normalized_point_id != f"{provider_code}:{provider_point.external_point_id}":
-                raise ProviderServiceError(provider_code, "Provider point normalized id was invalid")
-            seen_external_ids.add(str(provider_point.external_point_id))
-            if upsert_catalog_point(db, provider_point, sync_time):
-                changed_count += 1
+        with db.begin_nested():
+            for provider_point in provider_points:
+                if provider_point.provider_code != provider_code:
+                    raise ProviderServiceError(provider_code, "Provider point list contained wrong provider code")
+                if provider_point.normalized_point_id != f"{provider_code}:{provider_point.external_point_id}":
+                    raise ProviderServiceError(provider_code, "Provider point normalized id was invalid")
+                seen_external_ids.add(str(provider_point.external_point_id))
+                if upsert_catalog_point(db, provider_point, sync_time):
+                    changed_count += 1
 
-        stale_count = mark_missing_points_stale(db, provider_code, seen_external_ids, sync_time)
+            stale_count = mark_missing_points_stale(db, provider_code, seen_external_ids, sync_time)
         import_run.status = "completed"
         import_run.completed_at = utcnow()
         import_run.provider_fetched_count = len(provider_points)

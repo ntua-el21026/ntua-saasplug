@@ -117,6 +117,7 @@ Use this checklist before packaging or presenting the final course submission.
 | Usage/status/catalog event and scheduler cadence update | Done with warning | Live event emitters, editable scheduler intervals, and targeted validation documented in `docs/ai/codex-runs/032-event-scheduler-cadence-and-operator-controls.md` |
 | Ordered scheduler maintenance run | Done | Single operator action and ordered scheduler API documented in `docs/ai/codex-runs/034-ordered-scheduler-maintenance-run.md` |
 | Safe finalization audit fixes | Done with warning | Verified audit fixes F-001 through F-013 documented in `docs/ai/codex-runs/051-verified-audit-fixes-safe-finalization.md`; live reservation mutations were intentionally skipped |
+| Final audit hardening fixes | Done with warning | F-001 through F-018 hardening, 289 passing tests, Docker/gateway/runtime smoke, and browser automation limitation documented in `docs/ai/codex-runs/053-final-audit-fixes-f001-f018.md` |
 
 ## Manual Review Notes
 
@@ -170,3 +171,14 @@ Use this checklist before packaging or presenting the final course submission.
   values and did not run live provider reservation mutations.
 - Browser automation and Figma validation were not performed in Prompt 14
   because no callable browser tool or usable Figma source was available.
+- Prompt 53 completed the F-001 through F-018 final audit hardening pass,
+  including browser-secret removal, production frontend serving, gateway
+  security headers/docs blocks, OAuth state/PKCE, refresh-token revocation after
+  password change, provider-admin response minimization, reservation ambiguous
+  outcome handling, status single-flight refresh, catalog import rollback,
+  scheduler timeout/stale-run recovery, billing invoice-line uniqueness, and
+  scheduler documentation alignment. The login role shortcut buttons preserve
+  the password typed by the presenter, but no demo password is embedded in the
+  frontend bundle. Browser console/network automation remained skipped because
+  Playwright was not installed and no dependency was added for audit-only
+  validation.

@@ -1,3 +1,6 @@
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import jwt
@@ -51,12 +54,17 @@ class FakeProviderServiceClient:
         }
         self.failures: dict[tuple[str, str], ProviderServiceError] = {}
         self.calls: list[tuple[str, str]] = []
+        self.delay_seconds = 0.0
+        self.call_lock = threading.Lock()
 
     def close(self) -> None:
         return None
 
     def get_status(self, provider_code: str, external_point_id: str) -> ProviderStatusDTO:
-        self.calls.append((provider_code, external_point_id))
+        with self.call_lock:
+            self.calls.append((provider_code, external_point_id))
+        if self.delay_seconds:
+            time.sleep(self.delay_seconds)
         failure = self.failures.get((provider_code, external_point_id))
         if failure is not None:
             raise failure
@@ -228,6 +236,47 @@ def test_expired_cache_triggers_provider_refresh(test_context) -> None:
     assert fake_client.calls == [("redPlug", "101"), ("redPlug", "101")]
 
 
+def test_expired_cache_concurrent_same_point_uses_single_provider_refresh(test_context) -> None:
+    client, fake_client = test_context
+    assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
+    db = get_session_factory()()
+    try:
+        cache = db.query(StatusCache).one()
+        cache.expires_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+    finally:
+        db.close()
+    fake_client.calls.clear()
+    fake_client.delay_seconds = 0.05
+    fake_client.statuses[("redPlug", "101")] = provider_status("redPlug", "101", "charging")
+
+    def read_status():
+        return client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        responses = list(executor.map(lambda _: read_status(), range(5)))
+
+    assert all(response.status_code == 200 for response in responses)
+    assert {response.json()["status"] for response in responses} == {"charging"}
+    assert fake_client.calls == [("redPlug", "101")]
+
+
+def test_concurrent_different_points_refresh_independently(test_context) -> None:
+    client, fake_client = test_context
+    fake_client.delay_seconds = 0.05
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(
+            executor.map(
+                lambda path: client.get(path, headers=ev_headers()),
+                ["/points/redPlug/101/status", "/points/redPlug/102/status"],
+            ),
+        )
+
+    assert all(response.status_code == 200 for response in responses)
+    assert sorted(fake_client.calls) == [("redPlug", "101"), ("redPlug", "102")]
+
+
 def test_force_refresh_bypasses_valid_cache(test_context) -> None:
     client, fake_client = test_context
     assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
@@ -375,8 +424,19 @@ def test_provider_admin_log_access_is_scoped_to_own_provider(test_context) -> No
     )
 
     assert response.status_code == 200
-    provider_codes = {log["provider_code"] for log in response.json()}
+    logs = response.json()
+    provider_codes = {log["provider_code"] for log in logs}
     assert provider_codes == {"redPlug"}
+    assert "requested_by_user_id" not in logs[0]
+    assert "requested_by_email" not in logs[0]
+    assert "requested_by_roles" not in logs[0]
+    assert "requested_by_provider_code" not in logs[0]
+
+    operator_response = client.get("/logs", headers=operator_headers())
+    assert operator_response.status_code == 200
+    operator_log = operator_response.json()[0]
+    assert "requested_by_user_id" in operator_log
+    assert "requested_by_email" in operator_log
 
 
 def test_ev_user_cannot_list_logs(test_context) -> None:

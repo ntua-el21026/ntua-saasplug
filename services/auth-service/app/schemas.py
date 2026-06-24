@@ -68,4 +68,6 @@ class GoogleOAuthStatus(BaseModel):
     configured: bool
     message: str
     authorization_url: str | None = None
+    state: str | None = None
+    code_challenge: str | None = None
     code_received: bool | None = None

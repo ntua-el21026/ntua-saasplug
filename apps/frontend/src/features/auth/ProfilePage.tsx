@@ -41,7 +41,7 @@ export function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPasswordMessage("Your password has been updated.");
+      setPasswordMessage("Your password has been updated. Sign in again to continue.");
     } catch (caught) {
       setPasswordError(messageFromUnknownError(caught));
     } finally {

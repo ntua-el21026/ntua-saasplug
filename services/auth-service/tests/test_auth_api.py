@@ -1,5 +1,6 @@
 import base64
 import json
+from urllib.parse import parse_qs, urlparse
 
 import jwt
 import pytest
@@ -42,6 +43,23 @@ def login(client: TestClient, email: str, password: str = DEMO_PASSWORD) -> dict
     )
     assert response.status_code == 200
     return response.json()
+
+
+def configured_oauth_login(client: TestClient, monkeypatch) -> dict:
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+    response = client.get("/auth/google/login")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["configured"] is True
+    assert payload["state"]
+    assert payload["code_challenge"]
+    query = parse_qs(urlparse(payload["authorization_url"]).query)
+    assert query["state"] == [payload["state"]]
+    assert query["code_challenge"] == [payload["code_challenge"]]
+    assert query["code_challenge_method"] == ["S256"]
+    return payload
 
 
 def test_health_endpoint_remains_available(client: TestClient) -> None:
@@ -307,6 +325,8 @@ def test_google_login_uses_backend_redirect_uri_when_configured(client: TestClie
     payload = response.json()
     assert payload["configured"] is True
     assert "authorization_url" in payload
+    assert payload["state"]
+    assert payload["code_challenge"]
     assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fauth%2Fgoogle%2Fcallback" in payload["authorization_url"]
     assert frontend_redirect_uri not in payload["authorization_url"]
 
@@ -314,24 +334,23 @@ def test_google_login_uses_backend_redirect_uri_when_configured(client: TestClie
 def test_google_callback_uses_frontend_redirect_uri_and_registers_ev_user(client: TestClient, monkeypatch) -> None:
     frontend_redirect_uri = "http://localhost:8080/login/google/callback"
     captured: dict[str, str | None] = {}
-    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
-    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
-    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+    oauth_login = configured_oauth_login(client, monkeypatch)
 
-    def fake_fetch_google_identity(code, settings, redirect_uri=None):
+    def fake_fetch_google_identity(code, settings, redirect_uri=None, code_verifier=None):
         captured["code"] = code
         captured["redirect_uri"] = redirect_uri
+        captured["code_verifier_present"] = "yes" if code_verifier else "no"
         return {"email": "configured-google@example.com", "sub": "google-subject-1"}
 
     monkeypatch.setattr("app.routes.fetch_google_identity", fake_fetch_google_identity)
 
     response = client.get(
         "/auth/google/callback",
-        params={"code": "google-code", "redirect_uri": frontend_redirect_uri},
+        params={"code": "google-code", "state": oauth_login["state"], "redirect_uri": frontend_redirect_uri},
     )
 
     assert response.status_code == 200
-    assert captured == {"code": "google-code", "redirect_uri": frontend_redirect_uri}
+    assert captured == {"code": "google-code", "redirect_uri": frontend_redirect_uri, "code_verifier_present": "yes"}
     user = response.json()["user"]
     assert user["email"] == "configured-google@example.com"
     assert user["roles"] == ["EV_USER"]
@@ -342,26 +361,25 @@ def test_google_callback_uses_frontend_redirect_uri_and_registers_ev_user(client
 
 def test_google_backend_callback_redirects_to_frontend_with_ev_session(client: TestClient, monkeypatch) -> None:
     captured: dict[str, str | None] = {}
-    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
-    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
-    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/auth/auth/google/callback")
+    oauth_login = configured_oauth_login(client, monkeypatch)
     monkeypatch.setenv("GOOGLE_FRONTEND_CALLBACK_URI", "http://localhost:8080/login/google/callback")
 
-    def fake_fetch_google_identity(code, settings, redirect_uri=None):
+    def fake_fetch_google_identity(code, settings, redirect_uri=None, code_verifier=None):
         captured["code"] = code
         captured["redirect_uri"] = redirect_uri
+        captured["code_verifier_present"] = "yes" if code_verifier else "no"
         return {"email": "backend-google@example.com", "sub": "google-subject-2"}
 
     monkeypatch.setattr("app.routes.fetch_google_identity", fake_fetch_google_identity)
 
     response = client.get(
         "/auth/google/callback",
-        params={"code": "google-code"},
+        params={"code": "google-code", "state": oauth_login["state"]},
         follow_redirects=False,
     )
 
     assert response.status_code == 307
-    assert captured == {"code": "google-code", "redirect_uri": None}
+    assert captured == {"code": "google-code", "redirect_uri": None, "code_verifier_present": "yes"}
     location = response.headers["location"]
     assert location.startswith("http://localhost:8080/login/google/callback#payload=")
     encoded_payload = location.split("#payload=", 1)[1]
@@ -372,6 +390,29 @@ def test_google_backend_callback_redirects_to_frontend_with_ev_session(client: T
     assert payload["user"]["email"] == "backend-google@example.com"
     assert payload["user"]["roles"] == ["EV_USER"]
     assert payload["user"]["auth_provider"] == "google"
+
+
+def test_google_callback_rejects_missing_invalid_or_reused_state(client: TestClient, monkeypatch) -> None:
+    oauth_login = configured_oauth_login(client, monkeypatch)
+
+    missing_response = client.get("/auth/google/callback", params={"code": "google-code"})
+    invalid_response = client.get("/auth/google/callback", params={"code": "google-code", "state": "invalid-state"})
+
+    def fake_fetch_google_identity(code, settings, redirect_uri=None, code_verifier=None):
+        return {"email": "stateful-google@example.com", "sub": "stateful-google-subject"}
+
+    monkeypatch.setattr("app.routes.fetch_google_identity", fake_fetch_google_identity)
+    valid_response = client.get(
+        "/auth/google/callback",
+        params={"code": "google-code", "state": oauth_login["state"]},
+        follow_redirects=False,
+    )
+    replay_response = client.get("/auth/google/callback", params={"code": "google-code", "state": oauth_login["state"]})
+
+    assert missing_response.status_code == 400
+    assert invalid_response.status_code == 400
+    assert valid_response.status_code == 307
+    assert replay_response.status_code == 400
 
 
 def test_local_google_sign_in_registers_new_ev_user_and_reuses_account(client: TestClient) -> None:
@@ -440,11 +481,16 @@ def test_local_password_users_can_change_password(client: TestClient, email: str
         "/auth/login",
         json={"email": email, "password": "new-safe-demo-password"},
     )
+    old_refresh_response = client.post(
+        "/auth/refresh",
+        json={"refresh_token": login_payload["refresh_token"]},
+    )
 
     assert change_response.status_code == 200
-    assert change_response.json() == {"status": "password_changed"}
+    assert change_response.json() == {"status": "password_changed_relogin_required"}
     assert old_login_response.status_code == 401
     assert new_login_response.status_code == 200
+    assert old_refresh_response.status_code == 401
 
 
 def test_google_created_user_cannot_change_password_or_login_locally(client: TestClient) -> None:

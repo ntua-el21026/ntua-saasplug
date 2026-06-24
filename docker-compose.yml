@@ -21,19 +21,16 @@ services:
     container_name: frontend
     build:
       context: ./apps/frontend
-    environment:
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-change-me-demo-password}
-      VITE_PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      args:
+        VITE_PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
     networks:
       - saasplug-network
     expose:
       - "5173"
     healthcheck:
       test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:5173/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - CMD-SHELL
+        - "wget -q -O - http://127.0.0.1:5173/health >/dev/null 2>&1 || exit 1"
       interval: 10s
       timeout: 5s
       retries: 5

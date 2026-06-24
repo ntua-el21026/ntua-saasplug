@@ -73,6 +73,11 @@ Lookup behavior:
 5. On provider timeout/error with no previous cache, return HTTP 502 with a
    normalized error body and write a failed log.
 
+Expired-cache refreshes use a per-provider/per-point single-flight lock. The
+service re-checks cache after acquiring the lock so concurrent lookups for the
+same point collapse to one provider call, while different providers/points can
+refresh independently.
+
 After each completed status lookup/log write, `status-service` publishes a
 best-effort `status.point_checked` analytics event. The event includes provider
 code, normalized point id, external point id, normalized result status, cache
@@ -104,6 +109,10 @@ the shared `JWT_SECRET`.
 | `GET /cache/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider; never calls provider services |
 | `GET /logs` | `OPERATOR` all logs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |
 | `GET /freshness` | Public non-sensitive provider-level metadata |
+
+Provider-admin log responses are provider-scoped and omit direct requester
+user IDs, requester emails, raw requester roles, and requester provider claims.
+Operators retain the full internal log shape for troubleshooting.
 
 ## Runtime configuration
 

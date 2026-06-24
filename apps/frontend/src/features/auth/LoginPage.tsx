@@ -6,40 +6,31 @@ import { messageFromUnknownError } from "../../lib/api";
 import { useAuth } from "./AuthContext";
 import { AuthLayout } from "./AuthLayout";
 
-const DEMO_PASSWORD = import.meta.env.DEMO_USER_PASSWORD
-  ?? import.meta.env.VITE_DEMO_USER_PASSWORD
-  ?? "change-me-demo-password";
-
 const DEMO_ACCOUNTS = [
   {
     label: "EV user",
     email: "evuser@saasplug.local",
     description: "Search and reserve chargers",
-    password: import.meta.env.VITE_DEMO_EV_USER_PASSWORD ?? DEMO_PASSWORD,
   },
   {
     label: "Operator",
     email: "operator@saasplug.local",
     description: "Manage platform operations",
-    password: import.meta.env.VITE_DEMO_OPERATOR_PASSWORD ?? DEMO_PASSWORD,
   },
   {
     label: "redPlug admin",
     email: "red-admin@saasplug.local",
     description: "Review provider activity",
-    password: import.meta.env.VITE_DEMO_RED_ADMIN_PASSWORD ?? DEMO_PASSWORD,
   },
   {
     label: "greenPlug admin",
     email: "green-admin@saasplug.local",
     description: "Review provider activity",
-    password: import.meta.env.VITE_DEMO_GREEN_ADMIN_PASSWORD ?? DEMO_PASSWORD,
   },
   {
     label: "bluePlug admin",
     email: "blue-admin@saasplug.local",
     description: "Review provider activity",
-    password: import.meta.env.VITE_DEMO_BLUE_ADMIN_PASSWORD ?? DEMO_PASSWORD,
   },
 ];
 
@@ -48,7 +39,7 @@ export function LoginPage() {
   const location = useLocation();
   const { signIn, googleSignIn } = useAuth();
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
-  const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
+  const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -156,6 +147,7 @@ export function LoginPage() {
 
       <div className="demo-accounts" aria-label="Account shortcuts">
         <p>Try a role</p>
+        <small>Enter the presenter-provided password once; role shortcuts keep the current password field value.</small>
         {DEMO_ACCOUNTS.map((account) => (
           <button
             className={email === account.email ? "is-selected" : undefined}
@@ -163,7 +155,6 @@ export function LoginPage() {
             key={account.email}
             onClick={() => {
               setEmail(account.email);
-              setPassword(account.password);
             }}
           >
             <span>{account.label}</span>

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import sleep
 from typing import Any
 
@@ -31,6 +31,7 @@ def run_job(
     request_body_override: dict[str, Any] | None = None,
     client: InternalJobClient | None = None,
 ) -> JobRun:
+    recover_stale_running_jobs(db, settings)
     if trigger_type == "scheduled" and not job.enabled:
         return create_skipped_run(db, settings, job, trigger_type, "Job is paused")
 
@@ -162,10 +163,44 @@ def select_due_jobs(db: Session, now: datetime | None = None, limit: int = 10) -
 
 
 def run_due_jobs(db: Session, settings: Settings) -> list[JobRun]:
+    recover_stale_running_jobs(db, settings)
     runs: list[JobRun] = []
     for job in select_due_jobs(db, limit=settings.max_concurrent_jobs):
         runs.append(run_job(db, settings, job, "scheduled"))
     return runs
+
+
+def recover_stale_running_jobs(
+    db: Session,
+    settings: Settings,
+    now: datetime | None = None,
+) -> int:
+    recovered_count = 0
+    recovery_time = ensure_aware_utc(now or utcnow())
+    running_runs = db.scalars(select(JobRun).where(JobRun.status == "running")).all()
+    for run in running_runs:
+        job = db.get(ScheduledJob, run.job_id)
+        timeout_seconds = job.timeout_seconds if job and job.timeout_seconds else settings.http_timeout_seconds
+        started_at = ensure_aware_utc(run.started_at) if run.started_at else ensure_aware_utc(run.queued_at)
+        if started_at + timedelta(seconds=timeout_seconds) > recovery_time:
+            continue
+
+        run.status = "failed"
+        run.finished_at = recovery_time
+        run.duration_ms = duration_ms(run.started_at or run.queued_at, recovery_time)
+        run.error_type = "stale_running_recovered"
+        run.error_message = "Scheduler recovered a stale running job after its timeout window."
+        if job is not None:
+            job.last_run_id = run.id
+            job.last_run_status = run.status
+            job.last_started_at = run.started_at
+            job.last_finished_at = run.finished_at
+            job.next_run_at = calculate_next_run(job, recovery_time)
+        recovered_count += 1
+
+    if recovered_count:
+        db.commit()
+    return recovered_count
 
 
 def duration_ms(started_at: datetime | None, finished_at: datetime) -> int | None:

@@ -1,8 +1,8 @@
 ===== ANALYSIS (With .gitignore) =====
 
 Total directories: 98
-Total files      : 503
-Total lines      : 86,221
+Total files      : 507
+Total lines      : 87,770
 
 By language / type:
   Archive              Files:   1  Lines: 0
@@ -11,20 +11,20 @@ By language / type:
   Asset/Image          Files:  25  Lines: 0
   Asset/PDF            Files:  33  Lines: 0
   CSS                  Files:   5  Lines: 3,710
-  Config               Files:   1  Lines: 101
+  Config               Files:   2  Lines: 129
   DockerIgnore         Files:  11  Lines: 107
-  Dockerfile           Files:  12  Lines: 209
-  Env                  Files:   1  Lines: 94
+  Dockerfile           Files:  12  Lines: 217
+  Env                  Files:   1  Lines: 97
   GitAttributes        Files:   1  Lines: 25
   GitIgnore            Files:   1  Lines: 81
   HTML                 Files:   1  Lines: 13
   JSON                 Files:   7  Lines: 6,022
   License              Files:   1  Lines: 21
-  Markdown             Files: 153  Lines: 40,442
+  Markdown             Files: 155  Lines: 40,863
   PlantUML             Files:  36  Lines: 2,506
-  Python               Files: 151  Lines: 21,015
+  Python               Files: 151  Lines: 21,816
   TOML                 Files:   1  Lines: 16
-  Text                 Files:  13  Lines: 708
-  TypeScript           Files:  12  Lines: 1,391
-  TypeScript/TSX       Files:  31  Lines: 8,470
-  YAML                 Files:   4  Lines: 1,290
+  Text                 Files:  13  Lines: 712
+  TypeScript           Files:  13  Lines: 1,431
+  TypeScript/TSX       Files:  31  Lines: 8,717
+  YAML                 Files:   4  Lines: 1,287

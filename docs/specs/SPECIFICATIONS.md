@@ -487,6 +487,15 @@ not a queue and does not defer the provider call. After the provider call
 returns, `reservation-service` stores the reservation result and stages outbox
 events for analytics and billing.
 
+Ambiguous provider outcomes, including provider timeouts and invalid provider
+success payloads, must be represented as `unknown` rather than retried as a
+fresh mutation immediately. The API response should include machine-readable
+unknown/reconciliation metadata, and the frontend must require status/history
+reconciliation before sending a new provider mutation. Confirmed successful
+reservations require a timezone-aware future expiry; missing, malformed,
+timezone-naive, or past expiry values must not create indefinitely active local
+reservations or successful billing events.
+
 ## SPEC-2.11 Missing values and timeout policy
 
 | Case | Behavior |
@@ -495,7 +504,7 @@ events for analytics and billing.
 | Last known price exists | Display last known price with timestamp where useful. |
 | Missing status | Display `unknown`. |
 | Status provider timeout | Return last known status if available with warning/freshness indicator. |
-| Reservation provider timeout | Store failed/unknown attempt and return clear message. |
+| Reservation provider timeout | Store unknown attempt/result, return clear message, and require reconciliation before fresh retry. |
 | Provider 400/404/500 | Normalize to internal error response; provider already-reserved/unavailable responses return a conflict-style reservation error. |
 | Sync failure | Store failed sync run, retry, preserve previous catalog. |
 
@@ -1415,6 +1424,10 @@ Charges are created from events:
 
 Charges must be idempotent using `source_event_id UNIQUE`.
 
+Provider-admin charge responses must be provider-scoped and omit direct EV user
+IDs, reservation IDs, and raw event payload JSON. Operators may retain richer
+internal charge visibility.
+
 ## SPEC-7.6 Charge lifecycle
 
 Charge status values:
@@ -1445,6 +1458,11 @@ Provider Admins can:
 Provider Admins cannot issue official invoices themselves.
 
 Invoice generation is daily/on-demand for MVP. Conceptually, it represents periodic B2B billing.
+
+Invoice issuance must prevent one charge from appearing on two invoices.
+Implementations should lock candidate unbilled charges where supported and
+enforce a fresh-database uniqueness constraint on the invoice-line charge
+relationship.
 
 ## SPEC-7.8 Invoice model
 
@@ -1568,9 +1586,15 @@ then complete the authorization-code exchange through `auth-service`. The
 redirect URI used for the authorization request and token exchange must match a
 registered Google OAuth redirect URI.
 
+Configured Google OAuth must validate a random `state` value and use PKCE
+where compatible with the provider flow. Missing, invalid, expired, or replayed
+state values must be rejected. Local placeholder mode may retain an explicit
+EV-only demo sign-in endpoint.
+
 Password changes are supported by `auth-service` for local password accounts.
-The frontend exposes password changes initially only on EV profiles whose
-current session was not signed in with Google.
+Successful password changes revoke active refresh tokens and require re-login.
+The frontend exposes password changes on local-password profiles whose current
+session was not signed in with Google.
 
 ## SPEC-8.4 Roles
 
@@ -1795,6 +1819,7 @@ Frontend calls only gateway paths:
 /api/reservations/*
 /api/analytics/*
 /api/billing/*
+/api/scheduler/*
 ```
 
 ## SPEC-9.12 UX complexity
@@ -1856,6 +1881,7 @@ services/
   reservation-service/
   analytics-service/
   billing-service/
+  scheduler-service/
 
 packages/
   shared-contracts/
@@ -1930,6 +1956,7 @@ Suggested internal ports:
 | `reservation-service` | 8030 |
 | `analytics-service` | 8040 |
 | `billing-service` | 8050 |
+| `scheduler-service` | 8060 |
 | RabbitMQ AMQP | 5672 |
 | RabbitMQ management | 127.0.0.1:15672 in local Docker Compose, dev only |
 | PostgreSQL containers | 5432 internal each |
@@ -1946,7 +1973,13 @@ Nginx routes:
 /api/reservations/*  -> reservation-service:8030
 /api/analytics/*     -> analytics-service:8040
 /api/billing/*       -> billing-service:8050
+/api/scheduler/*     -> scheduler-service:8060
 ```
+
+The gateway must block browser access to service-owned `/internal/...` routes
+and public FastAPI documentation/OpenAPI endpoints in the final demo profile.
+It should set standard browser security headers, including CSP, frame
+protection, `nosniff`, referrer policy, permissions policy, and COOP.
 
 ## SPEC-10.8 Environment configuration
 
@@ -1962,7 +1995,9 @@ Use `.env` and `.env.example`.
 - database credentials per service,
 - frontend public API base path if needed.
 
-No real secrets may be committed.
+Server-side demo passwords must not be passed to Vite/browser runtime
+configuration. Demo credentials are provided out-of-band by the presenter. No
+real secrets may be committed.
 
 ## SPEC-10.9 Provider OpenAPI handling
 

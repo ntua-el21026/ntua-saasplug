@@ -55,6 +55,11 @@ business APIs.
 Service-owned `/internal/jobs/...` routes remain internal and are not routed
 through the gateway.
 
+The root `/` upstream is the production static frontend container. The
+frontend image builds Vite assets and serves them through its own minimal
+Nginx runtime on internal port `5173`; `nginx-gateway` remains the single
+host-exposed entrypoint.
+
 The gateway explicitly returns HTTP 404 for these internal prefixes before the
 broader service proxy routes:
 
@@ -64,6 +69,20 @@ broader service proxy routes:
 /api/billing/internal/
 /api/reservations/internal/
 ```
+
+Public FastAPI documentation endpoints are blocked at the gateway in the final
+demo profile:
+
+```text
+/api/<service>/docs
+/api/<service>/redoc
+/api/<service>/openapi.json
+```
+
+The gateway also sets browser hardening headers, including CSP, frame
+protection, `nosniff`, referrer policy, permissions policy, and
+cross-origin-opener policy. The CSP permits same-origin app/API assets and the
+OpenFreeMap tile host used by the map.
 
 `/api/scheduler/*` remains public to authenticated operators through
 `scheduler-service`.

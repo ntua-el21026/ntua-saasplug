@@ -82,6 +82,17 @@ Operator-edited intervals are stored in `scheduler-postgres`. Startup seeding
 creates missing jobs and updates structural metadata, but it preserves custom
 operator interval edits instead of resetting them to code defaults.
 
+Each job's `timeout_seconds` is applied to the actual HTTP request deadline.
+When a job has no usable timeout value, the service falls back to
+`SCHEDULER_HTTP_TIMEOUT_SECONDS`.
+
+On startup and scheduler ticks/manual runs, the executor recovers stale
+`running` rows whose `started_at` plus timeout window has elapsed. Recovered
+runs are marked `failed` with `error_type=stale_running_recovered`, the owning
+job's last-run fields are updated, and future executions are no longer blocked
+by an orphaned crash-era run. Runs still inside their timeout window are left
+untouched.
+
 The operator Sync page also exposes one ordered maintenance action. It runs
 existing jobs through scheduler-service in this sequence:
 
