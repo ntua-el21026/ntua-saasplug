@@ -194,8 +194,9 @@ remain explicit in reservation cards.
 Reservation result dialogs have one close control in the modal header. Alerts
 inside the dialog are non-dismissible so a second close icon is not rendered.
 Reservation submissions send a generated `Idempotency-Key` header to
-`reservation-service`. Reusing the same dialog submission key prevents browser
-retries or double submissions from creating duplicate provider calls.
+`reservation-service`. The key exists only for the active submission, which
+prevents duplicate in-flight form submissions. A completed failed request gets
+a new key when the EV user explicitly retries it.
 
 ## Refresh ownership
 
