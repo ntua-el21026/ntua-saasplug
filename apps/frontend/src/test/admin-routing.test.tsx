@@ -32,10 +32,10 @@ function storeSession(role: Role) {
 function mockFetch(role: Role) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const url = new URL(raw, "http://app.test");
-      const body = responseFor(url, role);
+      const body = responseFor(url, role, options);
       return new Response(JSON.stringify(body), {
         headers: { "Content-Type": "application/json" },
         status: 200,
@@ -44,7 +44,7 @@ function mockFetch(role: Role) {
   );
 }
 
-function responseFor(url: URL, role: Role): unknown {
+function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
   const pathname = url.pathname;
   if (pathname === "/api/auth/auth/me") {
     return userFor(role);
@@ -78,6 +78,10 @@ function responseFor(url: URL, role: Role): unknown {
   }
   if (pathname === "/api/status/points/redPlug/1515489/status") {
     return statusLookup();
+  }
+  if (pathname === "/api/status/cache/policy") {
+    const patchBody = typeof options?.body === "string" ? JSON.parse(options.body) as { ttl_seconds?: number } : null;
+    return statusCachePolicy(patchBody?.ttl_seconds ?? 300);
   }
   if (pathname === "/api/reservations/points/redPlug/1515489/reservations") {
     return reservationResponse();
@@ -401,6 +405,15 @@ function statusLookup() {
   };
 }
 
+function statusCachePolicy(ttlSeconds: number) {
+  return {
+    ttl_seconds: ttlSeconds,
+    minimum_ttl_seconds: 30,
+    default_ttl_seconds: 300,
+    updated_at: "2026-06-13T00:00:00Z",
+  };
+}
+
 function reservationResponse() {
   return {
     id: "reservation-1",
@@ -686,6 +699,7 @@ describe("admin role routing", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: /tracked revenue/i }));
     expect(await screen.findByRole("img", { name: /tracked revenue bar chart/i })).toBeInTheDocument();
+    expect(screen.getAllByText("€1.00").length).toBeGreaterThan(0);
 
     await waitFor(() => {
       const topPointCalls = vi.mocked(fetch).mock.calls.filter(([input]) => {
@@ -734,6 +748,51 @@ describe("admin role routing", () => {
     expect(screen.queryByRole("button", { name: /create reservation/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /refresh status/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /access denied/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps a catalog reservation visible while reconciling an older cached available status", async () => {
+    storeSession("EV_USER");
+    const statusRequests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+        const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(raw, "http://app.test");
+        if (url.pathname === "/api/catalog/points/redPlug/1515489") {
+          return new Response(JSON.stringify({
+            ...catalogPointDetail(),
+            status: "reserved",
+            reservation_ends_at: "2026-06-13T00:35:00Z",
+          }), { headers: { "Content-Type": "application/json" }, status: 200 });
+        }
+        if (url.pathname === "/api/status/points/redPlug/1515489/status") {
+          const forceRefresh = url.searchParams.get("forceRefresh") ?? "false";
+          statusRequests.push(forceRefresh);
+          return new Response(JSON.stringify(forceRefresh === "true"
+            ? {
+              ...statusLookup(),
+              status: "reserved",
+              reservation_ends_at: "2026-06-13T00:35:00Z",
+              cache_hit: false,
+              provider_called: true,
+              source: "provider_live",
+            }
+            : statusLookup()), { headers: { "Content-Type": "application/json" }, status: 200 });
+        }
+        return new Response(JSON.stringify(responseFor(url, "EV_USER", options)), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
+      }),
+    );
+    window.history.pushState({}, "", "/points/redPlug/1515489");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/^reserved$/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(statusRequests).toEqual(["false", "true"]));
+    expect(screen.getAllByText(/^reserved$/i).length).toBeGreaterThan(0);
   });
 
   it("lets EV users replace reservation duration and close the reservation result", async () => {
@@ -1044,6 +1103,7 @@ describe("admin role routing", () => {
     expect(screen.getByDisplayValue("86400")).toBeInTheDocument();
     expect(screen.getAllByText(/^s$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/every day/i)).toBeInTheDocument();
+    expect(screen.getByText(/status cache 300s/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /apply minimum/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /reset defaults/i })).toBeEnabled();
   });
@@ -1062,7 +1122,13 @@ describe("admin role routing", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-    expect(await screen.findByText(/applied the 30-second minimum to 1 interval job/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/status/cache/policy",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ ttl_seconds: 30 }) }),
+      );
+    });
+    expect(await screen.findByText(/set the status cache to 30s/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /reset defaults/i }));
     await waitFor(() => {
@@ -1071,7 +1137,13 @@ describe("admin role routing", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-    expect(await screen.findByText(/restored the documented defaults for 1 interval job/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/status/cache/policy",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ ttl_seconds: 300 }) }),
+      );
+    });
+    expect(await screen.findByText(/set the status cache to 300s/i)).toBeInTheDocument();
   });
 
   it("lets operators update an interval job schedule", async () => {

@@ -12,7 +12,7 @@ from app import event_publisher
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.main import app
-from app.models import StatusCache, StatusCheckLog, utcnow
+from app.models import StatusCache, StatusCachePolicy, StatusCheckLog, utcnow
 from app.provider_client import ProviderServiceError
 from app.schemas import ProviderStatusDTO
 from saasplug_events.routing import EventType
@@ -215,6 +215,40 @@ def test_second_lookup_within_ttl_returns_cache_without_provider_call(test_conte
     assert payload["cache_hit"] is True
     assert payload["provider_called"] is False
     assert fake_client.calls == [("redPlug", "101")]
+
+
+def test_operator_cache_policy_changes_existing_cache_expiry_immediately(test_context) -> None:
+    client, fake_client = test_context
+    assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
+
+    denied = client.patch("/cache/policy", headers=ev_headers(), json={"ttl_seconds": 30})
+    updated = client.patch("/cache/policy", headers=operator_headers(), json={"ttl_seconds": 30})
+
+    assert denied.status_code == 403
+    assert updated.status_code == 200
+    assert updated.json()["ttl_seconds"] == 30
+    db = get_session_factory()()
+    try:
+        policy = db.get(StatusCachePolicy, "default")
+        cache = db.query(StatusCache).one()
+        assert policy is not None
+        assert policy.ttl_seconds == 30
+        assert cache.expires_at - cache.last_checked_at == timedelta(seconds=30)
+        cache.last_checked_at = utcnow() - timedelta(seconds=31)
+        cache.expires_at = cache.last_checked_at + timedelta(seconds=30)
+        db.commit()
+    finally:
+        db.close()
+
+    fake_client.statuses[("redPlug", "101")] = provider_status("redPlug", "101", "reserved")
+    refreshed = client.get("/points/redPlug/101/status", headers=ev_headers())
+    reset = client.patch("/cache/policy", headers=operator_headers(), json={"ttl_seconds": 300})
+
+    assert refreshed.status_code == 200
+    assert refreshed.json()["status"] == "reserved"
+    assert fake_client.calls == [("redPlug", "101"), ("redPlug", "101")]
+    assert reset.status_code == 200
+    assert reset.json()["ttl_seconds"] == 300
 
 
 def test_expired_cache_triggers_provider_refresh(test_context) -> None:

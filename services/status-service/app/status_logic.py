@@ -6,13 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import PROVIDER_CODES, Settings
-from app.models import StatusCache, StatusCheckLog, utcnow
+from app.models import StatusCache, StatusCachePolicy, StatusCheckLog, utcnow
 from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import CurrentPrincipal, ProviderStatusDTO, StatusLookupResponse
 
 ALLOWED_STATUSES = {"available", "charging", "reserved", "malfunction", "offline", "unknown"}
 _REFRESH_LOCKS: dict[tuple[str, str], threading.Lock] = {}
 _REFRESH_LOCKS_GUARD = threading.Lock()
+CACHE_POLICY_ID = "default"
 
 
 def validate_provider_code(provider_code: str) -> None:
@@ -44,6 +45,26 @@ def get_cache(db: Session, provider_code: str, external_point_id: str) -> Status
             StatusCache.external_point_id == external_point_id,
         ),
     )
+
+
+def ensure_cache_policy(db: Session, default_ttl_seconds: int) -> StatusCachePolicy:
+    policy = db.get(StatusCachePolicy, CACHE_POLICY_ID)
+    if policy is None:
+        policy = StatusCachePolicy(id=CACHE_POLICY_ID, ttl_seconds=default_ttl_seconds)
+        db.add(policy)
+        db.commit()
+        db.refresh(policy)
+    return policy
+
+
+def update_cache_policy(db: Session, *, ttl_seconds: int, default_ttl_seconds: int) -> StatusCachePolicy:
+    policy = ensure_cache_policy(db, default_ttl_seconds)
+    policy.ttl_seconds = ttl_seconds
+    for cache in db.scalars(select(StatusCache)).all():
+        cache.expires_at = ensure_aware_utc(cache.last_checked_at) + timedelta(seconds=ttl_seconds)
+    db.commit()
+    db.refresh(policy)
+    return policy
 
 
 def refresh_lock_for(provider_code: str, external_point_id: str) -> threading.Lock:
@@ -128,7 +149,8 @@ def upsert_cache(
     settings: Settings,
 ) -> StatusCache:
     now = utcnow()
-    expires_at = now + timedelta(seconds=settings.cache_ttl_seconds)
+    policy = ensure_cache_policy(db, settings.cache_ttl_seconds)
+    expires_at = now + timedelta(seconds=policy.ttl_seconds)
     provider_code = provider_status.provider_code
     external_point_id = str(provider_status.external_point_id)
     cache = get_cache(db, provider_code, external_point_id)

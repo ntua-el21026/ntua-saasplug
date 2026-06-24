@@ -4,14 +4,21 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.config import get_settings
-from app.database import configure_database, init_db
+from app.database import configure_database, get_session_factory, init_db
 from app.routes import router
+from app.status_logic import ensure_cache_policy
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_database()
     init_db()
+    runtime_settings = get_settings()
+    db = get_session_factory()()
+    try:
+        ensure_cache_policy(db, runtime_settings.cache_ttl_seconds)
+    finally:
+        db.close()
     yield
 
 

@@ -3,6 +3,8 @@ NTUA-saasPlug/
 │   ├── frontend/
 │   │   ├── src/
 │   │   │   ├── assets/
+│   │   │   │   ├── auth/
+│   │   │   │   │   └── ev-charging-map-hero.png
 │   │   │   │   ├── brand/
 │   │   │   │   │   └── saasplug-mark.svg
 │   │   │   │   ├── icons/
@@ -158,6 +160,8 @@ NTUA-saasPlug/
 │   │   │   ├── 052-frontend-reservation-retry-idempotency.md
 │   │   │   ├── 053-final-audit-fixes-f001-f018.md
 │   │   │   ├── 053-operator-scheduler-interval-presets.md
+│   │   │   ├── 054-auth-landing-hero-polish.md
+│   │   │   ├── 055-status-cache-consistency-and-profile-polish.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -622,9 +626,10 @@ NTUA-saasPlug/
 ├── .gitattributes
 ├── .gitignore
 ├── AGENTS.md
+├── design-qa.md
 ├── docker-compose.yml
 ├── LICENSE
 ├── openapi.json
 └── README.md
 
-Total directories: 102, Total files: 526
+Total directories: 103, Total files: 530

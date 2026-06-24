@@ -1072,6 +1072,9 @@ textarea:hover,
 
 .auth-showcase-map {
   min-height: 220px;
+  height: 320px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .mock-road {
@@ -1225,7 +1228,7 @@ textarea:hover,
   min-width: 0;
   min-height: 100vh;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-8);
   padding: var(--space-12);
 }
@@ -1254,8 +1257,9 @@ textarea:hover,
 
 .auth-showcase {
   display: grid;
-  max-width: 680px;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
+  width: min(100%, 900px);
+  max-width: 900px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
   gap: var(--space-4);
   padding: var(--space-4);
 }
@@ -1264,7 +1268,13 @@ textarea:hover,
   display: grid;
   align-content: center;
   gap: var(--space-2);
-  padding: var(--space-4);
+  padding: var(--space-5);
+}
+
+.auth-showcase-copy strong {
+  color: var(--color-title-accent);
+  font-size: 22px;
+  line-height: 30px;
 }
 
 .auth-panel {
@@ -1392,8 +1402,9 @@ textarea:hover,
 .demo-accounts p {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 20px;
 }
 
 .demo-accounts button {

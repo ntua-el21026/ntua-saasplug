@@ -7,17 +7,19 @@ from sqlalchemy.orm import Session
 from app.config import PROVIDER_CODES, Settings, get_settings
 from app.database import get_db
 from app.event_publisher import publish_best_effort_event
-from app.models import StatusCache, StatusCheckLog, utcnow
+from app.models import StatusCache, StatusCachePolicy, StatusCheckLog, utcnow
 from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import (
     CurrentPrincipal,
     ProviderFreshnessResponse,
     StatusCacheResponse,
+    StatusCachePolicyResponse,
+    StatusCachePolicyUpdateRequest,
     StatusCheckLogResponse,
     StatusLookupResponse,
 )
-from app.security import ensure_can_query_point_status, ensure_log_reader, get_current_principal
-from app.status_logic import get_cache, lookup_status, validate_provider_code
+from app.security import ensure_can_query_point_status, ensure_log_reader, ensure_operator, get_current_principal
+from app.status_logic import ensure_cache_policy, get_cache, lookup_status, update_cache_policy, validate_provider_code
 from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["status"])
@@ -35,6 +37,15 @@ def cache_response(cache: StatusCache) -> StatusCacheResponse:
         source=cache.source,
         last_error_type=cache.last_error_type,
         last_error_message=cache.last_error_message,
+    )
+
+
+def cache_policy_response(policy: StatusCachePolicy, settings: Settings) -> StatusCachePolicyResponse:
+    return StatusCachePolicyResponse(
+        ttl_seconds=policy.ttl_seconds,
+        minimum_ttl_seconds=30,
+        default_ttl_seconds=settings.cache_ttl_seconds,
+        updated_at=policy.updated_at.isoformat(),
     )
 
 
@@ -170,6 +181,33 @@ def read_cached_status(
     if cache is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status cache entry not found")
     return cache_response(cache)
+
+
+@router.get("/cache/policy", response_model=StatusCachePolicyResponse)
+def read_cache_policy(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> StatusCachePolicyResponse:
+    ensure_operator(principal)
+    policy = ensure_cache_policy(db, settings.cache_ttl_seconds)
+    return cache_policy_response(policy, settings)
+
+
+@router.patch("/cache/policy", response_model=StatusCachePolicyResponse)
+def update_status_cache_policy(
+    body: StatusCachePolicyUpdateRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> StatusCachePolicyResponse:
+    ensure_operator(principal)
+    policy = update_cache_policy(
+        db,
+        ttl_seconds=body.ttl_seconds,
+        default_ttl_seconds=settings.cache_ttl_seconds,
+    )
+    return cache_policy_response(policy, settings)
 
 
 @router.get("/logs", response_model=None)

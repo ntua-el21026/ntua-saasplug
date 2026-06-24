@@ -72,6 +72,23 @@ function booleanField(payload: Record<string, unknown> | null, field: string): b
   return typeof value === "boolean" ? value : null;
 }
 
+function isUnconfirmedAvailableStatus(
+  point: CatalogPointDetail | null,
+  status: StatusLookupResponse | StatusCacheResponse | null,
+): boolean {
+  if (point?.status !== "reserved" || status?.status !== "available") {
+    return false;
+  }
+  return !("provider_called" in status) || !status.provider_called || status.returned_stale;
+}
+
+function displayStatus(
+  point: CatalogPointDetail | null,
+  status: StatusLookupResponse | StatusCacheResponse | null,
+): StatusValue {
+  return isUnconfirmedAvailableStatus(point, status) ? "reserved" : status?.status ?? point?.status ?? "unknown";
+}
+
 export function PointDetailPage() {
   const { providerCode = "", externalPointId = "" } = useParams();
   const { session } = useAuth();
@@ -91,6 +108,11 @@ export function PointDetailPage() {
   const isEvUser = session?.user.roles.includes("EV_USER") ?? false;
   const isProviderAdmin = session?.user.roles.includes("PROVIDER_ADMIN") ?? false;
   const isOwnProviderPoint = !isProviderAdmin || session?.user.provider_code === providerCode;
+  const reservationStatusRefreshRef = useRef<string | null>(null);
+  const displayedStatus = displayStatus(point, status);
+  const displayedReservationEnd = displayedStatus === "reserved"
+    ? status?.status === "reserved" ? status.reservation_ends_at : point?.reservation_ends_at
+    : null;
 
   useEffect(() => {
     if (!isOwnProviderPoint) {
@@ -130,6 +152,18 @@ export function PointDetailPage() {
       lookupStatus();
     }
   }, [session?.accessToken, isOwnProviderPoint, providerCode, externalPointId]);
+
+  useEffect(() => {
+    if (!isUnconfirmedAvailableStatus(point, status)) {
+      return;
+    }
+    const pointKey = `${providerCode}:${externalPointId}`;
+    if (reservationStatusRefreshRef.current === pointKey) {
+      return;
+    }
+    reservationStatusRefreshRef.current = pointKey;
+    void lookupStatus(true);
+  }, [externalPointId, point, providerCode, status]);
 
   async function lookupStatus(forceRefresh = false): Promise<boolean> {
     setStatusLoading(true);
@@ -251,7 +285,7 @@ export function PointDetailPage() {
               actions={
                 <div className="point-hero-status">
                   <ProviderBadge providerCode={point.provider_code} />
-                  <StatusBadge status={status?.status ?? point.status} />
+                  <StatusBadge status={displayedStatus} />
                   <span>{formatCostPerKwh(point.price_per_kwh_eur)}</span>
                 </div>
               }
@@ -314,12 +348,12 @@ export function PointDetailPage() {
                   <dl className="detail-list">
                     <div>
                       <dt>Status</dt>
-                      <dd><StatusBadge status={status.status} /></dd>
+                      <dd><StatusBadge status={displayedStatus} /></dd>
                     </div>
-                    {status.status === "reserved" && status.reservation_ends_at ? (
+                    {displayedStatus === "reserved" && displayedReservationEnd ? (
                       <div>
                         <dt>Reservation</dt>
-                        <dd>{formatReservedUntil(status.reservation_ends_at)}</dd>
+                        <dd>{formatReservedUntil(displayedReservationEnd)}</dd>
                       </div>
                     ) : null}
                     <div>

@@ -80,6 +80,8 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 052 | 2026-06-24 | Direct implementation prompt | N/A | Frontend reservation retry idempotency-key lifecycle correction | `completed` | `docs/ai/codex-runs/052-frontend-reservation-retry-idempotency.md` |
 | 053 | 2026-06-24 | Direct implementation prompt | N/A | Operator scheduler interval preset controls | `completed_with_warnings` | `docs/ai/codex-runs/053-operator-scheduler-interval-presets.md` |
 | 053 | 2026-06-24 | Direct implementation prompt from attached text plus user clarification | N/A | Final audit fixes F-001 through F-018, runtime validation, and password shortcut preservation | `completed_with_warnings` | `docs/ai/codex-runs/053-final-audit-fixes-f001-f018.md` |
+| 054 | 2026-06-24 | Direct auth landing UI polish prompt | N/A | Auth hero image, EV-user commercial copy, role shortcut heading, and password guidance cleanup | `completed_with_warnings` | `docs/ai/codex-runs/054-auth-landing-hero-polish.md` |
+| 055 | 2026-06-24 | Direct implementation prompt plus follow-up | N/A | Reservation/status consistency, operator-controlled cache TTL, profile password visibility, and revenue chart currency formatting | `completed` | `docs/ai/codex-runs/055-status-cache-consistency-and-profile-polish.md` |
 
 ---
 

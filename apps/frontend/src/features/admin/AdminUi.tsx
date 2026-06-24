@@ -283,7 +283,7 @@ export function DistributionChart({ rows }: { rows: Array<{ label: string; value
           return segment;
         })}
         <text x="100" y="96" textAnchor="middle" className="analytics-donut-total">{formatNumber(total)}</text>
-        <text x="100" y="116" textAnchor="middle" className="analytics-donut-caption">checks</text>
+        <text x="100" y="116" textAnchor="middle" className="analytics-donut-caption">points</text>
       </svg>
       <div className="analytics-distribution-legend">
         {rows.map((row) => (
@@ -336,12 +336,14 @@ export function ColumnChart<T>({
   getValue,
   valueLabel,
   color = "#2563eb",
+  formatValue = formatNumber,
 }: {
   rows: T[];
   getLabel: (row: T) => string;
   getValue: (row: T) => number;
   valueLabel: string;
   color?: string;
+  formatValue?: (value: number) => string;
 }) {
   if (rows.length === 0) {
     return <EmptyState title="No chart data available">This chart will populate after matching activity is aggregated.</EmptyState>;
@@ -353,7 +355,7 @@ export function ColumnChart<T>({
         const value = getValue(row);
         return (
           <div className="analytics-column-item" key={getLabel(row)}>
-            <strong>{formatNumber(value)}</strong>
+            <strong>{formatValue(value)}</strong>
             <span className="analytics-column-track">
               <i style={{ height: `${Math.max(5, (value / max) * 100)}%`, background: color }} />
             </span>

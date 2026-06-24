@@ -22,6 +22,9 @@ export function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPasswordVisible, setCurrentPasswordVisible] = useState(false);
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -126,35 +129,56 @@ export function ProfilePage() {
               <form className="form-stack account-password-form" onSubmit={onChangePassword}>
                 <label>
                   Current password
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                    required
-                  />
+                  <span className="password-field">
+                    <input
+                      type={currentPasswordVisible ? "text" : "password"}
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                      required
+                    />
+                    <PasswordVisibilityToggle
+                      label="current password"
+                      visible={currentPasswordVisible}
+                      onToggle={() => setCurrentPasswordVisible((current) => !current)}
+                    />
+                  </span>
                 </label>
                 <label>
                   New password
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    minLength={8}
-                    required
-                  />
+                  <span className="password-field">
+                    <input
+                      type={newPasswordVisible ? "text" : "password"}
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      minLength={8}
+                      required
+                    />
+                    <PasswordVisibilityToggle
+                      label="new password"
+                      visible={newPasswordVisible}
+                      onToggle={() => setNewPasswordVisible((current) => !current)}
+                    />
+                  </span>
                 </label>
                 <label>
                   Confirm new password
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    minLength={8}
-                    required
-                  />
+                  <span className="password-field">
+                    <input
+                      type={confirmPasswordVisible ? "text" : "password"}
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      minLength={8}
+                      required
+                    />
+                    <PasswordVisibilityToggle
+                      label="confirmation password"
+                      visible={confirmPasswordVisible}
+                      onToggle={() => setConfirmPasswordVisible((current) => !current)}
+                    />
+                  </span>
                 </label>
                 <button className="button-primary" type="submit" disabled={passwordSubmitting}>
                   {passwordSubmitting ? "Updating..." : "Update password"}
@@ -171,6 +195,31 @@ export function ProfilePage() {
         </section>
       </main>
     </AppShell>
+  );
+}
+
+function PasswordVisibilityToggle({
+  label,
+  visible,
+  onToggle,
+}: {
+  label: string;
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  const action = visible ? "Hide" : "Show";
+  return (
+    <button
+      aria-label={`${action} ${label}`}
+      className="password-toggle"
+      onClick={onToggle}
+      title={`${action} ${label}`}
+      type="button"
+    >
+      <span aria-hidden="true" className={`password-eye ${visible ? "is-visible" : ""}`}>
+        <span />
+      </span>
+    </button>
   );
 }
 

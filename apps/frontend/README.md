@@ -76,7 +76,7 @@ Implemented frontend routes:
 | `/operator/invoices/new` | Operator invoice issuance |
 | `/operator/invoices/:invoiceId` | Operator invoice detail view |
 | `/operator/pricing` | Pricing rule creation and activation controls |
-| `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, individual interval editing, bulk minimum/default interval presets, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
+| `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, individual interval editing, bulk minimum/default presets that also set the persisted status-cache TTL, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
 | `/operator/system` | Service health, scheduler health, freshness, and run-history overview |
 
 Authenticated EV routes require `EV_USER`. Provider routes require
@@ -189,6 +189,12 @@ Reserved points show reservation timing wherever the frontend has that data:
 map/list point cards and point detail/status panels show the reserved-until
 time, while reservation history and successful reservation dialogs show the
 created-to-end reservation window.
+
+When the local catalog reports `reserved` but a non-live status cache response
+still reports `available`, the point page keeps the reservation visible and
+requests one backend-mediated forced status refresh. A confirmed live provider
+response may then replace the catalog status. This prevents an older cache row
+from contradicting a completed reservation in the point UI.
 
 The top summary metrics prioritize average estimated cost per point. That
 metric is backed by analytics-service aggregates and uses only points with at

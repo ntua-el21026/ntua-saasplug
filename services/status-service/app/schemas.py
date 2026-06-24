@@ -1,4 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+MINIMUM_CACHE_TTL_SECONDS = 30
+DEFAULT_CACHE_TTL_SECONDS = 300
 
 
 class CurrentPrincipal(BaseModel):
@@ -44,6 +48,17 @@ class StatusCacheResponse(BaseModel):
     source: str
     last_error_type: str | None
     last_error_message: str | None
+
+
+class StatusCachePolicyResponse(BaseModel):
+    ttl_seconds: int
+    minimum_ttl_seconds: int
+    default_ttl_seconds: int
+    updated_at: str
+
+
+class StatusCachePolicyUpdateRequest(BaseModel):
+    ttl_seconds: int = Field(ge=MINIMUM_CACHE_TTL_SECONDS)
 
 
 class StatusCheckLogResponse(BaseModel):

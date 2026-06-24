@@ -30,6 +30,11 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /redplug admin/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /greenplug admin/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /blueplug admin/i })).toBeInTheDocument();
+    expect(screen.getByText("Try a role")).toBeInTheDocument();
+    expect(screen.queryByText(/presenter-provided password/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /map of nearby ev charging points in athens/i })).toBeInTheDocument();
+    expect(screen.getByText(/power your drive, wherever the road takes you/i)).toBeInTheDocument();
+    expect(screen.queryByText(/gateway-only saas cockpit/i)).not.toBeInTheDocument();
 
     const passwordInput = screen.getByLabelText("Password", { selector: "input" });
     expect(passwordInput).toHaveAttribute("type", "password");
@@ -56,6 +61,12 @@ describe("App", () => {
     expect(screen.getAllByText("EV user").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /password/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /update password/i })).toBeInTheDocument();
+    const currentPassword = screen.getByLabelText(/current password/i, { selector: "input" });
+    expect(currentPassword).toHaveAttribute("type", "password");
+    await userEvent.click(screen.getByRole("button", { name: /show current password/i }));
+    expect(currentPassword).toHaveAttribute("type", "text");
+    await userEvent.click(screen.getByRole("button", { name: /hide current password/i }));
+    expect(currentPassword).toHaveAttribute("type", "password");
     expect(screen.queryByText(/^account$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/local demo accounts/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/signed-in identity/i)).not.toBeInTheDocument();
@@ -131,9 +142,9 @@ describe("App", () => {
     const view = render(<App />);
 
     expect(await screen.findByRole("heading", { name: /provider_admin@saasplug.local/i })).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText(/current password/i), "change-me-demo-password");
-    await userEvent.type(screen.getByLabelText(/^new password/i), "new-provider-password");
-    await userEvent.type(screen.getByLabelText(/confirm new password/i), "new-provider-password");
+    await userEvent.type(screen.getByLabelText(/current password/i, { selector: "input" }), "change-me-demo-password");
+    await userEvent.type(screen.getByLabelText(/^new password/i, { selector: "input" }), "new-provider-password");
+    await userEvent.type(screen.getByLabelText(/confirm new password/i, { selector: "input" }), "new-provider-password");
     await userEvent.click(screen.getByRole("button", { name: /update password/i }));
 
     await waitFor(() => {
