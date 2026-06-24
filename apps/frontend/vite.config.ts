@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1200,
+  },
   envDir: "../..",
   envPrefix: ["VITE_", "DEMO_USER_PASSWORD"],
   server: {
