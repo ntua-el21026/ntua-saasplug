@@ -61,9 +61,14 @@ point with an active local successful reservation returns HTTP 409.
 
 Provider-side unavailable/reserved/missing-point failures are normalized to
 HTTP 409 with a user-safe message. Provider timeouts remain HTTP 504 with an
-unknown attempt state. If the provider reports success but local persistence
-fails, the pre-provider-call attempt journal is marked `unknown` with failure
-metadata; the service does not perform live compensating provider mutations.
+unknown reservation/attempt state, `retry_allowed=false`, and
+`reconciliation_required=true`. If the provider reports success but returns a
+missing, malformed, timezone-naive, or past `reservation_ends_at`, the service
+records an `unknown` non-billable reservation with no active expiry instead of
+creating an indefinitely active local reservation. If the provider reports
+success but local persistence fails, the pre-provider-call attempt journal is
+marked `unknown` with failure metadata; the service does not perform live
+compensating provider mutations.
 
 RabbitMQ publishing for staged outbox rows is triggered separately from the
 reservation provider-call path so user-facing reservation creation does not
@@ -88,11 +93,16 @@ POST /events/outbox/publish-pending
 Access rules:
 
 - `EV_USER` can create reservations and read their own reservations.
-- `OPERATOR` can create reservations for administrative/testing workflows and
-  can inspect all reservations, attempts, pending outbox events, and trigger
-  pending outbox publishing.
+- `OPERATOR` cannot create EV reservations; operators can inspect all
+  reservations, attempts, pending outbox events, and trigger pending outbox
+  publishing.
 - `PROVIDER_ADMIN` cannot create EV-user reservations and can inspect only
   reservations/attempts for the provider in the JWT claims.
+
+Provider-admin reservation and attempt responses are shaped to omit direct EV
+identifiers, EV emails, raw requester claims, provider reservation IDs, and
+other internal reservation identifiers. Operators retain richer internal
+visibility for troubleshooting.
 
 ## RabbitMQ outbox publishing
 
@@ -109,10 +119,12 @@ producer
 payload
 ```
 
-Reservation event payloads include the reservation identity, user ID, provider
-code, point IDs, requested duration, provider status, provider reservation ID,
-reservation end time, `price_per_kwh_eur`, charger capacity in kW, estimated
-energy in kWh, estimated cost in EUR, estimate currency, and estimate basis.
+Confirmed-success reservation event payloads include the reservation identity,
+user ID, provider code, point IDs, requested duration, provider status,
+provider reservation ID, reservation end time, `price_per_kwh_eur`, charger
+capacity in kW, estimated energy in kWh, estimated cost in EUR, estimate
+currency, and estimate basis. Unknown reservation outcomes are not emitted as
+successful billable events.
 
 The estimate basis is `rated_power_duration_estimate`:
 

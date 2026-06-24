@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -32,7 +32,6 @@ from app.schemas import (
     InvoiceResponse,
     MockPaymentRequest,
     OutboxPublishResponse,
-    ProviderBillingRefreshResponse,
     PaymentResponse,
     PricingRuleCreate,
     PricingRulePatch,
@@ -234,7 +233,7 @@ def effective_pricing(
     return pricing_rule_response(get_effective_pricing_rule(db, resolved_provider_code, settings))
 
 
-@router.get("/charges", response_model=list[ChargeResponse])
+@router.get("/charges", response_model=None)
 def list_charges(
     provider_code: str | None = Query(default=None, alias="providerCode"),
     status_filter: str | None = Query(default=None, alias="status"),
@@ -242,7 +241,7 @@ def list_charges(
     to_time: datetime | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> list[ChargeResponse]:
+) -> list[dict[str, Any]]:
     ensure_provider_admin_or_operator(principal)
     resolved_provider_code = resolve_provider_scope(principal, provider_code)
     query = select(ChargeRecord)
@@ -255,19 +254,19 @@ def list_charges(
     if to_time:
         query = query.where(ChargeRecord.occurred_at <= to_time)
     charges = db.scalars(query.order_by(ChargeRecord.occurred_at.desc())).all()
-    return [charge_response(charge) for charge in charges]
+    return [charge_payload_for_principal(charge, principal) for charge in charges]
 
 
-@router.get("/charges/{charge_id}", response_model=ChargeResponse)
+@router.get("/charges/{charge_id}", response_model=None)
 def get_charge(
     charge_id: str,
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> ChargeResponse:
+) -> dict[str, Any]:
     ensure_provider_admin_or_operator(principal)
     charge = get_charge_or_404(db, charge_id)
     resolve_provider_scope(principal, charge.provider_code)
-    return charge_response(charge)
+    return charge_payload_for_principal(charge, principal)
 
 
 @router.post("/invoices/issue", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
@@ -364,24 +363,6 @@ def provider_billing_overview(
     return overview_response(db, settings, resolved_provider_code, include_provider_rows=False)
 
 
-@router.post("/providers/{provider_code}/refresh", response_model=ProviderBillingRefreshResponse)
-def refresh_provider_billing_endpoint(
-    provider_code: str,
-    limit: int = Query(default=100, ge=1, le=500),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    principal: CurrentPrincipal = Depends(get_current_principal),
-) -> ProviderBillingRefreshResponse:
-    ensure_operator(principal)
-    validate_provider_code(provider_code)
-    effective_limit = min(limit, settings.rabbitmq_consume_batch_size)
-    result = consume_billing_events(settings, db, effective_limit)
-    return ProviderBillingRefreshResponse(
-        provider_code=provider_code,
-        drained=DrainResponse(**result.__dict__),
-    )
-
-
 def ingest_response(results: list[BillingIngestResult]) -> IngestResponse:
     return IngestResponse(
         charged_count=sum(1 for result in results if result.status == "charged"),
@@ -442,6 +423,31 @@ def charge_response(charge: ChargeRecord) -> ChargeResponse:
         invoice_id=charge.invoice_id,
         created_at=charge.created_at.isoformat(),
     )
+
+
+def provider_admin_charge_response(charge: ChargeRecord) -> dict[str, Any]:
+    return {
+        "id": charge.id,
+        "source_event_id": charge.source_event_id,
+        "provider_code": charge.provider_code,
+        "event_type": charge.event_type,
+        "charge_type": charge.charge_type,
+        "amount": str(Decimal(str(charge.amount))),
+        "currency": charge.currency,
+        "status": charge.status,
+        "internal_point_id": charge.internal_point_id,
+        "external_point_id": charge.external_point_id,
+        "occurred_at": charge.occurred_at.isoformat(),
+        "pricing_rule_id": charge.pricing_rule_id,
+        "invoice_id": charge.invoice_id,
+        "created_at": charge.created_at.isoformat(),
+    }
+
+
+def charge_payload_for_principal(charge: ChargeRecord, principal: CurrentPrincipal) -> dict[str, Any]:
+    if "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
+        return provider_admin_charge_response(charge)
+    return charge_response(charge).model_dump(mode="json")
 
 
 def invoice_response(db: Session, invoice: Invoice) -> InvoiceResponse:

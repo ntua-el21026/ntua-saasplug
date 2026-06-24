@@ -78,6 +78,7 @@ NTUA-saasPlug/
 │   │   │   │   ├── admin-routing.test.tsx
 │   │   │   │   ├── app-smoke.test.tsx
 │   │   │   │   ├── catalog-map-ui.test.tsx
+│   │   │   │   ├── frontend-secret-boundary.test.ts
 │   │   │   │   ├── routing.test.ts
 │   │   │   │   └── setup.ts
 │   │   │   ├── App.tsx
@@ -86,6 +87,7 @@ NTUA-saasPlug/
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
 │   │   ├── index.html
+│   │   ├── nginx.conf
 │   │   ├── package-lock.json
 │   │   ├── package.json
 │   │   ├── README.md
@@ -153,6 +155,8 @@ NTUA-saasPlug/
 │   │   │   ├── 049-ev-reservations-scroll-and-project-closure.md
 │   │   │   ├── 050-final-ui-polish-date-actions-operator-tabs.md
 │   │   │   ├── 051-verified-audit-fixes-safe-finalization.md
+│   │   │   ├── 052-frontend-reservation-retry-idempotency.md
+│   │   │   ├── 053-final-audit-fixes-f001-f018.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -600,4 +604,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 98, Total files: 503
+Total directories: 98, Total files: 507

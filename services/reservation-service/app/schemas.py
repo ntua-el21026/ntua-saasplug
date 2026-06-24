@@ -35,7 +35,7 @@ class ProviderReservationDTO(BaseModel):
     normalized_point_id: str
     provider_reservation_id: str | None = None
     status: str
-    reservation_ends_at: str
+    reservation_ends_at: str | None = None
     price_per_kwh_eur: float | None = None
     raw_payload: dict = Field(default_factory=dict)
 

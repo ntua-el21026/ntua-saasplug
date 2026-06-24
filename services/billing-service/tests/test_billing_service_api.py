@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
 from app.event_publisher import publish_pending_outbox
 from app.main import app
-from app.models import BillingEvent, BillingEventOutbox, ChargeRecord, Invoice, Payment
+from app.models import BillingEvent, BillingEventOutbox, ChargeRecord, Invoice, InvoiceLine, Payment
 from app.pricing import seed_default_pricing
 from app.rabbitmq_consumer import DrainResult, drain_billing_queue
 from saasplug_events.envelope import EventEnvelope
@@ -384,6 +384,23 @@ def test_operator_can_issue_invoice_and_charges_become_invoiced(test_context) ->
         db.close()
 
 
+def test_reissuing_same_period_does_not_duplicate_invoice_lines(test_context) -> None:
+    assert ingest(test_context, envelope("reservation.succeeded")).status_code == 200
+    first_response = issue_invoice_for_red(test_context)
+    second_response = issue_invoice_for_red(test_context)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"]["error_type"] == "no_unbilled_charges"
+    db = get_session_factory()()
+    try:
+        assert db.query(Invoice).count() == 1
+        assert db.query(InvoiceLine).count() == 1
+        assert db.query(ChargeRecord).one().invoice_id == first_response.json()["id"]
+    finally:
+        db.close()
+
+
 def test_provider_admin_cannot_issue_invoices(test_context) -> None:
     response = test_context.post(
         "/invoices/issue",
@@ -501,7 +518,7 @@ def test_operator_and_provider_billing_overviews_return_expected_totals(test_con
     assert provider_response.json()["effective_pricing"]["currency"] == "EUR"
 
 
-def test_operator_only_provider_refresh_drains_billing_data(test_context, monkeypatch) -> None:
+def test_operator_only_global_refresh_drains_billing_data(test_context, monkeypatch) -> None:
     captured: dict[str, int] = {}
 
     def fake_consume_billing_events(settings, db, limit):
@@ -515,18 +532,40 @@ def test_operator_only_provider_refresh_drains_billing_data(test_context, monkey
 
     monkeypatch.setattr(routes, "consume_billing_events", fake_consume_billing_events)
 
-    response = test_context.post("/providers/redPlug/refresh?limit=100", headers=operator_headers())
-    provider_response = test_context.post("/providers/redPlug/refresh", headers=red_admin_headers())
-    ev_response = test_context.post("/providers/redPlug/refresh", headers=ev_headers())
+    response = test_context.post("/events/drain?limit=100", headers=operator_headers())
+    provider_response = test_context.post("/events/drain", headers=red_admin_headers())
+    ev_response = test_context.post("/events/drain", headers=ev_headers())
+    removed_provider_route = test_context.post("/providers/redPlug/refresh?limit=100", headers=operator_headers())
 
     assert response.status_code == 200
     assert captured["limit"] == 50
     payload = response.json()
-    assert payload["provider_code"] == "redPlug"
-    assert payload["drained"]["ack_count"] == 1
-    assert payload["drained"]["charged_count"] == 1
+    assert payload["ack_count"] == 1
+    assert payload["charged_count"] == 1
     assert provider_response.status_code == 403
     assert ev_response.status_code == 403
+    assert removed_provider_route.status_code == 404
+
+
+def test_provider_charge_payload_omits_ev_identifiers_and_raw_payload(test_context) -> None:
+    assert ingest(test_context, envelope("reservation.succeeded")).status_code == 200
+
+    provider_response = test_context.get("/charges", headers=red_admin_headers())
+    operator_response = test_context.get("/charges", headers=operator_headers())
+    other_provider_response = test_context.get("/charges", headers=green_admin_headers())
+
+    assert provider_response.status_code == 200
+    assert operator_response.status_code == 200
+    assert other_provider_response.status_code == 200
+    provider_payload = provider_response.json()
+    operator_payload = operator_response.json()
+    assert len(provider_payload) == 1
+    assert other_provider_response.json() == []
+    assert "user_id" not in provider_payload[0]
+    assert "reservation_id" not in provider_payload[0]
+    assert "raw_event_payload" not in provider_payload[0]
+    assert operator_payload[0]["user_id"] == "user-1"
+    assert operator_payload[0]["reservation_id"] == "reservation-redPlug-1"
 
 
 def test_outbox_publish_success_and_failure_are_deterministic(test_context) -> None:

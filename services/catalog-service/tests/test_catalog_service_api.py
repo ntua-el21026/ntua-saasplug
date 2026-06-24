@@ -351,6 +351,35 @@ def test_repeated_import_upserts_without_duplicates(test_context) -> None:
         db.close()
 
 
+def test_mid_import_failure_preserves_previous_catalog_and_releases_lock(test_context) -> None:
+    client, fake_client = test_context
+    import_red(client)
+    fake_client.points_by_provider["redPlug"] = [
+        provider_point("redPlug", "101", "available", "Mutated Red Hub", "1 Red Street", "CCS"),
+        {
+            **provider_point("redPlug", "102", "charging", "Red Depot", "2 Red Street", "Type2"),
+            "normalized_point_id": "redPlug:wrong-id",
+        },
+    ]
+
+    response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert response.status_code == 502
+    db = get_session_factory()()
+    try:
+        point = db.query(CatalogPoint).filter(CatalogPoint.provider_code == "redPlug", CatalogPoint.external_point_id == "101").one()
+        statuses = [run.status for run in db.query(CatalogImportRun).order_by(CatalogImportRun.started_at.asc()).all()]
+        assert point.display_name == "Red Hub"
+        assert db.query(CatalogPoint).count() == 2
+        assert statuses == ["completed", "failed"]
+        assert db.query(CatalogImportLock).count() == 0
+    finally:
+        db.close()
+
+
 def test_missing_points_from_latest_import_are_stale_and_inactive(test_context) -> None:
     client, fake_client = test_context
     import_red(client)

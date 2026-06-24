@@ -65,7 +65,7 @@ def is_ev_user(principal: CurrentPrincipal) -> bool:
 
 
 def ensure_reservation_creator(principal: CurrentPrincipal) -> None:
-    if is_ev_user(principal) or is_operator(principal):
+    if is_ev_user(principal):
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 

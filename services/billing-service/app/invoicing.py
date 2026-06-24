@@ -31,10 +31,12 @@ def issue_invoice(
         .where(
             ChargeRecord.provider_code == provider_code,
             ChargeRecord.status == "unbilled",
+            ChargeRecord.invoice_id.is_(None),
             ChargeRecord.occurred_at >= period_start,
             ChargeRecord.occurred_at <= period_end,
         )
-        .order_by(ChargeRecord.occurred_at.asc()),
+        .order_by(ChargeRecord.occurred_at.asc())
+        .with_for_update(),
     ).all()
     if not charges:
         raise HTTPException(
@@ -103,7 +105,17 @@ def issue_invoice(
             "charge_count": len(charges),
         },
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error_type": "invoice_charge_conflict",
+                "message": "One or more selected charges were already invoiced by another request",
+            },
+        ) from exc
     db.refresh(invoice)
     return invoice
 

@@ -19,6 +19,7 @@ class InternalJobClient:
     def call(self, job: ScheduledJob, run: JobRun, request_body: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
         base_url = self.settings.service_url(job.target_service)
         url = f"{base_url}{job.target_url_path}"
+        timeout_seconds = job.timeout_seconds or self.settings.http_timeout_seconds
         response = self._client.request(
             job.http_method,
             url,
@@ -28,6 +29,7 @@ class InternalJobClient:
                 "X-Correlation-Id": run.correlation_id,
             },
             json=request_body if request_body else None,
+            timeout=timeout_seconds,
         )
         return response.status_code, summarize_response(response)
 

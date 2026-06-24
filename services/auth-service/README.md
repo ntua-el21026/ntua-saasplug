@@ -34,6 +34,7 @@ Owned tables:
 ```text
 users
 refresh_tokens
+oauth_states
 ```
 
 `users` stores:
@@ -52,6 +53,11 @@ refresh_tokens
 time, and timestamps. Plain refresh tokens are returned to clients only once
 when issued.
 
+`oauth_states` stores hashed OAuth state, PKCE verifier material, expiration,
+and consumption timestamps for configured Google OAuth login attempts. Existing
+local database volumes created before this table was introduced may need
+recreation with `docker compose down -v` in local-only environments.
+
 ## Demo Users
 
 Demo users are seeded idempotently at startup. By default, startup inserts
@@ -59,7 +65,9 @@ missing demo users but does not overwrite existing user roles, provider scopes,
 password hashes, or active flags. Set `RESET_DEMO_USERS_ON_STARTUP=true` only
 for an intentional local/demo reset back to the canonical seed values. The demo
 password comes from `DEMO_USER_PASSWORD` and defaults to the safe local
-placeholder in `.env.example`.
+placeholder in `.env.example`. That value is server-side seed configuration
+only. The frontend must not receive, render, or prefill it; presenters provide
+demo passwords out-of-band.
 
 | Email | Role | Provider scope |
 |---|---|---|
@@ -149,7 +157,10 @@ OAuth is not configured in local demo mode.
 When configured, `/auth/google/login` builds a standards-compatible Google
 authorization URL and `/auth/google/callback` exchanges the authorization code
 with Google, reads the verified OpenID Connect userinfo response, and signs in
-the matching user.
+the matching user. The configured flow generates a random `state`, stores only
+its hash server-side, adds a PKCE S256 `code_challenge`, validates callback
+state, consumes it once, and submits the stored `code_verifier` during token
+exchange. Missing, invalid, expired, or replayed state values are rejected.
 
 Real Google OAuth uses the backend callback in `GOOGLE_REDIRECT_URI`; that URL
 must be registered in the Google OAuth client configuration. After a successful
@@ -185,6 +196,11 @@ The frontend exposes the password-change form on local-password profiles whose
 current session was not signed in with Google, including EV users, provider
 admins, and operators.
 
+Successful password changes revoke all active refresh tokens for that user and
+return `password_changed_relogin_required`. The frontend clears its local
+session and requires sign-in with the new password. Old refresh tokens and the
+old password must fail after the change.
+
 No real Google credentials must be committed.
 
 ## Local Commands
@@ -200,7 +216,7 @@ Login through the gateway:
 ```bash
 curl -X POST http://localhost:8080/api/auth/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"operator@saasplug.local","password":"change-me-demo-password"}'
+  -d '{"email":"operator@saasplug.local","password":"<demo-password>"}'
 ```
 
 Call `/auth/me` with an access token:
@@ -233,7 +249,7 @@ Relevant variables:
 | `JWT_SECRET` | JWT signing secret; placeholder only in `.env.example` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | access token lifetime |
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | refresh token lifetime |
-| `DEMO_USER_PASSWORD` | safe local demo password placeholder |
+| `DEMO_USER_PASSWORD` | server-side demo seed password placeholder; never passed to frontend |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID placeholder |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret placeholder |
 | `GOOGLE_REDIRECT_URI` | backend OAuth callback URL registered in Google Console |
@@ -244,7 +260,9 @@ Relevant variables:
 
 Do not commit real secrets or `.env`.
 When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like,
-placeholder JWT and demo-password values are rejected at startup.
+placeholder JWT and demo-password values are rejected at startup. Rotate both
+values before shared/public demos, especially after any previous environment
+that exposed demo credentials to a browser.
 
 ## Boundary Notes
 

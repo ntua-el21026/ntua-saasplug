@@ -97,6 +97,7 @@ class ProviderServiceClient:
                 "provider_unexpected_response",
                 "Provider reservation endpoint returned an invalid response",
                 response.status_code,
+                ambiguous_outcome=True,
             ) from exc
 
         if reservation.provider_code != provider_code or reservation.external_point_id != external_point_id:

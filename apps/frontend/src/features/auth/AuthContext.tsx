@@ -10,7 +10,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   googleSignIn: (email: string) => Promise<GoogleOAuthStatus | null>;
-  completeGoogleSignIn: (code: string) => Promise<void>;
+  completeGoogleSignIn: (code: string, state: string) => Promise<void>;
   completeGoogleRedirect: (payload: AuthTokenResponse) => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResponse>;
   signOut: () => Promise<void>;
@@ -146,9 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const completeGoogleSignIn = useCallback(
-    async (code: string): Promise<void> => {
+    async (code: string, state: string): Promise<void> => {
       const query = new URLSearchParams({
         code,
+        state,
         redirect_uri: googleRedirectUri(),
       });
       const payload = await requestJson<AuthTokenResponse>(`/api/auth/auth/google/callback?${query.toString()}`);
@@ -167,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string): Promise<ChangePasswordResponse> => {
       const current = readStoredSession();
-      return requestJson<ChangePasswordResponse>("/api/auth/auth/password", {
+      const response = await requestJson<ChangePasswordResponse>("/api/auth/auth/password", {
         method: "POST",
         accessToken: current?.accessToken,
         bodyJson: {
@@ -175,8 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           new_password: newPassword,
         },
       });
+      clearSession();
+      return response;
     },
-    [],
+    [clearSession],
   );
 
   const signOut = useCallback(async () => {

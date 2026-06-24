@@ -68,3 +68,25 @@ class RefreshToken(Base):
 
 
 Index("ix_refresh_tokens_token_hash_active", RefreshToken.token_hash, RefreshToken.revoked_at)
+
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+    state_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    code_verifier: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=utcnow,
+    )
+
+
+Index("ix_oauth_states_active", OAuthState.state_hash, OAuthState.consumed_at, OAuthState.expires_at)

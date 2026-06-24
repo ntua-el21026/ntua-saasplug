@@ -41,6 +41,7 @@ PROVIDER_AVAILABILITY_CONFLICT_TYPES = {
     "point_unavailable",
 }
 CHARGER_UNAVAILABLE_MESSAGE = "This charger is no longer available. Refresh status or choose another point."
+UNKNOWN_OUTCOME_MESSAGE = "The reservation outcome is uncertain. Refresh status or check reservation history before trying again."
 
 
 class ReservationFlowError(Exception):
@@ -182,7 +183,7 @@ def safe_provider_failure_message(error_type: str, external_status_code: int | N
     if error_type in PROVIDER_AVAILABILITY_CONFLICT_TYPES or external_status_code in PROVIDER_AVAILABILITY_CONFLICT_EXTERNAL_CODES:
         return CHARGER_UNAVAILABLE_MESSAGE
     if error_type == "provider_timeout":
-        return "Provider reservation outcome unknown"
+        return UNKNOWN_OUTCOME_MESSAGE
     return "Provider reservation request failed"
 
 
@@ -418,16 +419,21 @@ def release_point_lock(db: Session, provider_code: str, external_point_id: str, 
     db.commit()
 
 
-def reservation_end_is_active(value: str | None) -> bool:
+def parse_timezone_aware_future_expiry(value: str | None) -> datetime | None:
     if value is None:
-        return True
+        return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
-        return True
+        return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed > utcnow()
+        return None
+    parsed = parsed.astimezone(timezone.utc)
+    return parsed if parsed > utcnow() else None
+
+
+def reservation_end_is_active(value: str | None) -> bool:
+    return parse_timezone_aware_future_expiry(value) is not None
 
 
 def active_successful_reservation_exists(db: Session, provider_code: str, external_point_id: str) -> bool:
@@ -604,6 +610,20 @@ def create_successful_reservation(
     provider_reservation: ProviderReservationDTO,
     attempt: ReservationAttempt | None = None,
 ) -> Reservation:
+    valid_expiry = parse_timezone_aware_future_expiry(provider_reservation.reservation_ends_at)
+    if valid_expiry is None:
+        raise ReservationFlowError(
+            502,
+            {
+                "provider_code": point.provider_code,
+                "external_point_id": point.external_point_id,
+                "error_type": "invalid_provider_reservation_expiry",
+                "message": UNKNOWN_OUTCOME_MESSAGE,
+                "outcome_status": "unknown",
+                "retry_allowed": False,
+                "reconciliation_required": True,
+            },
+        )
     price_per_kwh_eur = resolve_price_per_kwh(point, provider_reservation)
     charger_capacity_kw = positive_float(point.capacity)
     energy_kwh, estimated_cost_eur, estimate_currency, estimate_basis = estimate_cost_eur(
@@ -622,7 +642,7 @@ def create_successful_reservation(
         status="succeeded",
         provider_status=provider_reservation.status,
         provider_reservation_id=provider_reservation.provider_reservation_id,
-        reservation_ends_at=provider_reservation.reservation_ends_at,
+        reservation_ends_at=valid_expiry.isoformat(),
         price_per_kwh_eur=price_per_kwh_eur,
         charger_capacity_kw=charger_capacity_kw,
         estimated_energy_kwh=energy_kwh,
@@ -643,6 +663,49 @@ def create_successful_reservation(
     attempt.completed_at = utcnow()
     db.add(attempt)
     add_outbox_event(db, reservation, "reservation.succeeded", success_payload(reservation))
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def create_unknown_reservation_after_provider_success(
+    db: Session,
+    principal: CurrentPrincipal,
+    point: CatalogPointDTO,
+    duration_minutes: int,
+    provider_reservation: ProviderReservationDTO,
+    attempt: ReservationAttempt | None = None,
+) -> Reservation:
+    reservation = Reservation(
+        user_id=principal.sub,
+        user_email=principal.email,
+        provider_code=point.provider_code,
+        external_point_id=point.external_point_id,
+        normalized_point_id=point.normalized_point_id,
+        catalog_point_id=point.id,
+        requested_duration_minutes=duration_minutes,
+        status="unknown",
+        provider_status=provider_reservation.status,
+        provider_reservation_id=provider_reservation.provider_reservation_id,
+        reservation_ends_at=None,
+        price_per_kwh_eur=resolve_price_per_kwh(point, provider_reservation),
+        charger_capacity_kw=positive_float(point.capacity),
+        failure_reason=UNKNOWN_OUTCOME_MESSAGE,
+        raw_provider_payload=sanitize_payload(provider_reservation.raw_payload),
+    )
+    db.add(reservation)
+    db.flush()
+
+    if attempt is None:
+        attempt = base_attempt(principal, point.provider_code, point.external_point_id, duration_minutes)
+    attempt.reservation_id = reservation.id
+    attempt.normalized_point_id = point.normalized_point_id
+    attempt.provider_called = True
+    attempt.result_status = "unknown"
+    attempt.provider_error_type = "invalid_provider_reservation_expiry"
+    attempt.provider_error_message = UNKNOWN_OUTCOME_MESSAGE
+    attempt.completed_at = utcnow()
+    db.add(attempt)
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -771,6 +834,14 @@ def create_reservation(
                 "message": safe_provider_failure_message(exc.error_type, exc.external_status_code),
                 "external_status_code": exc.external_status_code,
             }
+            if reservation.status == "unknown" or exc.ambiguous_outcome:
+                detail.update(
+                    {
+                        "outcome_status": "unknown",
+                        "retry_allowed": False,
+                        "reconciliation_required": True,
+                    },
+                )
             complete_idempotency_with_error(
                 db,
                 idempotency_record,
@@ -782,21 +853,49 @@ def create_reservation(
             raise ReservationFlowError(status_code, detail) from exc
 
         try:
-            reservation = create_successful_reservation(
-                db,
-                principal,
-                point,
-                duration_minutes,
-                provider_reservation,
-                attempt,
-            )
+            try:
+                reservation = create_successful_reservation(
+                    db,
+                    principal,
+                    point,
+                    duration_minutes,
+                    provider_reservation,
+                    attempt,
+                )
+            except ReservationFlowError as exc:
+                if exc.detail.get("error_type") != "invalid_provider_reservation_expiry":
+                    raise
+                reservation = create_unknown_reservation_after_provider_success(
+                    db,
+                    principal,
+                    point,
+                    duration_minutes,
+                    provider_reservation,
+                    attempt,
+                )
+                detail = {
+                    **exc.detail,
+                    "reservation_id": reservation.id,
+                }
+                complete_idempotency_with_error(
+                    db,
+                    idempotency_record,
+                    exc.status_code,
+                    detail,
+                    status_value="unknown",
+                    reservation=reservation,
+                )
+                raise ReservationFlowError(exc.status_code, detail) from exc
         except SQLAlchemyError as exc:
             db.rollback()
             persistence_detail = {
                 "provider_code": provider_code,
                 "external_point_id": external_point_id,
                 "error_type": "local_persistence_failed_after_provider_success",
-                "message": "Provider reservation succeeded but local persistence failed",
+                "message": UNKNOWN_OUTCOME_MESSAGE,
+                "outcome_status": "unknown",
+                "retry_allowed": False,
+                "reconciliation_required": True,
             }
             persisted_attempt = db.get(ReservationAttempt, attempt.id) if attempt is not None else None
             if persisted_attempt is not None:

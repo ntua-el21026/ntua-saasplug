@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.database import configure_database, get_session_factory, init_db
+from app.executor import recover_stale_running_jobs
 from app.jobs import seed_default_jobs
 from app.routes import router
 from app.runner import SchedulerLoop
@@ -21,6 +22,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     session = get_session_factory()()
     try:
         seed_default_jobs(session)
+        recover_stale_running_jobs(session, settings)
     finally:
         session.close()
     if settings.run_loop:

@@ -85,13 +85,7 @@ Operator routes require `OPERATOR`.
 
 ## Demo users
 
-Use the local demo password from `.env.example`:
-
-```text
-change-me-demo-password
-```
-
-The login page exposes quick-fill buttons for:
+The login page exposes role shortcut buttons for:
 
 | Email | Role |
 |---|---|
@@ -107,6 +101,13 @@ operators; reservation creation remains EV-only. Provider administrators are
 scoped to their own provider. Operators can access global management and
 control pages.
 
+The demo password is not read from frontend environment variables, embedded in
+the bundle, rendered, or prefilled by the app. It comes from the server-side
+`DEMO_USER_PASSWORD` used by auth-service seed data and must be provided
+out-of-band by the presenter. The role shortcut buttons fill the email and keep
+the current password input value, so a presenter can type the shared demo
+password once without exposing it through browser-delivered configuration.
+
 Google sign-in is available only for EV accounts. In local demo mode, where
 Google credentials are placeholders, the login page uses
 `/api/auth/auth/google/local-sign-in` with the typed email address to simulate a
@@ -115,14 +116,16 @@ to the same account, and operator/provider-admin emails are rejected. When real
 Google credentials are configured, the same button redirects to Google's
 authorization URL returned by `auth-service`. Real OAuth uses the backend
 gateway callback configured by `GOOGLE_REDIRECT_URI`; that backend URL must be
-allowed in the Google OAuth client configuration. After the backend exchanges
-the code, it redirects the browser to `/login/google/callback` with a session
-handoff fragment, and the callback page stores the session and clears the
-fragment from the address bar.
+allowed in the Google OAuth client configuration. Auth-service generates and
+validates OAuth `state` and PKCE verifier/challenge values for the configured
+flow. After the backend exchanges the code, it redirects the browser to
+`/login/google/callback` with a session handoff fragment, and the callback page
+stores the session and clears the fragment from the address bar.
 
 The profile page shows password changes for local password accounts whose
-current session was not signed in with Google. Google-only accounts do not show
-the password form.
+current session was not signed in with Google. A successful password change
+revokes active refresh tokens and clears the browser session, requiring the
+user to sign in again. Google-only accounts do not show the password form.
 
 ## Frontend architecture
 
@@ -196,7 +199,10 @@ inside the dialog are non-dismissible so a second close icon is not rendered.
 Reservation submissions send a generated `Idempotency-Key` header to
 `reservation-service`. The key exists only for the active submission, which
 prevents duplicate in-flight form submissions. A completed failed request gets
-a new key when the EV user explicitly retries it.
+a new key when the EV user explicitly retries it. Ambiguous provider outcomes,
+such as timeouts or invalid provider success payloads, do not expose immediate
+fresh-key retry. The dialog asks the user to refresh status or check
+reservation history before sending a new provider mutation.
 
 ## Refresh ownership
 
@@ -244,13 +250,15 @@ The latest final verification evidence is recorded in
 
 ## Docker baseline
 
-The frontend container listens on internal port `5173`. It is not exposed
-directly to the host. Browser access should go through `nginx-gateway` on
-`http://localhost:8080/`.
+The frontend Docker image builds production Vite assets in a Node build stage
+and serves the static `dist/` output with Nginx on internal port `5173`. It is
+not exposed directly to the host. Browser access should go through
+`nginx-gateway` on `http://localhost:8080/`.
 
 Important files:
 
 - `Dockerfile`
+- `nginx.conf`
 - `.dockerignore`
 - `package.json`
 - `package-lock.json`

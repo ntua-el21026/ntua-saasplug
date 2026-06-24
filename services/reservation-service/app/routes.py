@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -60,6 +62,56 @@ def get_reservation_or_404(db: Session, reservation_id: str) -> Reservation:
     if reservation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found")
     return reservation
+
+
+def provider_admin_reservation_payload(reservation: Reservation) -> dict[str, Any]:
+    return {
+        "provider_code": reservation.provider_code,
+        "external_point_id": reservation.external_point_id,
+        "normalized_point_id": reservation.normalized_point_id,
+        "catalog_point_id": reservation.catalog_point_id,
+        "requested_duration_minutes": reservation.requested_duration_minutes,
+        "status": reservation.status,
+        "provider_status": reservation.provider_status,
+        "reservation_ends_at": reservation.reservation_ends_at,
+        "price_per_kwh_eur": reservation.price_per_kwh_eur,
+        "charger_capacity_kw": reservation.charger_capacity_kw,
+        "estimated_energy_kwh": reservation.estimated_energy_kwh,
+        "estimated_cost_eur": reservation.estimated_cost_eur,
+        "estimated_cost_currency": reservation.estimated_cost_currency,
+        "estimate_basis": reservation.estimate_basis,
+        "failure_reason": reservation.failure_reason,
+        "created_at": reservation.created_at.isoformat(),
+        "updated_at": reservation.updated_at.isoformat(),
+    }
+
+
+def reservation_payload_for_principal(reservation: Reservation, principal: CurrentPrincipal) -> dict[str, Any]:
+    if is_provider_admin(principal) and not is_operator(principal):
+        return provider_admin_reservation_payload(reservation)
+    return reservation_response(reservation).model_dump(mode="json")
+
+
+def provider_admin_attempt_payload(attempt: ReservationAttempt) -> dict[str, Any]:
+    return {
+        "provider_code": attempt.provider_code,
+        "external_point_id": attempt.external_point_id,
+        "normalized_point_id": attempt.normalized_point_id,
+        "requested_duration_minutes": attempt.requested_duration_minutes,
+        "provider_called": attempt.provider_called,
+        "result_status": attempt.result_status,
+        "provider_error_type": attempt.provider_error_type,
+        "provider_error_message": attempt.provider_error_message,
+        "external_status_code": attempt.external_status_code,
+        "started_at": attempt.started_at.isoformat(),
+        "completed_at": attempt.completed_at.isoformat() if attempt.completed_at else None,
+    }
+
+
+def attempt_payload_for_principal(attempt: ReservationAttempt, principal: CurrentPrincipal) -> dict[str, Any]:
+    if is_provider_admin(principal) and not is_operator(principal):
+        return provider_admin_attempt_payload(attempt)
+    return attempt_response(attempt).model_dump(mode="json")
 
 
 @router.post(
@@ -135,13 +187,13 @@ def list_my_reservations(
     return [reservation_response(reservation) for reservation in reservations]
 
 
-@router.get("/reservations", response_model=list[ReservationResponse])
+@router.get("/reservations", response_model=None)
 def list_reservations(
     provider_code: str | None = Query(default=None, alias="providerCode"),
     limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> list[ReservationResponse]:
+) -> list[dict[str, Any]]:
     ensure_provider_admin_or_operator(principal)
     query = select(Reservation)
     if is_provider_admin(principal) and not is_operator(principal):
@@ -153,26 +205,26 @@ def list_reservations(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         query = query.where(Reservation.provider_code == provider_code)
     reservations = db.scalars(query.order_by(Reservation.created_at.desc()).limit(limit)).all()
-    return [reservation_response(reservation) for reservation in reservations]
+    return [reservation_payload_for_principal(reservation, principal) for reservation in reservations]
 
 
-@router.get("/reservations/{reservation_id}", response_model=ReservationResponse)
+@router.get("/reservations/{reservation_id}", response_model=None)
 def read_reservation(
     reservation_id: str,
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> ReservationResponse:
+) -> dict[str, Any]:
     reservation = get_reservation_or_404(db, reservation_id)
     ensure_can_read_reservation(principal, reservation)
-    return reservation_response(reservation)
+    return reservation_payload_for_principal(reservation, principal)
 
 
-@router.get("/reservations/{reservation_id}/attempts", response_model=list[ReservationAttemptResponse])
+@router.get("/reservations/{reservation_id}/attempts", response_model=None)
 def list_reservation_attempts(
     reservation_id: str,
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> list[ReservationAttemptResponse]:
+) -> list[dict[str, Any]]:
     reservation = get_reservation_or_404(db, reservation_id)
     ensure_can_read_reservation(principal, reservation)
     attempts = db.scalars(
@@ -180,16 +232,16 @@ def list_reservation_attempts(
         .where(ReservationAttempt.reservation_id == reservation_id)
         .order_by(ReservationAttempt.started_at.desc()),
     ).all()
-    return [attempt_response(attempt) for attempt in attempts]
+    return [attempt_payload_for_principal(attempt, principal) for attempt in attempts]
 
 
-@router.get("/attempts", response_model=list[ReservationAttemptResponse])
+@router.get("/attempts", response_model=None)
 def list_attempts(
     provider_code: str | None = Query(default=None, alias="providerCode"),
     limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
     principal: CurrentPrincipal = Depends(get_current_principal),
-) -> list[ReservationAttemptResponse]:
+) -> list[dict[str, Any]]:
     ensure_provider_admin_or_operator(principal)
     query = select(ReservationAttempt)
     if is_provider_admin(principal) and not is_operator(principal):
@@ -201,7 +253,7 @@ def list_attempts(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         query = query.where(ReservationAttempt.provider_code == provider_code)
     attempts = db.scalars(query.order_by(ReservationAttempt.started_at.desc()).limit(limit)).all()
-    return [attempt_response(attempt) for attempt in attempts]
+    return [attempt_payload_for_principal(attempt, principal) for attempt in attempts]
 
 
 @router.get("/events/outbox", response_model=list[OutboxEventResponse])

@@ -415,3 +415,47 @@ deploy, and did not run live provider reservation mutations.
 
 Targeted test total in Prompt 51: 229 passing tests across the changed backend
 service suites and frontend suite.
+
+## Prompt 53 Final Audit Fixes F-001 Through F-018 Update
+
+Prompt 53 implemented the remaining final-audit hardening fixes F-001 through
+F-018 and reran broad regression plus Docker runtime validation. It preserved
+the accepted microservice architecture, did not modify `.env`, did not print
+secrets or tokens, did not deploy, and did not run live provider reservation
+mutations.
+
+The user explicitly asked to keep password prefills. The implemented compromise
+keeps presenter convenience without embedding passwords in browser-delivered
+code: the login role shortcut buttons keep the password currently typed by the
+presenter instead of reading demo passwords from frontend environment variables.
+
+| Check | Result | Notes |
+|---|---|---|
+| Python compile check | Pass | `python -m compileall services/auth-service/app services/reservation-service/app services/status-service/app services/catalog-service/app services/billing-service/app services/scheduler-service/app` exited 0 |
+| Auth regressions | Pass | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_auth_api.py`: 25 passed, 1 warning |
+| Reservation regressions | Pass | `PYTHONPATH=.:../../packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_reservation_service_api.py`: 42 passed, 1 warning |
+| Catalog regressions | Pass | `PYTHONPATH=.:../../packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_catalog_service_api.py`: 33 passed, 1 warning |
+| Status regressions | Pass | `PYTHONPATH=.:../../packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_status_service_api.py`: 21 passed, 1 warning |
+| Billing regressions | Pass | `PYTHONPATH=.:../../packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_billing_service_api.py`: 28 passed, 1 warning |
+| Scheduler regressions | Pass | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_scheduler_service_api.py`: 19 passed, 1 warning |
+| Frontend tests | Pass | `cd apps/frontend && npm test`: 5 files passed, 43 tests passed |
+| Frontend type check | Pass | `cd apps/frontend && npx tsc --noEmit` exited 0 |
+| Frontend production build | Pass | `cd apps/frontend && npm run build` passed; Vite reported the existing large MapLibre chunk size |
+| Frontend bundle secret scan | Pass | `rg -n "DEMO_USER_PASSWORD\|VITE_DEMO\|change-me-demo-password\|demo-password" dist` returned no matches |
+| Shared event package tests | Pass | `PYTHONPATH=packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s packages/events/tests`: 10 passed |
+| Analytics regressions | Pass | `PYTHONPATH=.:../../packages/events PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_analytics_service_api.py`: 26 passed, 1 warning |
+| Provider registry regressions | Pass | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -s tests/test_provider_registry_api.py`: 12 passed, 1 warning |
+| Provider adapter regressions | Pass | redPlug, greenPlug, and bluePlug provider-service suites each passed 10 tests; one temporary-directory cleanup warning appeared after the parallel redPlug run |
+| Docker Compose config | Pass | `docker compose config --quiet` exited 0 |
+| Whitespace validation | Pass | `git diff --check` exited 0 |
+| Docker Compose runtime | Pass | `docker compose up -d --build` rebuilt/recreated services; `docker compose ps` showed all services healthy |
+| Gateway health smoke | Pass | `/health`, `/`, `/login`, and all public service health routes through `localhost:8080` returned HTTP 200 |
+| Gateway security headers | Pass | After `docker compose restart nginx-gateway`, `/` returned CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and COOP headers |
+| Gateway docs/internal blocks | Pass | `/api/*/docs`, `/api/*/openapi.json`, and service-owned `/api/*/internal/*` routes tested returned HTTP 404 |
+| Authenticated role smoke | Pass | EV `/me` returned 200; EV operator analytics returned 403; red admin own provider analytics returned 200; red admin greenPlug analytics returned 403; operator analytics returned 200 |
+| Browser console/network automation | Skipped | Playwright was not installed and the Node REPL module-path setup failed for the WSL path; no dependency was installed solely for this audit |
+| Live provider reservation mutation | Skipped | Forbidden by the prompt; reservation edge cases were covered with mocks/fakes |
+
+Verified test total in Prompt 53: 289 passing tests across frontend, backend
+services, provider adapters, analytics, provider registry, and the shared event
+package.

@@ -9,10 +9,11 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.database import get_session_factory, reset_database_for_tests
-from app.executor import select_due_jobs
+from app.client import InternalJobClient
+from app.executor import recover_stale_running_jobs, run_job, select_due_jobs
 from app.jobs import ORDERED_MAINTENANCE_JOB_KEYS, seed_default_jobs
 from app.main import app
-from app.models import ScheduledJob, utcnow
+from app.models import JobRun, ScheduledJob, utcnow
 
 
 def access_token(roles: list[str], email: str) -> str:
@@ -204,9 +205,95 @@ def test_operator_interval_override_survives_seed_refresh(test_context) -> None:
     assert response.json()["interval_seconds"] == 172800
 
 
+def test_stale_running_job_is_recovered_and_manual_execution_can_proceed(test_context) -> None:
+    session = get_session_factory()()
+
+    class SucceedingClient:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def call(self, job, run, request_body=None):
+            return 200, {"status_code": 200, "json_valid": True, "body": {"status": "ok"}}
+
+        def close(self) -> None:
+            self.closed = True
+
+    try:
+        settings = get_settings()
+        job = session.query(ScheduledJob).filter(ScheduledJob.job_key == "catalog.import.red").one()
+        stale_started_at = utcnow() - timedelta(seconds=600)
+        stale_run = JobRun(
+            job_id=job.id,
+            job_key=job.job_key,
+            status="running",
+            trigger_type="scheduled",
+            scheduler_instance_id="crashed-instance",
+            queued_at=stale_started_at,
+            started_at=stale_started_at,
+            target_service=job.target_service,
+            target_url_path=job.target_url_path,
+            http_method=job.http_method,
+        )
+        session.add(stale_run)
+        session.commit()
+
+        recovered_count = recover_stale_running_jobs(session, settings, now=utcnow())
+        session.refresh(stale_run)
+        session.refresh(job)
+
+        assert recovered_count == 1
+        assert stale_run.status == "failed"
+        assert stale_run.error_type == "stale_running_recovered"
+        assert job.last_run_status == "failed"
+
+        next_run = run_job(session, settings, job, "manual", client=SucceedingClient())
+        session.refresh(job)
+
+        assert next_run.status == "succeeded"
+        assert job.last_run_status == "succeeded"
+    finally:
+        session.close()
+
+
+def test_non_stale_running_job_is_not_recovered_prematurely(test_context) -> None:
+    session = get_session_factory()()
+    try:
+        settings = get_settings()
+        job = session.query(ScheduledJob).filter(ScheduledJob.job_key == "catalog.import.red").one()
+        running_run = JobRun(
+            job_id=job.id,
+            job_key=job.job_key,
+            status="running",
+            trigger_type="scheduled",
+            scheduler_instance_id="active-instance",
+            queued_at=utcnow(),
+            started_at=utcnow(),
+            target_service=job.target_service,
+            target_url_path=job.target_url_path,
+            http_method=job.http_method,
+        )
+        session.add(running_run)
+        session.commit()
+
+        recovered_count = recover_stale_running_jobs(session, settings, now=utcnow())
+        session.refresh(running_run)
+
+        assert recovered_count == 0
+        assert running_run.status == "running"
+    finally:
+        session.close()
+
+
 def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context, monkeypatch) -> None:
     captured: dict[str, str | dict] = {}
     real_httpx_client = httpx.Client
+
+    patch_response = test_context.patch(
+        "/jobs/catalog.import.red",
+        headers=operator_headers(),
+        json={"timeout_seconds": 7},
+    )
+    assert patch_response.status_code == 200
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["url"] = str(request.url)
@@ -225,6 +312,7 @@ def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context,
             self.client = real_httpx_client(transport=self.transport, timeout=timeout)
 
         def request(self, *args, **kwargs):
+            captured["request_timeout"] = kwargs.get("timeout")
             return self.client.request(*args, **kwargs)
 
         def close(self) -> None:
@@ -241,6 +329,7 @@ def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context,
     assert captured["scheduler_token"] == "scheduler-test-token"
     assert captured["job_run_id"] == payload["id"]
     assert captured["correlation_id"] == payload["correlation_id"]
+    assert captured["request_timeout"] == 7
     assert payload["response_summary"]["body"]["secret_token"] == "[redacted]"
 
     runs_response = test_context.get("/runs?jobKey=catalog.import.red", headers=operator_headers())
@@ -252,6 +341,51 @@ def test_manual_run_calls_internal_endpoint_with_scheduler_headers(test_context,
     assert run_detail_response.status_code == 200
     assert run_detail_response.json()["id"] == payload["id"]
     assert ev_runs_response.status_code == 403
+
+
+def test_internal_job_client_uses_global_timeout_when_job_timeout_missing(test_context, monkeypatch) -> None:
+    captured: dict[str, float | None] = {}
+    real_httpx_client = httpx.Client
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "ok"}, headers={"Content-Type": "application/json"})
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.client = real_httpx_client(transport=httpx.MockTransport(handler), timeout=timeout)
+
+        def request(self, *args, **kwargs):
+            captured["request_timeout"] = kwargs.get("timeout")
+            return self.client.request(*args, **kwargs)
+
+        def close(self) -> None:
+            self.client.close()
+
+    monkeypatch.setattr("app.client.httpx.Client", FakeClient)
+    settings = get_settings()
+    session = get_session_factory()()
+    try:
+        job = session.query(ScheduledJob).filter(ScheduledJob.job_key == "catalog.import.red").one()
+        run = JobRun(
+            id=str(uuid4()),
+            job_id=job.id,
+            job_key=job.job_key,
+            status="running",
+            trigger_type="manual",
+            scheduler_instance_id=settings.instance_id,
+            queued_at=utcnow(),
+            started_at=utcnow(),
+            target_service=job.target_service,
+            target_url_path=job.target_url_path,
+            http_method=job.http_method,
+            correlation_id=str(uuid4()),
+        )
+        job.timeout_seconds = 0
+        InternalJobClient(settings).call(job, run)
+    finally:
+        session.close()
+
+    assert captured["request_timeout"] == settings.http_timeout_seconds
 
 
 def test_operator_can_run_ordered_maintenance_sequence(test_context, monkeypatch) -> None:

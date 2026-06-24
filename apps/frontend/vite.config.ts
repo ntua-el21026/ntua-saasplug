@@ -7,13 +7,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
   },
   envDir: "../..",
-  envPrefix: ["VITE_", "DEMO_USER_PASSWORD"],
+  envPrefix: "VITE_",
   server: {
     host: "0.0.0.0",
     port: 5173,
   },
   test: {
     environment: "jsdom",
+    fileParallelism: false,
     setupFiles: "./src/test/setup.ts",
   },
 });

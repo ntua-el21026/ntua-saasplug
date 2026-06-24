@@ -608,7 +608,10 @@ def test_provider_timeout_records_unknown_outcome(test_context) -> None:
     response = client.post("/points/redPlug/101/reservations", headers=ev_headers())
 
     assert response.status_code == 504
-    assert response.json()["detail"]["message"] == "Provider reservation outcome unknown"
+    assert response.json()["detail"]["message"] == reservation_logic.UNKNOWN_OUTCOME_MESSAGE
+    assert response.json()["detail"]["outcome_status"] == "unknown"
+    assert response.json()["detail"]["retry_allowed"] is False
+    assert response.json()["detail"]["reconciliation_required"] is True
     db = get_session_factory()()
     try:
         reservation = db.query(Reservation).one()
@@ -616,6 +619,66 @@ def test_provider_timeout_records_unknown_outcome(test_context) -> None:
         assert reservation.status == "unknown"
         assert attempt.result_status == "unknown"
         assert attempt.provider_called is True
+    finally:
+        db.close()
+
+
+def test_unknown_outcome_replays_same_idempotency_result_without_provider_retry(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+    headers = {**ev_headers(), "Idempotency-Key": "timeout-key-1"}
+    fake_provider.failures[("redPlug", "101")] = ProviderServiceError(
+        "redPlug",
+        "provider_timeout",
+        "raw-timeout-detail",
+        ambiguous_outcome=True,
+    )
+
+    first_response = client.post("/points/redPlug/101/reservations", headers=headers)
+    second_response = client.post("/points/redPlug/101/reservations", headers=headers)
+
+    assert first_response.status_code == 504
+    assert second_response.status_code == 504
+    assert second_response.json()["detail"]["outcome_status"] == "unknown"
+    assert second_response.json()["detail"]["retry_allowed"] is False
+    assert fake_provider.calls == [("redPlug", "101", 60)]
+
+
+@pytest.mark.parametrize(
+    "reservation_ends_at",
+    [
+        None,
+        "not-a-date",
+        "2099-06-12T12:00:00",
+        "2000-06-12T12:00:00Z",
+    ],
+)
+def test_invalid_provider_reservation_expiry_creates_unknown_nonbillable_record(test_context, reservation_ends_at) -> None:
+    client, _, fake_provider, _ = test_context
+    fake_provider.reservations[("redPlug", "101")]["reservation_ends_at"] = reservation_ends_at
+
+    response = client.post(
+        "/points/redPlug/101/reservations",
+        headers={**ev_headers(), "Idempotency-Key": "invalid-expiry-key"},
+    )
+
+    assert response.status_code == 502
+    detail = response.json()["detail"]
+    assert detail["error_type"] == "invalid_provider_reservation_expiry"
+    assert detail["outcome_status"] == "unknown"
+    assert detail["retry_allowed"] is False
+    db = get_session_factory()()
+    try:
+        reservation = db.query(Reservation).one()
+        attempt = db.query(ReservationAttempt).one()
+        idempotency_record = db.query(ReservationIdempotencyRecord).one()
+        assert reservation.status == "unknown"
+        assert reservation.reservation_ends_at is None
+        assert reservation.failure_reason == reservation_logic.UNKNOWN_OUTCOME_MESSAGE
+        assert attempt.result_status == "unknown"
+        assert attempt.provider_error_type == "invalid_provider_reservation_expiry"
+        assert idempotency_record.status == "unknown"
+        assert idempotency_record.reservation_id == reservation.id
+        assert db.query(ReservationEventOutbox).count() == 0
     finally:
         db.close()
 
@@ -635,6 +698,8 @@ def test_provider_success_then_local_persistence_failure_marks_ambiguous_attempt
 
     assert response.status_code == 500
     assert response.json()["detail"]["error_type"] == "local_persistence_failed_after_provider_success"
+    assert response.json()["detail"]["outcome_status"] == "unknown"
+    assert response.json()["detail"]["retry_allowed"] is False
     assert fake_provider.calls == [("redPlug", "101", 60)]
     db = get_session_factory()()
     try:
@@ -699,6 +764,15 @@ def test_provider_admin_cannot_create_reservation(test_context) -> None:
     assert fake_provider.calls == []
 
 
+def test_operator_cannot_create_ev_reservation(test_context) -> None:
+    client, _, fake_provider, _ = test_context
+
+    response = client.post("/points/redPlug/101/reservations", headers=operator_headers())
+
+    assert response.status_code == 403
+    assert fake_provider.calls == []
+
+
 def test_unsupported_provider_rejects_before_catalog_or_provider_call(test_context) -> None:
     client, fake_catalog, fake_provider, call_order = test_context
 
@@ -731,7 +805,12 @@ def test_provider_admin_reservation_listing_is_scoped_to_own_provider(test_conte
     response = client.get("/reservations", headers=red_admin_headers())
 
     assert response.status_code == 200
-    assert {reservation["provider_code"] for reservation in response.json()} == {"redPlug"}
+    payload = response.json()
+    assert {reservation["provider_code"] for reservation in payload} == {"redPlug"}
+    assert "user_id" not in payload[0]
+    assert "user_email" not in payload[0]
+    assert "id" not in payload[0]
+    assert "provider_reservation_id" not in payload[0]
 
 
 def test_provider_admin_cannot_read_other_provider_reservation(test_context) -> None:
@@ -768,6 +847,48 @@ def test_operator_can_list_all_reservations_attempts_and_outbox(test_context) ->
     assert len(reservations_response.json()) == 2
     assert len(attempts_response.json()) == 2
     assert len(outbox_response.json()) == 2
+    assert "user_email" in reservations_response.json()[0]
+    assert "user_id" in attempts_response.json()[0]
+
+
+def test_provider_admin_attempt_payload_omits_ev_identifiers(test_context) -> None:
+    client, _, _, _ = test_context
+    reservation_id = create_db_reservation("redPlug", "101")
+    db = get_session_factory()()
+    try:
+        reservation = db.get(Reservation, reservation_id)
+        assert reservation is not None
+        db.add(
+            ReservationAttempt(
+                reservation_id=reservation.id,
+                user_id=reservation.user_id,
+                user_email=reservation.user_email,
+                requested_by_roles=["EV_USER"],
+                requested_by_provider_code=None,
+                provider_code=reservation.provider_code,
+                external_point_id=reservation.external_point_id,
+                normalized_point_id=reservation.normalized_point_id,
+                requested_duration_minutes=reservation.requested_duration_minutes,
+                provider_called=True,
+                result_status="succeeded",
+                started_at=utcnow(),
+                completed_at=utcnow(),
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(f"/reservations/{reservation_id}/attempts", headers=red_admin_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert "user_id" not in payload[0]
+    assert "user_email" not in payload[0]
+    assert "requested_by_roles" not in payload[0]
+    assert "requested_by_provider_code" not in payload[0]
+    assert "reservation_id" not in payload[0]
 
 
 def test_outbox_row_builds_valid_event_envelope(test_context) -> None:

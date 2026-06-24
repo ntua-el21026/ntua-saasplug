@@ -141,12 +141,12 @@ PostgreSQL and RabbitMQ volumes and return to a fresh baseline.
 
 ## Demo Users
 
-The safe local demo password is controlled by `DEMO_USER_PASSWORD` in
-`.env.example` and defaults to:
-
-```text
-change-me-demo-password
-```
+Demo users are seeded by `auth-service` from the server-side
+`DEMO_USER_PASSWORD` environment variable. The frontend deliberately does not
+receive, render, or prefill that password. For demos, the presenter should
+provide the password out-of-band. The login role shortcuts fill the account
+email and keep any password value the presenter has already typed in the
+password field.
 
 | Email                        | Role             | Provider scope |
 | ---------------------------- | ---------------- | -------------- |
@@ -161,7 +161,7 @@ Login through the gateway:
 ```bash
 curl -X POST http://localhost:8080/api/auth/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"operator@saasplug.local","password":"change-me-demo-password"}'
+  -d '{"email":"operator@saasplug.local","password":"<demo-password>"}'
 ```
 
 Startup inserts missing demo users by default but does not overwrite existing
@@ -170,9 +170,11 @@ demo-user roles, provider scopes, password hashes, or active flags. Use
 accounts.
 
 `.env.example` contains local placeholders only. Before any production-like or
-public demo environment, rotate JWT, scheduler, RabbitMQ, provider, OAuth, and
-database secrets and enable `SAASPLUG_STRICT_SECRETS=true` or a production-like
-`APP_ENV` so unsafe placeholders are rejected at startup.
+public demo environment, rotate `DEMO_USER_PASSWORD`, `JWT_SECRET`, scheduler,
+RabbitMQ, provider, OAuth, and database secrets and enable
+`SAASPLUG_STRICT_SECRETS=true` or a production-like `APP_ENV` so unsafe
+placeholders are rejected at startup. Rotate `JWT_SECRET` after any environment
+where browser-delivered demo credentials may previously have been used.
 
 ## Provider API Integration
 

@@ -115,6 +115,7 @@ class Invoice(Base):
 
 class InvoiceLine(Base):
     __tablename__ = "invoice_lines"
+    __table_args__ = (UniqueConstraint("charge_id", name="uq_invoice_lines_charge_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     invoice_id: Mapped[str] = mapped_column(String(36), ForeignKey("invoices.id"), nullable=False, index=True)

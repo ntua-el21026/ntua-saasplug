@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import threading
 from typing import Any
 
 from sqlalchemy import select
@@ -10,6 +11,8 @@ from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import CurrentPrincipal, ProviderStatusDTO, StatusLookupResponse
 
 ALLOWED_STATUSES = {"available", "charging", "reserved", "malfunction", "offline", "unknown"}
+_REFRESH_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_REFRESH_LOCKS_GUARD = threading.Lock()
 
 
 def validate_provider_code(provider_code: str) -> None:
@@ -41,6 +44,16 @@ def get_cache(db: Session, provider_code: str, external_point_id: str) -> Status
             StatusCache.external_point_id == external_point_id,
         ),
     )
+
+
+def refresh_lock_for(provider_code: str, external_point_id: str) -> threading.Lock:
+    key = (provider_code, external_point_id)
+    with _REFRESH_LOCKS_GUARD:
+        lock = _REFRESH_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _REFRESH_LOCKS[key] = lock
+        return lock
 
 
 def status_response(
@@ -175,46 +188,46 @@ def lookup_status(
             source="cache",
         )
 
-    try:
-        provider_status = provider_client.get_status(provider_code, external_point_id)
-        if provider_status.provider_code != provider_code:
-            raise ProviderServiceError(
-                provider_code,
-                "provider_invalid_response",
-                "Provider status response had wrong provider code",
+    with refresh_lock_for(provider_code, external_point_id):
+        db.expire_all()
+        cache = get_cache(db, provider_code, external_point_id)
+        now = utcnow()
+        if cache is not None and ensure_aware_utc(cache.expires_at) > now and not force_refresh:
+            write_log(
+                db,
+                provider_code=provider_code,
+                external_point_id=external_point_id,
+                principal=principal,
+                cache_hit=True,
+                force_refresh=False,
+                result_status=cache.status,
+                returned_stale=False,
+                provider_called=False,
             )
-        if provider_status.normalized_point_id != normalized_point_id(provider_code, external_point_id):
-            raise ProviderServiceError(
-                provider_code,
-                "provider_invalid_response",
-                "Provider status response had invalid normalized point id",
+            db.commit()
+            return status_response(
+                cache,
+                cache_hit=True,
+                provider_called=False,
+                returned_stale=False,
+                source="cache",
             )
-        cache = upsert_cache(db, provider_status=provider_status, settings=settings)
-        write_log(
-            db,
-            provider_code=provider_code,
-            external_point_id=external_point_id,
-            principal=principal,
-            cache_hit=False,
-            force_refresh=force_refresh,
-            result_status=cache.status,
-            returned_stale=False,
-            provider_called=True,
-        )
-        db.commit()
-        db.refresh(cache)
-        return status_response(
-            cache,
-            cache_hit=False,
-            provider_called=True,
-            returned_stale=False,
-            source="provider_live",
-        )
-    except ProviderServiceError as exc:
-        if cache is not None:
-            cache.last_error_type = exc.error_type
-            cache.last_error_message = exc.message
-            cache.source = "cache_fallback"
+
+        try:
+            provider_status = provider_client.get_status(provider_code, external_point_id)
+            if provider_status.provider_code != provider_code:
+                raise ProviderServiceError(
+                    provider_code,
+                    "provider_invalid_response",
+                    "Provider status response had wrong provider code",
+                )
+            if provider_status.normalized_point_id != normalized_point_id(provider_code, external_point_id):
+                raise ProviderServiceError(
+                    provider_code,
+                    "provider_invalid_response",
+                    "Provider status response had invalid normalized point id",
+                )
+            cache = upsert_cache(db, provider_status=provider_status, settings=settings)
             write_log(
                 db,
                 provider_code=provider_code,
@@ -223,11 +236,8 @@ def lookup_status(
                 cache_hit=False,
                 force_refresh=force_refresh,
                 result_status=cache.status,
-                returned_stale=True,
+                returned_stale=False,
                 provider_called=True,
-                provider_error_type=exc.error_type,
-                provider_error_message=exc.message,
-                external_status_code=exc.external_status_code,
             )
             db.commit()
             db.refresh(cache)
@@ -235,23 +245,51 @@ def lookup_status(
                 cache,
                 cache_hit=False,
                 provider_called=True,
-                returned_stale=True,
-                source="cache_fallback",
-                warning="Provider status lookup failed; returning last known cached status.",
+                returned_stale=False,
+                source="provider_live",
             )
-        write_log(
-            db,
-            provider_code=provider_code,
-            external_point_id=external_point_id,
-            principal=principal,
-            cache_hit=False,
-            force_refresh=force_refresh,
-            result_status=None,
-            returned_stale=False,
-            provider_called=True,
-            provider_error_type=exc.error_type,
-            provider_error_message=exc.message,
-            external_status_code=exc.external_status_code,
-        )
-        db.commit()
-        raise
+        except ProviderServiceError as exc:
+            if cache is not None:
+                cache.last_error_type = exc.error_type
+                cache.last_error_message = exc.message
+                cache.source = "cache_fallback"
+                write_log(
+                    db,
+                    provider_code=provider_code,
+                    external_point_id=external_point_id,
+                    principal=principal,
+                    cache_hit=False,
+                    force_refresh=force_refresh,
+                    result_status=cache.status,
+                    returned_stale=True,
+                    provider_called=True,
+                    provider_error_type=exc.error_type,
+                    provider_error_message=exc.message,
+                    external_status_code=exc.external_status_code,
+                )
+                db.commit()
+                db.refresh(cache)
+                return status_response(
+                    cache,
+                    cache_hit=False,
+                    provider_called=True,
+                    returned_stale=True,
+                    source="cache_fallback",
+                    warning="Provider status lookup failed; returning last known cached status.",
+                )
+            write_log(
+                db,
+                provider_code=provider_code,
+                external_point_id=external_point_id,
+                principal=principal,
+                cache_hit=False,
+                force_refresh=force_refresh,
+                result_status=None,
+                returned_stale=False,
+                provider_called=True,
+                provider_error_type=exc.error_type,
+                provider_error_message=exc.message,
+                external_status_code=exc.external_status_code,
+            )
+            db.commit()
+            raise

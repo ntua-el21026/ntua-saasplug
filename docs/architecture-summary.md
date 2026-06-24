@@ -56,7 +56,7 @@ manual background job dispatch without owning business logic.
 
 | Service | Owned database container | Main owned tables |
 |---|---|---|
-| `auth-service` | `auth-postgres` | `users`, `refresh_tokens` |
+| `auth-service` | `auth-postgres` | `users`, `refresh_tokens`, `oauth_states` |
 | `provider-registry-service` | `provider-registry-postgres` | `providers`, `provider_config_audit_logs` |
 | `red-provider-service` | `red-provider-postgres` | `provider_point_snapshots`, `raw_provider_payloads`, `provider_sync_runs`, `provider_point_changes` |
 | `green-provider-service` | `green-provider-postgres` | `provider_point_snapshots`, `raw_provider_payloads`, `provider_sync_runs`, `provider_point_changes` |
@@ -98,6 +98,11 @@ Gateway route groups:
 Provider services are internal-only and are not exposed through the gateway.
 Service-owned `/internal/jobs/...` routes are also internal-only and are not
 exposed through `nginx-gateway`.
+Public FastAPI docs/OpenAPI routes such as `/api/*/docs`, `/api/*/redoc`, and
+`/api/*/openapi.json` are blocked by the gateway for the final demo profile.
+The gateway sets browser security headers including CSP, frame protection,
+`nosniff`, referrer policy, permissions policy, and COOP while allowing the
+OpenFreeMap tile host required by the EV map.
 
 ## RabbitMQ Event Model
 
@@ -168,7 +173,10 @@ analytics propagation.
 5. `reservation-service` resolves the catalog point, records idempotency/attempt
    journal metadata, acquires a short-lived point guard, calls the relevant
    provider service synchronously, stores the reservation result, and stages
-   reservation events.
+   reservation events for confirmed successful or failed outcomes. Ambiguous
+   provider outcomes are represented as `unknown`, are not billed as successes,
+   and require status/history reconciliation before the frontend sends a new
+   provider mutation.
 
 ### Provider Sync and Catalog Import
 
@@ -203,10 +211,13 @@ analytics propagation.
    `/api/scheduler/*`.
 3. Job execution calls service-owned internal HTTP endpoints on
    `catalog-service`, `analytics-service`, `billing-service`, and
-   `reservation-service` with `X-Scheduler-Token`.
+   `reservation-service` with `X-Scheduler-Token`. Each job's
+   `timeout_seconds` is applied to the HTTP request deadline.
 4. Target services execute their own logic and keep ownership of their own
    databases. The scheduler stores only metadata, run status, HTTP status, and
    redacted response summaries.
+5. Stale `running` rows from process crashes are recovered after their timeout
+   window so future scheduled/manual executions are not permanently blocked.
 
 Default scheduled cadences are daily catalog import, analytics event drain
 every 2 hours, analytics aggregate refresh every day, billing queue drain
@@ -239,8 +250,12 @@ API helpers.
 
 ## Known MVP Limitations
 
-- Google OAuth includes safe hook endpoints; real Google token exchange is not
-  completed in the local MVP.
+- Google OAuth includes configured state validation and PKCE support. In local
+  placeholder mode, the explicit local Google sign-in simulation remains a
+  coursework/demo convenience for EV users only.
+- Frontend tokens are stored in browser localStorage as an MVP trade-off.
+  Gateway security headers reduce some browser risk, but production hardening
+  should move refresh-token handling to an HttpOnly-cookie/session design.
 - Provider API credentials are placeholders by default. Live provider calls may
   fail with authorization errors until real team credentials are configured in
   an uncommitted `.env`.
