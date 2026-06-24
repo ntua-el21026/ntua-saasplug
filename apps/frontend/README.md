@@ -56,14 +56,14 @@ Implemented frontend routes:
 | `/login/google/callback` | Google OAuth browser callback that completes the backend code exchange and stores the session |
 | `/register` | Local EV account registration |
 | `/logout` | Session revocation and local session cleanup |
-| `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, and bounds-based catalog queries |
+| `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, bounds-based catalog queries, and point-view tracking when a marker or list item opens quick details |
 | `/dashboard` | Alias to the EV map/list experience |
 | `/points/:providerCode/:externalPointId` | Cached catalog point details and live status lookup; reservation controls are EV-only |
 | `/reservations` | Current user's reservation history, EV reservation summary metrics, cost/kWh, and estimated cost display |
 | `/profile` | User-facing account overview, role-specific workspace links, and local-password changes |
 | `/provider/dashboard` | Provider-admin command center with analytics, billing, and catalog posture |
 | `/provider/points` | Provider-scoped catalog points with provider-selected fetch-size presets |
-| `/provider/analytics` | Provider analytics aggregates, top points, status distribution, trends, and date-range filtering |
+| `/provider/analytics` | Provider analytics aggregates, top points, point views by status, trends, and date-range filtering |
 | `/provider/invoices` | Provider invoice list and billing exposure |
 | `/provider/invoices/:invoiceId` | Invoice detail and mock full-invoice payment |
 | `/provider/export` | Provider-scoped usage CSV export |
@@ -75,7 +75,7 @@ Implemented frontend routes:
 | `/operator/invoices` | Operator invoice overview |
 | `/operator/invoices/new` | Operator invoice issuance |
 | `/operator/invoices/:invoiceId` | Operator invoice detail view |
-| `/operator/pricing` | Pricing rule creation and activation controls |
+| `/operator/pricing` | Pricing rule creation and live on/off activation controls |
 | `/operator/sync` | Scheduler jobs/manual runs, ordered maintenance sequence, pause/resume, individual interval editing, bulk minimum/default presets that also set the persisted status-cache TTL, catalog imports, analytics drains/refreshes, billing drains/outbox publishing, and reservation outbox publishing |
 | `/operator/system` | Service health, scheduler health, freshness, and run-history overview |
 
@@ -168,6 +168,21 @@ guard, the frontend applies the same Haversine circle check before rendering
 cards or markers, so broad or stale responses cannot place points outside the
 blue circle.
 
+The last accepted catalog viewport is retained in browser session storage, so
+navigating to another workspace page and returning to the map preserves the
+current center, radius, and zoom without carrying it into a different browser
+session.
+
+The EV map includes an application-level full-screen mode that keeps the same
+map state and result list, places the point list on the left, and can be exited
+without resetting filters, selection, or viewport.
+
+Operator pricing controls expose on/off switches for existing rules. Activating
+a provider-specific rule disables other active rules for that provider while
+global pricing remains a fallback for providers without a specific active rule.
+Activating active rules for all three providers disables the global rule, and
+activating a global rule disables provider-specific rules.
+
 ## EV reservation cost display
 
 The reservations page uses two gateway-backed sources:
@@ -189,6 +204,11 @@ Reserved points show reservation timing wherever the frontend has that data:
 map/list point cards and point detail/status panels show the reserved-until
 time, while reservation history and successful reservation dialogs show the
 created-to-end reservation window.
+
+Opening a marker or list card quick-detail popup is treated as a point view.
+The map calls `POST /api/catalog/points/{providerCode}/{externalPointId}/views`
+best-effort so billing and analytics receive the same `usage.point_viewed`
+event stream used by the full point-detail page.
 
 When the local catalog reports `reserved` but a non-live status cache response
 still reports `available`, the point page keeps the reservation visible and

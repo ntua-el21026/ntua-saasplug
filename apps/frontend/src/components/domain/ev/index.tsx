@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, type ReactNode } from "react";
 
-import { Button, Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
+import { Card, Drawer, EmptyState, FilterChip, Modal, SearchInput, Select } from "../../ui";
 import { formatCapacity, formatCostPerKwh, formatDateTime, formatMoney, formatReservationWindow, formatReservedUntil, providerLabel } from "../../../lib/formatting";
 import { pointPath, type CatalogResultLimit } from "../../../lib/routing";
 import type { Bounds, CatalogFilters, CatalogPoint, ProviderCode, Reservation, StatusValue } from "../../../lib/types";
@@ -321,40 +321,6 @@ export function MapFilterPanel({
         </div>
       ) : null}
     </Card>
-  );
-}
-
-export function MapFloatingControls({
-  onNorth,
-  onSouth,
-  onWest,
-  onEast,
-  onZoomIn,
-  onZoomOut,
-  zoom,
-  minZoom,
-  maxZoom,
-}: {
-  onNorth: () => void;
-  onSouth: () => void;
-  onWest: () => void;
-  onEast: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  zoom: number;
-  minZoom: number;
-  maxZoom: number;
-}) {
-  return (
-    <div className="map-floating-controls" aria-label="Map viewport controls">
-      <div className="map-zoom-scale">Zoom {zoom} out of {maxZoom}</div>
-      <Button variant="secondary" size="sm" type="button" onClick={onNorth}>N</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onSouth}>S</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onWest}>W</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onEast}>E</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onZoomIn} disabled={zoom >= maxZoom}>+</Button>
-      <Button variant="secondary" size="sm" type="button" onClick={onZoomOut} disabled={zoom <= minZoom}>-</Button>
-    </div>
   );
 }
 

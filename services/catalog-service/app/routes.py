@@ -20,6 +20,7 @@ from app.schemas import (
     ImportAllResponse,
     ImportRunResponse,
     ImportSummaryResponse,
+    PointViewRequest,
     ProviderFreshnessResponse,
 )
 from app.security import ensure_import_run_reader, ensure_operator, get_current_principal, get_optional_principal
@@ -75,6 +76,18 @@ def point_detail_response(point: CatalogPoint) -> CatalogPointDetailResponse:
     response = point_response(point).model_dump()
     response["raw_provider_payload"] = point.raw_provider_payload
     return CatalogPointDetailResponse(**response)
+
+
+def get_active_catalog_point(db: Session, provider_code: str, external_point_id: str) -> CatalogPoint:
+    point = db.scalar(
+        select(CatalogPoint).where(
+            CatalogPoint.provider_code == provider_code,
+            CatalogPoint.external_point_id == external_point_id,
+        ),
+    )
+    if point is None or not point.is_active or point.is_stale:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog point not found")
+    return point
 
 
 def import_run_response(import_run: CatalogImportRun) -> ImportRunResponse:
@@ -284,16 +297,29 @@ def read_point_detail(
     settings: Settings = Depends(get_settings),
     principal: CurrentPrincipal | None = Depends(get_optional_principal),
 ) -> CatalogPointDetailResponse:
-    point = db.scalar(
-        select(CatalogPoint).where(
-            CatalogPoint.provider_code == provider_code,
-            CatalogPoint.external_point_id == external_point_id,
-        ),
-    )
-    if point is None or not point.is_active or point.is_stale:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog point not found")
+    point = get_active_catalog_point(db, provider_code, external_point_id)
     response = point_detail_response(point)
-    publish_point_view_event(settings, principal, response)
+    publish_point_view_event(settings, principal, response, view_source="detail")
+    return response
+
+
+@router.post("/points/{provider_code}/{external_point_id}/views", response_model=CatalogPointResponse)
+def track_point_view(
+    provider_code: str,
+    external_point_id: str,
+    body: PointViewRequest | None = None,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal | None = Depends(get_optional_principal),
+) -> CatalogPointResponse:
+    point = get_active_catalog_point(db, provider_code, external_point_id)
+    response = point_response(point)
+    publish_point_view_event(
+        settings,
+        principal,
+        response,
+        view_source=body.view_source if body else "map_quick_view",
+    )
     return response
 
 
@@ -542,7 +568,9 @@ def publish_search_event(
 def publish_point_view_event(
     settings: Settings,
     principal: CurrentPrincipal | None,
-    point: CatalogPointDetailResponse,
+    point: CatalogPointResponse | CatalogPointDetailResponse,
+    *,
+    view_source: str,
 ) -> None:
     payload = {
         "user_id": principal.sub if principal else None,
@@ -552,6 +580,7 @@ def publish_point_view_event(
         "external_point_id": point.external_point_id,
         "point_name": point.display_name,
         "status": point.status,
+        "view_source": view_source,
     }
     publish_best_effort_event(
         settings,

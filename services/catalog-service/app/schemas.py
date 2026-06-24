@@ -35,6 +35,10 @@ class CatalogPointDetailResponse(CatalogPointResponse):
     raw_provider_payload: dict
 
 
+class PointViewRequest(BaseModel):
+    view_source: str = Field(default="map_quick_view", max_length=64)
+
+
 class CatalogSearchCircleResponse(BaseModel):
     center_lat: float
     center_lng: float

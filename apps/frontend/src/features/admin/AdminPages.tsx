@@ -6,6 +6,7 @@ import { InvoiceStatusBadge } from "../../components/domain/billing";
 import { ProviderHealthBadge } from "../../components/domain/provider";
 import { SyncRunStatusBadge } from "../../components/domain/status";
 import { StatusBadge } from "../../components/StatusBadge";
+import { Switch } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import { messageFromUnknownError, requestJson, requestText } from "../../lib/api";
 import {
@@ -74,7 +75,7 @@ type AsyncState<T> = {
 const DEFAULT_LIMIT = 100;
 const ANALYTICS_TABS = [
   { value: "activity", label: "Activity trend" },
-  { value: "status", label: "Status distribution" },
+  { value: "status", label: "Views by status" },
   { value: "views", label: "Top viewed points" },
   { value: "reservations", label: "Top reserved points" },
   { value: "conversion", label: "Conversion rate" },
@@ -103,6 +104,11 @@ const CATALOG_TABS = [
   { value: "runs", label: "Import runs" },
 ] as const;
 type CatalogTab = (typeof CATALOG_TABS)[number]["value"];
+const PRICING_TABS = [
+  { value: "create", label: "Create pricing rule" },
+  { value: "rules", label: "Pricing rules" },
+] as const;
+type PricingTab = (typeof PRICING_TABS)[number]["value"];
 const OPERATOR_CATALOG_PAGE_SIZES = [25, 50, 100, "all"] as const;
 type OperatorCatalogPageSize = (typeof OPERATOR_CATALOG_PAGE_SIZES)[number];
 const PROVIDER_POINT_FETCH_SIZES = [20, 40, 60, 80, 100, "all"] as const;
@@ -828,7 +834,7 @@ export function ProviderAnalyticsPage() {
                 </DashboardPanel>
               ) : null}
               {activeTab === "status" ? (
-                <DashboardPanel title="Status distribution" description="Latest observed availability for each charging point in the selected period.">
+                <DashboardPanel title="Point views by status" description="How many point-detail views happened while the point was available, reserved, charging, offline, malfunctioning, or unknown.">
                   <DistributionChart
                     rows={Object.entries(statusDistribution).map(([status, value]) => ({
                       label: statusLabel(status),
@@ -1542,7 +1548,7 @@ export function OperatorCatalogPage() {
   const [pageSize, setPageSize] = useState<OperatorCatalogPageSize>(25);
   const [page, setPage] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
+  const [importOperation, setImportOperation] = useState<SyncOperationState | null>(null);
   const state = useDashboardLoad(async () => {
     const [catalog, freshness, runs] = await Promise.all([
       loadOperatorCatalogPoints(accessToken, providerCode, pageSize, page),
@@ -1557,6 +1563,7 @@ export function OperatorCatalogPage() {
   const firstVisiblePoint = state.data?.catalog.items.length ? state.data.catalog.offset + 1 : 0;
   const lastVisiblePoint = state.data ? state.data.catalog.offset + state.data.catalog.items.length : 0;
   const initialCatalogLoad = state.loading && !state.data;
+  const importRunning = importOperation?.status === "running";
 
   useEffect(() => {
     if (pageSize !== "all" && page >= totalPages) {
@@ -1565,24 +1572,33 @@ export function OperatorCatalogPage() {
   }, [page, pageSize, totalPages]);
 
   async function triggerImport(allProviders: boolean) {
-    setMessage(null);
+    const label = allProviders
+      ? "all provider catalog import"
+      : `${providerLabel(providerCode as ProviderCode)} catalog import`;
+    setImportOperation({
+      label,
+      status: "running",
+      detail: "This catalog import is running now. The page will update when it finishes.",
+    });
     try {
+      let response: CatalogImportAllResponse | CatalogImportSummary;
       if (allProviders) {
-        const response = await requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", {
+        response = await requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", {
           method: "POST",
           accessToken,
         });
-        setMessage(`Started catalog import for ${response.providers.length} providers.`);
       } else if (providerCode) {
-        const response = await requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, {
+        response = await requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, {
           method: "POST",
           accessToken,
         });
-        setMessage(`Started ${response.provider_code} import run ${response.run_id}.`);
+      } else {
+        return;
       }
+      setImportOperation({ label, status: "success", detail: describeOperationResult(response) });
       setReloadKey((current) => current + 1);
     } catch (caught) {
-      setMessage(messageFromUnknownError(caught));
+      setImportOperation({ label, status: "error", detail: messageFromUnknownError(caught) });
     }
   }
 
@@ -1608,10 +1624,10 @@ export function OperatorCatalogPage() {
               ))}
             </select>
           </label>
-          <button className="button-secondary" type="button" onClick={() => triggerImport(true)}>Import all</button>
-          <button className="button-primary" type="button" disabled={!providerCode} onClick={() => triggerImport(false)}>Import selected</button>
+          <button className="button-secondary" type="button" disabled={importRunning} onClick={() => triggerImport(true)}>Import all</button>
+          <button className="button-primary" type="button" disabled={!providerCode || importRunning} onClick={() => triggerImport(false)}>Import selected</button>
         </section>
-        <InlineResult message={message} tone={message?.includes("Started") ? "success" : "warning"} />
+        <SyncOperationProgress operation={importOperation} />
         <LoadState loading={initialCatalogLoad} error={state.error} />
         {state.data ? (
           <DashboardTabs
@@ -1837,22 +1853,31 @@ export function OperatorIssueInvoicePage() {
 export function OperatorPricingPage() {
   const accessToken = useAccessToken();
   const [reloadKey, setReloadKey] = useState(0);
+  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [activePricingTab, setActivePricingTab] = useState<PricingTab>("create");
   const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
   const [name, setName] = useState("Provider pricing rule");
   const [reservationFee, setReservationFee] = useState("1.00");
   const [pointViewFee, setPointViewFee] = useState("0.05");
   const [pointViewEnabled, setPointViewEnabled] = useState(true);
+  const [pendingRuleId, setPendingRuleId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const state = useDashboardLoad(
     () => requestJson<PricingRule[]>("/api/billing/pricing/rules", { accessToken }),
     [accessToken, reloadKey],
   );
 
+  useEffect(() => {
+    if (state.data) {
+      setRules(state.data);
+    }
+  }, [state.data]);
+
   async function createRule(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
     try {
-      await requestJson<PricingRule>("/api/billing/pricing/rules", {
+      const created = await requestJson<PricingRule>("/api/billing/pricing/rules", {
         method: "POST",
         accessToken,
         bodyJson: {
@@ -1866,6 +1891,7 @@ export function OperatorPricingPage() {
           reservation_failure_fee: 0,
         },
       });
+      setRules((current) => applyPricingActivationTransition([...current, created], created.id, created.active));
       setMessage("Pricing rule created.");
       setReloadKey((current) => current + 1);
     } catch (caught) {
@@ -1875,16 +1901,23 @@ export function OperatorPricingPage() {
 
   async function toggleRule(rule: PricingRule) {
     setMessage(null);
+    setPendingRuleId(rule.id);
+    const previousRules = rules;
+    const nextActive = !rule.active;
+    setRules((current) => applyPricingActivationTransition(current, rule.id, nextActive));
     try {
       await requestJson<PricingRule>(`/api/billing/pricing/rules/${rule.id}`, {
         method: "PATCH",
         accessToken,
-        bodyJson: { active: !rule.active },
+        bodyJson: { active: nextActive },
       });
-      setMessage(`${rule.name} ${rule.active ? "disabled" : "enabled"}.`);
+      setMessage(`${rule.name} ${nextActive ? "activated" : "deactivated"}.`);
       setReloadKey((current) => current + 1);
     } catch (caught) {
+      setRules(previousRules);
       setMessage(messageFromUnknownError(caught));
+    } finally {
+      setPendingRuleId(null);
     }
   }
 
@@ -1894,67 +1927,120 @@ export function OperatorPricingPage() {
         title="Pricing controls"
         description="Manage global pricing defaults and provider-specific pricing overrides."
       >
-        <DashboardGrid>
-          <DashboardPanel title="Create pricing rule" description="Rules apply globally when provider is empty, otherwise to one provider.">
-            <form className="admin-form" onSubmit={createRule}>
-              <label>
-                Provider scope
-                <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
-                  <option value="">Global default</option>
-                  {PROVIDERS.map((provider) => (
-                    <option key={provider} value={provider}>{providerLabel(provider)}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Rule name
-                <input value={name} onChange={(event) => setName(event.target.value)} />
-              </label>
-              <label>
-                Reservation success fee
-                <input type="number" min="0" step="0.01" value={reservationFee} onChange={(event) => setReservationFee(event.target.value)} />
-              </label>
-              <label>
-                Point view fee
-                <input type="number" min="0" step="0.01" value={pointViewFee} onChange={(event) => setPointViewFee(event.target.value)} />
-              </label>
-              <label className="checkbox-label">
-                <input type="checkbox" checked={pointViewEnabled} onChange={(event) => setPointViewEnabled(event.target.checked)} />
-                Enable point view fee
-              </label>
-              <button className="button-primary" type="submit">Create rule</button>
-            </form>
-            <InlineResult message={message} tone={message?.includes("created") || message?.includes("enabled") || message?.includes("disabled") ? "success" : "warning"} />
-          </DashboardPanel>
-          <DashboardPanel title="Pricing rules" description="Active rules determine charges for provider activity.">
-            <LoadState loading={state.loading} error={state.error} />
-            {state.data ? (
-              <DataTable
-                rows={state.data}
-                getRowKey={(row) => row.id}
-                columns={[
-                  { key: "scope", label: "Scope", render: (row) => row.provider_code ? providerLabel(row.provider_code) : "Global" },
-                  { key: "name", label: "Name", render: (row) => row.name },
-                  { key: "reservation", label: "Reservation", render: (row) => formatMoney(row.reservation_success_fee, row.currency) },
-                  { key: "view", label: "View fee", render: (row) => row.point_view_fee_enabled ? formatMoney(row.point_view_fee, row.currency) : "Disabled" },
-                  { key: "active", label: "Active", render: (row) => (row.active ? "Yes" : "No") },
-                  {
-                    key: "action",
-                    label: "Action",
-                    render: (row) => (
-                      <button className="button-secondary" type="button" onClick={() => toggleRule(row)}>
-                        {row.active ? "Disable" : "Enable"}
-                      </button>
-                    ),
-                  },
-                ]}
-              />
-            ) : null}
-          </DashboardPanel>
-        </DashboardGrid>
+        <DashboardTabs
+          items={[...PRICING_TABS]}
+          value={activePricingTab}
+          onValueChange={setActivePricingTab}
+          label="Operator pricing views"
+        >
+          <InlineResult
+            message={message}
+            tone={message?.includes("created") || message?.includes("activated") || message?.includes("deactivated") ? "success" : "warning"}
+          />
+          {activePricingTab === "create" ? (
+            <DashboardPanel title="Create pricing rule" description="Rules apply globally when provider is empty, otherwise to one provider.">
+              <form className="admin-form" onSubmit={createRule}>
+                <label>
+                  Provider scope
+                  <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
+                    <option value="">Global default</option>
+                    {PROVIDERS.map((provider) => (
+                      <option key={provider} value={provider}>{providerLabel(provider)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Rule name
+                  <input value={name} onChange={(event) => setName(event.target.value)} />
+                </label>
+                <label>
+                  Reservation success fee
+                  <input type="number" min="0" step="0.01" value={reservationFee} onChange={(event) => setReservationFee(event.target.value)} />
+                </label>
+                <label>
+                  Point view fee
+                  <input type="number" min="0" step="0.01" value={pointViewFee} onChange={(event) => setPointViewFee(event.target.value)} />
+                </label>
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={pointViewEnabled} onChange={(event) => setPointViewEnabled(event.target.checked)} />
+                  Enable point view fee
+                </label>
+                <button className="button-primary" type="submit">Create rule</button>
+              </form>
+            </DashboardPanel>
+          ) : null}
+          {activePricingTab === "rules" ? (
+            <DashboardPanel title="Pricing rules" description="Active rules determine charges for provider activity.">
+              <LoadState loading={state.loading} error={state.error} />
+              {state.data ? (
+                <DataTable
+                  rows={rules}
+                  getRowKey={(row) => row.id}
+                  columns={[
+                    { key: "scope", label: "Scope", render: (row) => row.provider_code ? providerLabel(row.provider_code) : "Global" },
+                    { key: "name", label: "Name", render: (row) => row.name },
+                    { key: "reservation", label: "Reservation", render: (row) => formatMoney(row.reservation_success_fee, row.currency) },
+                    { key: "view", label: "View fee", render: (row) => row.point_view_fee_enabled ? formatMoney(row.point_view_fee, row.currency) : "Disabled" },
+                    {
+                      key: "active",
+                      label: "On / off",
+                      render: (row) => (
+                        <label className="pricing-rule-toggle">
+                          <Switch
+                            aria-label={`Toggle ${row.name} pricing rule`}
+                            checked={row.active}
+                            disabled={pendingRuleId !== null}
+                            onChange={() => toggleRule(row)}
+                          />
+                          <span>{row.active ? "On" : "Off"}</span>
+                        </label>
+                      ),
+                    },
+                  ]}
+                />
+              ) : null}
+            </DashboardPanel>
+          ) : null}
+        </DashboardTabs>
       </DashboardPage>
     </AppShell>
   );
+}
+
+function applyPricingActivationTransition(
+  rules: PricingRule[],
+  targetRuleId: string,
+  nextActive: boolean,
+): PricingRule[] {
+  const targetRule = rules.find((rule) => rule.id === targetRuleId);
+  if (!targetRule) {
+    return rules;
+  }
+
+  if (!nextActive) {
+    return rules.map((rule) => (rule.id === targetRuleId ? { ...rule, active: false } : rule));
+  }
+
+  const providerCode = targetRule.provider_code;
+  const nextRules = rules.map((rule) => {
+    if (providerCode === null) {
+      return { ...rule, active: rule.id === targetRuleId };
+    }
+    if (rule.provider_code === providerCode) {
+      return { ...rule, active: rule.id === targetRuleId };
+    }
+    return rule;
+  });
+
+  if (providerCode !== null && PROVIDERS.every((provider) => (
+    nextRules.some((rule) => rule.provider_code === provider && rule.active)
+  ))) {
+    return nextRules.map((rule) => (
+      rule.provider_code === null ? { ...rule, active: false } : rule
+    ));
+  }
+
+  return nextRules;
 }
 
 export function OperatorSyncPage() {

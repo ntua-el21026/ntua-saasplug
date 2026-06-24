@@ -2,21 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$ROOT_DIR"
-
-REPORT_DIR="reports/postman"
-mkdir -p "$REPORT_DIR"
-
-ENV_FILE="docs/postman/saasPlug.local.postman_environment.json"
-SMOKE_COLLECTION="docs/postman/saasPlug.local.smoke.postman_collection.json"
-
-run_newman() {
-  npx --yes newman "$@"
-}
+source "$ROOT_DIR/scripts/postman/lib/env.sh"
+init_postman_runner "$@"
 
 echo "Suite: all local Postman/Newman suites"
 echo "Target call counts: smoke=14, regression=1235, security=1088, safe mutation=17"
-scripts/postman/run-smoke.sh
-scripts/postman/run-regression.sh
-scripts/postman/run-security.sh
-scripts/postman/run-mutation.sh
+echo "Selected app env file: $SAASPLUG_SELECTED_ENV_FILE"
+echo "Postman environment file: $POSTMAN_ENV_FILE"
+scripts/postman/run-smoke.sh --env-file "$SAASPLUG_SELECTED_ENV_FILE"
+scripts/postman/run-regression.sh --env-file "$SAASPLUG_SELECTED_ENV_FILE"
+scripts/postman/run-security.sh --env-file "$SAASPLUG_SELECTED_ENV_FILE"
+scripts/postman/run-mutation.sh --env-file "$SAASPLUG_SELECTED_ENV_FILE"

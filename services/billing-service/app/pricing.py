@@ -54,7 +54,7 @@ def create_pricing_rule(
     if body.provider_code:
         validate_provider_code(body.provider_code)
     if body.active:
-        deactivate_active_rules_for_scope(db, body.provider_code)
+        deactivate_conflicting_rules(db, body.provider_code)
     rule = PricingRule(
         provider_code=body.provider_code,
         name=body.name,
@@ -67,32 +67,76 @@ def create_pricing_rule(
         created_by_email=created_by_email,
     )
     db.add(rule)
+    db.flush()
+    if rule.active and rule.provider_code is not None:
+        deactivate_global_rules_if_every_provider_has_specific_rule(db)
     db.commit()
     db.refresh(rule)
     return rule
 
 
 def update_pricing_rule(db: Session, rule: PricingRule, body: PricingRulePatch) -> PricingRule:
-    if body.active is True and not rule.active:
-        deactivate_active_rules_for_scope(db, rule.provider_code)
+    if body.active is True:
+        deactivate_conflicting_rules(db, rule.provider_code, excluding_rule_id=rule.id)
 
     for field_name in body.model_fields_set:
         value = getattr(body, field_name)
         if value is not None:
             setattr(rule, field_name, value)
+    db.flush()
+    if rule.active and rule.provider_code is not None:
+        deactivate_global_rules_if_every_provider_has_specific_rule(db)
     db.commit()
     db.refresh(rule)
     return rule
 
 
-def deactivate_active_rules_for_scope(db: Session, provider_code: str | None) -> None:
+def deactivate_conflicting_rules(
+    db: Session,
+    provider_code: str | None,
+    excluding_rule_id: str | None = None,
+) -> None:
+    if provider_code is None:
+        deactivate_all_active_rules(db, excluding_rule_id=excluding_rule_id)
+    else:
+        deactivate_active_rules_for_scope(db, provider_code, excluding_rule_id=excluding_rule_id)
+
+
+def deactivate_all_active_rules(db: Session, excluding_rule_id: str | None = None) -> None:
+    query = select(PricingRule).where(PricingRule.active.is_(True))
+    if excluding_rule_id:
+        query = query.where(PricingRule.id != excluding_rule_id)
+    for rule in db.scalars(query).all():
+        rule.active = False
+
+
+def deactivate_active_rules_for_scope(
+    db: Session,
+    provider_code: str | None,
+    excluding_rule_id: str | None = None,
+) -> None:
     query = select(PricingRule).where(PricingRule.active.is_(True))
     if provider_code is None:
         query = query.where(PricingRule.provider_code.is_(None))
     else:
         query = query.where(PricingRule.provider_code == provider_code)
+    if excluding_rule_id:
+        query = query.where(PricingRule.id != excluding_rule_id)
     for rule in db.scalars(query).all():
         rule.active = False
+
+
+def deactivate_global_rules_if_every_provider_has_specific_rule(db: Session) -> None:
+    active_provider_codes = set(
+        db.scalars(
+            select(PricingRule.provider_code).where(
+                PricingRule.active.is_(True),
+                PricingRule.provider_code.is_not(None),
+            ),
+        ).all(),
+    )
+    if set(PROVIDER_CODES).issubset(active_provider_codes):
+        deactivate_active_rules_for_scope(db, None)
 
 
 def get_effective_pricing_rule(db: Session, provider_code: str, settings: Settings | None = None) -> PricingRule:

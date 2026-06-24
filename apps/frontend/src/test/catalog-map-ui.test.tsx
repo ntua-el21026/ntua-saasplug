@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,8 @@ import App from "../App";
 import type { CatalogPoint, CatalogSearchCircleResponse, ProviderFreshness, User } from "../lib/types";
 
 const STORAGE_KEY = "saasplug.ev.session";
+const VIEWPORT_STORAGE_KEY = "saasplug.catalog.viewport.v1";
+const ASYNC_WAIT = { timeout: 5_000 };
 
 const user: User = {
   id: "ev-user-id",
@@ -29,6 +31,7 @@ describe("catalog map UI", () => {
     cleanup();
     vi.unstubAllGlobals();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     window.history.pushState({}, "", "/");
   });
 
@@ -39,15 +42,21 @@ describe("catalog map UI", () => {
 
     render(<App />);
 
-    expect(await screen.findByLabelText("Charging point filters and results")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Charging point filters and results", undefined, ASYNC_WAIT)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Filters" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show filters" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByLabelText("Charger type")).not.toBeInTheDocument();
-    expect(await screen.findByText("Zoom 15 out of 17")).toBeInTheDocument();
-    expect(await screen.findByText("3 results")).toBeInTheDocument();
+    expect(await screen.findByText("3 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Map viewport controls")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "N" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "W" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "E" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "S" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show Outside Hub 99 on map" })).not.toBeInTheDocument();
     expect(screen.queryByText("Outside Hub 99")).not.toBeInTheDocument();
-    expect(await screen.findByLabelText("Current catalog radius")).toHaveTextContent(/km radius/);
+    expect(await screen.findByLabelText("Current catalog radius", undefined, ASYNC_WAIT)).toHaveTextContent(/km radius/);
     const pointCall = fetchMock.mock.calls.find(([input]) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       return new URL(raw, "http://app.test").pathname === "/api/catalog/points";
@@ -75,13 +84,18 @@ describe("catalog map UI", () => {
     expect(screen.getAllByRole("link", { name: "Map" })).toHaveLength(1);
     expect(screen.getAllByRole("link", { name: "Reservations" })).toHaveLength(1);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Show Red Hub 01 on map" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Show Red Hub 01 details" }, ASYNC_WAIT));
 
-    const popup = await screen.findByLabelText("Red Hub 01 quick details");
+    const popup = await screen.findByLabelText("Red Hub 01 quick details", undefined, ASYNC_WAIT);
     expect(within(popup).getByRole("heading", { name: "Red Hub 01" })).toBeInTheDocument();
     expect(within(popup).getByText("Point ID")).toBeInTheDocument();
     expect(within(popup).getAllByText("redPlug").length).toBeGreaterThan(0);
     expect(within(popup).getByRole("link", { name: "Reserve charger" })).toHaveAttribute("href", "/points/redPlug/r-1");
+    const pointViewCalls = catalogPointViewCalls(fetchMock);
+    expect(pointViewCalls).toHaveLength(1);
+    expect(pointViewCalls[0].url.pathname).toBe("/api/catalog/points/redPlug/r-1/views");
+    expect(pointViewCalls[0].init?.method).toBe("POST");
+    expect(JSON.parse(String(pointViewCalls[0].init?.body))).toEqual({ view_source: "map_quick_view" });
 
     await userEvent.click(screen.getByRole("button", { name: "Show filters" }));
     const chargerTypeSelect = screen.getByLabelText("Charger type");
@@ -100,14 +114,14 @@ describe("catalog map UI", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("3 results")).toBeInTheDocument();
+    expect(await screen.findByText("3 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
     const initialPointCall = latestCatalogPointCall(fetchMock);
     expect(initialPointCall).toBeDefined();
     const initialRadiusKm = Number(initialPointCall?.searchParams.get("radiusKm"));
 
-    await userEvent.click(screen.getByRole("button", { name: "-" }));
+    await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
 
-    expect(await screen.findByText("4 results")).toBeInTheDocument();
+    expect(await screen.findByText("4 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
     const zoomedPointCall = latestCatalogPointCall(fetchMock);
     expect(zoomedPointCall).toBeDefined();
     if (!zoomedPointCall) {
@@ -115,7 +129,7 @@ describe("catalog map UI", () => {
     }
     const zoomedRadiusKm = Number(zoomedPointCall.searchParams.get("radiusKm"));
     expect(zoomedRadiusKm).toBeGreaterThan(initialRadiusKm);
-    expect(await screen.findByLabelText("Current catalog radius")).toHaveTextContent(`${zoomedRadiusKm.toFixed(1)} km radius`);
+    expect(await screen.findByLabelText("Current catalog radius", undefined, ASYNC_WAIT)).toHaveTextContent(`${zoomedRadiusKm.toFixed(1)} km radius`);
     await waitFor(() => {
       expect(radiusKmFromSource(searchCircleFromUrl(zoomedPointCall))).toBeCloseTo(zoomedRadiusKm, 2);
     });
@@ -123,6 +137,47 @@ describe("catalog map UI", () => {
     expect(document.querySelector('[data-point-id="green-zoom-out"]')).toBeInTheDocument();
     expect(screen.queryByText("Very Far Hub")).not.toBeInTheDocument();
     expect(document.querySelector('[data-point-id="red-far-outside"]')).not.toBeInTheDocument();
+  }, 10_000);
+
+  it("preserves the adjusted map viewport when the map route is reopened", async () => {
+    mockGateway();
+    storeSession();
+    window.history.pushState({}, "", "/map");
+
+    const firstView = render(<App />);
+
+    expect(await screen.findByText("3 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    await waitFor(() => {
+      expect(readStoredViewport()?.zoom).toBe(14);
+    });
+    firstView.unmount();
+
+    const reopenedView = render(<App />);
+
+    expect(await screen.findByText("4 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
+    expect(readStoredViewport()?.zoom).toBe(14);
+    reopenedView.unmount();
+  }, 10_000);
+
+  it("opens and exits fullscreen map mode with the result list preserved", async () => {
+    mockGateway();
+    storeSession();
+    window.history.pushState({}, "", "/map");
+
+    render(<App />);
+
+    expect(await screen.findByText("3 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /full screen/i }));
+
+    expect(screen.getByRole("button", { name: /exit fullscreen/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Charging point filters and results")).toBeInTheDocument();
+    expect(screen.getByLabelText("Map viewport")).toBeInTheDocument();
+    expect(screen.getByText("Red Hub 01")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.getByRole("button", { name: /full screen/i })).toHaveAttribute("aria-pressed", "false");
   }, 10_000);
 
   it("ignores stale catalog responses after the search circle changes", async () => {
@@ -166,10 +221,10 @@ describe("catalog map UI", () => {
     render(<App />);
 
     await waitFor(() => expect(catalogCalls).toHaveLength(1), { timeout: 3_000 });
-    await userEvent.click(screen.getByRole("button", { name: "E" }));
+    await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
     await waitFor(() => expect(catalogCalls).toHaveLength(2), { timeout: 3_000 });
 
-    expect(await screen.findByText("Shifted Hub")).toBeInTheDocument();
+    expect(await screen.findByText("Shifted Hub", undefined, ASYNC_WAIT)).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector('[data-point-id="green-shifted"]')).toBeInTheDocument());
 
     staleResponse.resolve(json({
@@ -201,6 +256,15 @@ function latestCatalogPointCall(fetchMock: ReturnType<typeof mockGateway>): URL 
   return pointCalls[pointCalls.length - 1];
 }
 
+function catalogPointViewCalls(fetchMock: ReturnType<typeof mockGateway>) {
+  return fetchMock.mock.calls
+    .map(([input, init]) => {
+      const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      return { url: new URL(raw, "http://app.test"), init };
+    })
+    .filter(({ url }) => url.pathname.endsWith("/views"));
+}
+
 function storeSession() {
   window.localStorage.setItem(
     STORAGE_KEY,
@@ -213,8 +277,13 @@ function storeSession() {
   );
 }
 
+function readStoredViewport(): { zoom?: number } | null {
+  const stored = window.sessionStorage.getItem(VIEWPORT_STORAGE_KEY);
+  return stored ? JSON.parse(stored) as { zoom?: number } : null;
+}
+
 function mockGateway() {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const url = new URL(raw, "http://app.test");
 
@@ -244,6 +313,16 @@ function mockGateway() {
         missing_coordinates_count: 0,
         search_circle: searchCircleFromUrl(url),
       });
+    }
+
+    const pointViewMatch = url.pathname.match(/^\/api\/catalog\/points\/([^/]+)\/([^/]+)\/views$/);
+    if (pointViewMatch) {
+      const [, providerCode, externalPointId] = pointViewMatch;
+      const viewedPoint = points.find((item) => (
+        item.provider_code === decodeURIComponent(providerCode)
+        && item.external_point_id === decodeURIComponent(externalPointId)
+      ));
+      return viewedPoint ? json(viewedPoint) : json({ detail: "Catalog point not found" }, 404);
     }
 
     return json({});
@@ -297,10 +376,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function json<T>(body: T): Response {
+function json<T>(body: T, status = 200): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
-    status: 200,
+    status,
   });
 }
 

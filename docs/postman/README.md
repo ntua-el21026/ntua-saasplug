@@ -44,6 +44,33 @@ Import `saasPlug.local.postman_environment.json` into Postman and fill only your
 demoPassword
 ```
 
+The Newman scripts do not require storing `demoPassword` in the Postman environment JSON. They read the seeded demo password from a local app env file without sourcing it and pass only that value to Newman as an in-memory `--env-var`.
+
+Supported password variable names are checked in this order:
+
+```text
+DEMO_USER_PASSWORD
+DEMO_PASSWORD
+SEED_DEMO_PASSWORD
+AUTH_DEMO_PASSWORD
+AUTH_SEED_PASSWORD
+SAASPLUG_DEMO_PASSWORD
+```
+
+Env-file precedence for every runner script:
+
+```text
+1. scripts/postman/run-*.sh --env-file <path>
+2. SAASPLUG_ENV_FILE=<path> scripts/postman/run-*.sh
+3. .env
+```
+
+`POSTMAN_ENV_FILE` still overrides the Postman environment JSON path:
+
+```bash
+POSTMAN_ENV_FILE=docs/postman/saasPlug.local.postman_environment.json scripts/postman/run-smoke.sh --env-file .env
+```
+
 Use the seeded emails already present in the environment:
 
 ```text
@@ -68,14 +95,21 @@ The collections capture access and refresh tokens into environment variables suc
 From the repository root:
 
 ```bash
-scripts/postman/run-smoke.sh
-scripts/postman/run-regression.sh
-scripts/postman/run-security.sh
-scripts/postman/run-mutation.sh
-scripts/postman/run-all-local.sh
+scripts/postman/run-smoke.sh --env-file .env
+scripts/postman/run-regression.sh --env-file .env
+scripts/postman/run-security.sh --env-file .env
+scripts/postman/run-mutation.sh --env-file .env
 ```
 
-The runner scripts write reports to `reports/postman/`. They run `npx --yes newman`, fail on failed tests, and do not print credentials.
+Or use an environment variable instead of a CLI flag:
+
+```bash
+SAASPLUG_ENV_FILE=.env scripts/postman/run-smoke.sh
+```
+
+The runner scripts write reports to `reports/postman/`. They run `npx --yes newman`, fail on failed tests, and do not print credentials. `reports/` is ignored by git because exported Newman environments can contain live access and refresh tokens.
+
+`scripts/postman/run-all-local.sh` supports the same `--env-file` and `SAASPLUG_ENV_FILE` behavior, but it is not required for step-by-step validation. Prefer running smoke, regression, security, and mutation explicitly when diagnosing failures.
 
 ## Call-count estimates
 
@@ -140,6 +174,8 @@ Manual or skipped-by-default requests:
 - Scheduler job run and ordered maintenance run.
 
 Those requests may call provider services, read external provider APIs, issue local invoices, publish/drain queues, or mutate scheduler targets. They are in the manual folder and default to `/health` unless `allowManualMutations=true` is set.
+
+The broad manual mutation folder remains disabled unless explicitly enabled. The safe mutation runner does not execute provider imports, high-volume reservation creation, event drains, invoice issuance, mock payment, or broad scheduler run endpoints.
 
 ## Empty catalog behavior
 

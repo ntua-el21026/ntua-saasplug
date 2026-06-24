@@ -71,9 +71,11 @@ point_view_fee_enabled = true
 reservation_failure_fee = 0.00 EUR
 ```
 
-Operators can create active global or provider-specific override rules. When a
-new active rule is created for a scope, older active rules for the same scope
-are deactivated.
+Operators can create active global or provider-specific override rules. Only
+one global rule can be active at a time, and only one rule per provider can be
+active at a time. Provider-specific active rules override the global fallback.
+When all three providers have active provider-specific rules, global rules are
+deactivated. Activating a global rule deactivates provider-specific rules.
 
 Provider admins can read only their own effective provider pricing.
 
@@ -87,7 +89,8 @@ Billing consumes canonical `packages/events` envelopes for:
 
 `reservation.succeeded` creates one unbilled `reservation_success` charge.
 `usage.point_viewed` creates one unbilled `point_view` charge only when the
-effective pricing rule enables the point-view fee. `reservation.failed` is
+effective pricing rule enables the point-view fee. These events include both
+map/list quick views and full point-detail views. `reservation.failed` is
 recorded and skipped by default because the seeded failure fee is `0.00`.
 
 Charge idempotency is enforced by `charge_records.source_event_id`, which is the

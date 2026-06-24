@@ -39,7 +39,7 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
     provider_hourly: dict[tuple[str, datetime], dict] = {}
     provider_daily: dict[tuple[str, object], dict] = {}
     point_daily: dict[tuple[str, object, str | None, str | None], dict] = {}
-    point_status_observations: dict[tuple[str, object, str], tuple[datetime, str]] = {}
+    point_view_status_daily: dict[tuple[str, object, str], int] = {}
     operator_daily: dict[object, dict] = {}
     ev_reservation_daily: dict[tuple[str, object], dict] = {}
 
@@ -96,18 +96,10 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
                     point_bucket["point_name"] = event.point_name
                 apply_point_event(point_bucket, event)
 
-            status_value = status_observation_from_event(event)
-            point_identifier = event.internal_point_id or event.external_point_id
-            if status_value is not None and point_identifier:
-                observation_key = (event.provider_code, event_day, point_identifier)
-                previous_observation = point_status_observations.get(observation_key)
-                if previous_observation is None or event.occurred_at >= previous_observation[0]:
-                    point_status_observations[observation_key] = (event.occurred_at, status_value)
-
-    provider_status_daily: dict[tuple[str, object, str], int] = {}
-    for (provider_code, day_bucket, _), (_, status_value) in point_status_observations.items():
-        status_key = (provider_code, day_bucket, status_value)
-        provider_status_daily[status_key] = provider_status_daily.get(status_key, 0) + 1
+            status_value = point_view_status_from_event(event)
+            if status_value is not None:
+                status_key = (event.provider_code, event_day, status_value)
+                point_view_status_daily[status_key] = point_view_status_daily.get(status_key, 0) + 1
 
     for bucket in provider_hourly.values():
         db.add(
@@ -146,7 +138,7 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
     for bucket in point_daily.values():
         db.add(PointDailyMetric(**bucket, last_computed_at=refreshed_at))
 
-    for (provider_code, day_bucket, status_value), count in provider_status_daily.items():
+    for (provider_code, day_bucket, status_value), count in point_view_status_daily.items():
         db.add(
             ProviderStatusDailyMetric(
                 provider_code=provider_code,
@@ -198,7 +190,7 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
         provider_hourly_rows=len(provider_hourly),
         provider_daily_rows=len(provider_daily),
         point_daily_rows=len(point_daily),
-        provider_status_daily_rows=len(provider_status_daily),
+        provider_status_daily_rows=len(point_view_status_daily),
         operator_daily_rows=len(operator_daily),
         ev_reservation_daily_rows=len(ev_reservation_daily),
         refreshed_at=refreshed_at,
@@ -308,12 +300,10 @@ def apply_point_event(bucket: dict, event: UsageEvent) -> None:
         bucket["failed_reservations"] += 1
 
 
-def status_observation_from_event(event: UsageEvent) -> str | None:
-    if event.event_type == EventType.STATUS_POINT_CHECKED.value:
-        return normalized_status(event.status)
-    if event.event_type == EventType.RESERVATION_SUCCEEDED.value:
-        return normalized_status(string_value(event.payload, "provider_status", "providerStatus")) or "reserved"
-    return None
+def point_view_status_from_event(event: UsageEvent) -> str | None:
+    if event.event_type != EventType.USAGE_POINT_VIEWED.value:
+        return None
+    return normalized_status(event.status) or "unknown"
 
 
 def normalized_status(value: str | None) -> str | None:

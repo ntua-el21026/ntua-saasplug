@@ -50,7 +50,10 @@ vi.mock("maplibre-gl", () => {
       this.bounds = this.boundsForCurrentView();
     }
 
-    addControl() {
+    addControl(control: unknown, position: string = "top-right") {
+      if (control instanceof MockNavigationControl) {
+        this.addNavigationControls(position);
+      }
       return this;
     }
 
@@ -149,6 +152,41 @@ vi.mock("maplibre-gl", () => {
 
     remove() {
       this.container.replaceChildren();
+    }
+
+    resize() {
+      this.bounds = this.boundsForCurrentView();
+      return this;
+    }
+
+    private addNavigationControls(position: string) {
+      const corner = document.createElement("div");
+      corner.className = `maplibregl-ctrl-${position}`;
+
+      const group = document.createElement("div");
+      group.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+      const zoomIn = document.createElement("button");
+      zoomIn.type = "button";
+      zoomIn.setAttribute("aria-label", "Zoom in");
+      zoomIn.textContent = "+";
+      zoomIn.addEventListener("click", () => this.changeZoom(1));
+
+      const zoomOut = document.createElement("button");
+      zoomOut.type = "button";
+      zoomOut.setAttribute("aria-label", "Zoom out");
+      zoomOut.textContent = "-";
+      zoomOut.addEventListener("click", () => this.changeZoom(-1));
+
+      group.append(zoomIn, zoomOut);
+      corner.append(group);
+      this.container.appendChild(corner);
+    }
+
+    private changeZoom(delta: number) {
+      this.zoom += delta;
+      this.bounds = this.boundsForCurrentView();
+      this.emit("moveend");
     }
 
     private emit(event: string) {
