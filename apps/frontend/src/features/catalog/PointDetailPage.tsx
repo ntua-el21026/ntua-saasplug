@@ -13,6 +13,13 @@ import { requestJson, messageFromUnknownError } from "../../lib/api";
 import { formatCapacity, formatCostPerKwh, formatDateTime } from "../../lib/formatting";
 import type { CatalogPointDetail, Reservation, StatusCacheResponse, StatusLookupResponse } from "../../lib/types";
 
+function newReservationIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `reservation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function PointDetailPage() {
   const { providerCode = "", externalPointId = "" } = useParams();
   const { session } = useAuth();
@@ -24,6 +31,7 @@ export function PointDetailPage() {
   const [statusLoading, setStatusLoading] = useState(false);
   const [reservationLoading, setReservationLoading] = useState(false);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [reservationIdempotencyKey, setReservationIdempotencyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [reservationError, setReservationError] = useState<string | null>(null);
@@ -110,12 +118,17 @@ export function PointDetailPage() {
       setReservationLoading(false);
       return;
     }
+    const idempotencyKey = reservationIdempotencyKey ?? newReservationIdempotencyKey();
+    if (!reservationIdempotencyKey) {
+      setReservationIdempotencyKey(idempotencyKey);
+    }
     try {
       const payload = await requestJson<Reservation>(
         `/api/reservations/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/reservations`,
         {
           method: "POST",
           accessToken: session?.accessToken,
+          headers: { "Idempotency-Key": idempotencyKey },
           bodyJson: { duration_minutes: parsedDuration },
         },
       );
@@ -124,6 +137,13 @@ export function PointDetailPage() {
       setReservationError(messageFromUnknownError(caught));
     } finally {
       setReservationLoading(false);
+    }
+  }
+
+  function closeReservationDialog() {
+    setReservationDialogOpen(false);
+    if (!reservationLoading) {
+      setReservationIdempotencyKey(null);
     }
   }
 
@@ -267,13 +287,16 @@ export function PointDetailPage() {
                       step={1}
                       required
                       value={durationMinutes}
-                      onChange={(event) => setDurationMinutes(event.target.value)}
+                      onChange={(event) => {
+                        setDurationMinutes(event.target.value);
+                        setReservationIdempotencyKey(null);
+                      }}
                     />
                   </label>
                   <button className="button-primary" type="submit" disabled={reservationLoading}>
                     {reservationLoading ? "Checking availability..." : "Create reservation"}
                   </button>
-                  <ReservationModal open={reservationDialogOpen} title="Reservation status" onClose={() => setReservationDialogOpen(false)}>
+                  <ReservationModal open={reservationDialogOpen} title="Reservation status" onClose={closeReservationDialog}>
                     {reservationLoading ? <LoadingBlock label="Checking provider availability" /> : null}
                     {reservation ? (
                       <Alert dismissible={false} tone={reservation.status === "succeeded" ? "success" : "warning"} title="Reservation response">

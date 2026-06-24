@@ -1,6 +1,7 @@
 import os
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
+from urllib.parse import urlparse
 
 
 PROVIDER_CODES = ("redPlug", "greenPlug", "bluePlug")
@@ -41,6 +42,36 @@ def _get_decimal_env(name: str, default: str) -> Decimal:
         return Decimal(default)
 
 
+def is_placeholder(value: str | None) -> bool:
+    if value is None:
+        return True
+    normalized = value.strip()
+    return normalized in {
+        "",
+        "guest",
+        "replace-me",
+        "change-me",
+        "change-me-in-local-env",
+        "change-me-scheduler-token",
+    } or normalized.startswith("change-me")
+
+
+def strict_secret_validation_enabled() -> bool:
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    return _get_bool_env("SAASPLUG_STRICT_SECRETS", False) or app_env in {"production", "demo"}
+
+
+def validate_required_secret(name: str, value: str | None) -> None:
+    if is_placeholder(value):
+        raise RuntimeError(f"{name} must be set to a non-placeholder value when strict secret validation is enabled")
+
+
+def validate_rabbitmq_url(value: str) -> None:
+    parsed = urlparse(value)
+    if parsed.scheme not in {"amqp", "amqps"} or is_placeholder(parsed.username) or is_placeholder(parsed.password):
+        raise RuntimeError("RABBITMQ_URL must use non-placeholder credentials when strict secret validation is enabled")
+
+
 class Settings:
     def __init__(self) -> None:
         self.service_name = os.getenv("SERVICE_NAME", "billing-service")
@@ -76,6 +107,10 @@ class Settings:
             "0.00",
         )
         self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
+        if strict_secret_validation_enabled():
+            validate_required_secret("JWT_SECRET", self.jwt_secret)
+            validate_required_secret("SCHEDULER_INTERNAL_TOKEN", self.scheduler_internal_token)
+            validate_rabbitmq_url(self.rabbitmq_url)
 
 
 @lru_cache

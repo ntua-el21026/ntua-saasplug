@@ -105,6 +105,11 @@ The payment flow is mock and full-invoice only: it creates one payment record,
 marks the invoice `paid`, marks invoice charges `paid`, and stages a
 `billing.invoice_paid` outbox event.
 
+Invoice payment is guarded so an invoice can have only one successful payment.
+The payment path reloads the invoice under a database row lock, checks for an
+existing succeeded payment, and relies on a fresh-database unique constraint on
+`payments.invoice_id` to reject duplicate concurrent submissions.
+
 ## API summary
 
 Gateway prefix: `/api/billing/`.
@@ -130,11 +135,11 @@ POST /events/drain
 POST /events/outbox/publish-pending
 ```
 
-`POST /providers/{provider_code}/refresh` is available to operators and to the
-matching provider admin. It performs a bounded billing queue drain so the
-provider invoices page can reflect newly ingested reservation/point-view
-charges. It does not issue invoices, publish the billing outbox, or expose
-another provider's invoice data.
+`POST /providers/{provider_code}/refresh` is operator-only. It performs a
+bounded billing queue drain for administrative refresh workflows. It does not
+issue invoices, publish the billing outbox, or expose another provider's invoice
+data. Provider-admin invoice pages are read-only projection views and cannot
+trigger queue drains.
 
 ## RabbitMQ
 
@@ -187,7 +192,13 @@ BILLING_DEFAULT_POINT_VIEW_FEE
 BILLING_DEFAULT_POINT_VIEW_FEE_ENABLED
 BILLING_DEFAULT_RESERVATION_FAILURE_FEE
 SCHEDULER_INTERNAL_TOKEN
+SAASPLUG_STRICT_SECRETS
+APP_ENV
 ```
+
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT, scheduler-token, and RabbitMQ credential values are rejected
+at startup.
 
 ## Tests
 
@@ -211,6 +222,11 @@ Out of scope:
 - tax/accounting compliance beyond simple display fields,
 - analytics aggregate ownership,
 - frontend screens.
+
+Existing local Docker volumes created before the `payments.invoice_id` unique
+constraint will not be altered by SQLAlchemy `create_all`; recreate development
+volumes or add a service-local migration before relying on that database-level
+constraint in an older local database.
 
 ## References
 

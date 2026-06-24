@@ -76,6 +76,41 @@ class ReservationAttempt(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ReservationIdempotencyRecord(Base):
+    __tablename__ = "reservation_idempotency_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False, unique=True, index=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    provider_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    external_point_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    requested_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="in_progress", index=True)
+    reservation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    response_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+
+class ReservationPointLock(Base):
+    __tablename__ = "reservation_point_locks"
+
+    normalized_point_id: Mapped[str] = mapped_column(String(256), primary_key=True)
+    provider_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    external_point_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    owner_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ReservationEventOutbox(Base):
     __tablename__ = "reservation_event_outbox"
 

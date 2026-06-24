@@ -27,6 +27,7 @@ from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["catalog"])
 EARTH_RADIUS_KM = 6371.0088
+MAX_RADIUS_KM = 10.0
 
 
 def require_scheduler_token(
@@ -176,7 +177,7 @@ def list_points(
     max_lng: float | None = Query(default=None, alias="maxLng"),
     center_lat: float | None = Query(default=None, alias="centerLat"),
     center_lng: float | None = Query(default=None, alias="centerLng"),
-    radius_km: float | None = Query(default=None, alias="radiusKm", gt=0),
+    radius_km: float | None = Query(default=None, alias="radiusKm", gt=0, le=MAX_RADIUS_KM),
     provider_code: str | None = Query(default=None, alias="providerCode"),
     status_filter: str | None = Query(default=None, alias="status"),
     connector: str | None = None,
@@ -313,6 +314,15 @@ def import_provider(
         summary = import_provider_catalog(db, provider_code, principal.email, provider_client)
     finally:
         provider_client.close()
+    if summary.status == "skipped":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "provider_code": summary.provider_code,
+                "run_id": summary.run_id,
+                "message": summary.error_message or "Catalog import is already running for this provider",
+            },
+        )
     if summary.status == "failed":
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -364,6 +374,15 @@ def import_provider_from_scheduler(
         summary = import_provider_catalog(db, provider_code, "scheduler-service", provider_client)
     finally:
         provider_client.close()
+    if summary.status == "skipped":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "provider_code": summary.provider_code,
+                "run_id": summary.run_id,
+                "message": summary.error_message or "Catalog import is already running for this provider",
+            },
+        )
     if summary.status == "failed":
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

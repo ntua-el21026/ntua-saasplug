@@ -16,6 +16,8 @@ JWT_SECRET = "test-jwt-secret"
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'provider-registry-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("JWT_SECRET", JWT_SECRET)
     monkeypatch.setenv("PROVIDER_API_TIMEOUT_SECONDS", "10")
@@ -66,6 +68,36 @@ def test_seed_providers_are_idempotent(client: TestClient) -> None:
 
     assert initial_provider_count == 3
     assert final_provider_count == 3
+    assert final_audit_count == initial_audit_count
+
+
+def test_seed_providers_does_not_overwrite_existing_provider_edits(client: TestClient) -> None:
+    db = get_session_factory()()
+    try:
+        provider = db.query(Provider).filter(Provider.provider_code == "redPlug").one()
+        initial_audit_count = len(db.query(ProviderConfigAuditLog).all())
+        provider.display_name = "Red Plug Managed"
+        provider.legal_name = "Managed Red Plug SA"
+        provider.contact_email = "ops-red@example.com"
+        provider.api_base_url = "https://managed.example.test/red"
+        provider.api_auth_header = "X-Managed-Key"
+        provider.timeout_seconds = 42
+        provider.is_active = False
+        db.commit()
+
+        seed_providers(db, get_settings())
+        db.refresh(provider)
+        final_audit_count = len(db.query(ProviderConfigAuditLog).all())
+    finally:
+        db.close()
+
+    assert provider.display_name == "Red Plug Managed"
+    assert provider.legal_name == "Managed Red Plug SA"
+    assert provider.contact_email == "ops-red@example.com"
+    assert provider.api_base_url == "https://managed.example.test/red"
+    assert provider.api_auth_header == "X-Managed-Key"
+    assert provider.timeout_seconds == 42
+    assert provider.is_active is False
     assert final_audit_count == initial_audit_count
 
 

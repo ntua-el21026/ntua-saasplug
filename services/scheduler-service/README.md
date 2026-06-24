@@ -153,7 +153,12 @@ CATALOG_SERVICE_URL
 ANALYTICS_SERVICE_URL
 BILLING_SERVICE_URL
 RESERVATION_SERVICE_URL
+SAASPLUG_STRICT_SECRETS
+APP_ENV
 ```
+
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT and scheduler-token values are rejected at startup.
 
 ## Commands
 

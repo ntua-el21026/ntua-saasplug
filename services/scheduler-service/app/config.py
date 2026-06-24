@@ -29,6 +29,29 @@ def _get_bool_env(name: str, default: bool) -> bool:
     return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def is_placeholder(value: str | None) -> bool:
+    if value is None:
+        return True
+    normalized = value.strip()
+    return normalized in {
+        "",
+        "replace-me",
+        "change-me",
+        "change-me-in-local-env",
+        "change-me-scheduler-token",
+    } or normalized.startswith("change-me")
+
+
+def strict_secret_validation_enabled() -> bool:
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    return _get_bool_env("SAASPLUG_STRICT_SECRETS", False) or app_env in {"production", "demo"}
+
+
+def validate_required_secret(name: str, value: str | None) -> None:
+    if is_placeholder(value):
+        raise RuntimeError(f"{name} must be set to a non-placeholder value when strict secret validation is enabled")
+
+
 class Settings:
     def __init__(self) -> None:
         self.service_name = os.getenv("SERVICE_NAME", "scheduler-service")
@@ -47,6 +70,9 @@ class Settings:
         self.analytics_service_url = os.getenv("ANALYTICS_SERVICE_URL", "http://analytics-service:8000").rstrip("/")
         self.billing_service_url = os.getenv("BILLING_SERVICE_URL", "http://billing-service:8000").rstrip("/")
         self.reservation_service_url = os.getenv("RESERVATION_SERVICE_URL", "http://reservation-service:8000").rstrip("/")
+        if strict_secret_validation_enabled():
+            validate_required_secret("JWT_SECRET", self.jwt_secret)
+            validate_required_secret("SCHEDULER_INTERNAL_TOKEN", self.internal_token)
 
     def service_url(self, service_name: str) -> str:
         urls = {

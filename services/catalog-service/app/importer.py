@@ -1,12 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import PROVIDER_CODES
-from app.models import CatalogImportRun, CatalogPoint, CatalogPointChange, utcnow
+from app.models import CatalogImportLock, CatalogImportRun, CatalogPoint, CatalogPointChange, utcnow
 from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import ImportSummaryResponse, ProviderPointDTO
 
@@ -20,6 +21,7 @@ SENSITIVE_KEY_PARTS = (
     "credential",
     "token",
 )
+IMPORT_LOCK_TTL_SECONDS = 30 * 60
 
 
 def validate_provider_code(provider_code: str) -> None:
@@ -37,6 +39,12 @@ def parse_datetime(value: str | None) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def ensure_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 def normalize_status(status_value: str | None) -> str:
@@ -148,6 +156,39 @@ def record_point_change(db: Session, point: CatalogPoint, changed_fields: dict[s
     )
 
 
+def acquire_provider_import_lock(db: Session, provider_code: str, owner_run_id: str) -> bool:
+    now = utcnow()
+    existing = db.get(CatalogImportLock, provider_code)
+    if existing is not None:
+        if ensure_aware_utc(existing.expires_at) > now:
+            return False
+        db.delete(existing)
+        db.flush()
+
+    db.add(
+        CatalogImportLock(
+            provider_code=provider_code,
+            owner_run_id=owner_run_id,
+            acquired_at=now,
+            expires_at=now + timedelta(seconds=IMPORT_LOCK_TTL_SECONDS),
+        ),
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return False
+    return True
+
+
+def release_provider_import_lock(db: Session, provider_code: str, owner_run_id: str) -> None:
+    lock = db.get(CatalogImportLock, provider_code)
+    if lock is None or lock.owner_run_id != owner_run_id:
+        return
+    db.delete(lock)
+    db.commit()
+
+
 def upsert_catalog_point(db: Session, provider_point: ProviderPointDTO, sync_time: datetime) -> bool:
     values = point_values(provider_point)
     if values["provider_code"] != provider_point.provider_code:
@@ -217,6 +258,14 @@ def import_provider_catalog(
     db.add(import_run)
     db.commit()
     db.refresh(import_run)
+    lock_acquired = acquire_provider_import_lock(db, provider_code, import_run.id)
+    if not lock_acquired:
+        import_run.status = "skipped"
+        import_run.completed_at = utcnow()
+        import_run.error_message = "Catalog import is already running for this provider"
+        db.commit()
+        db.refresh(import_run)
+        return import_summary(import_run)
 
     try:
         import_run.provider_sync_triggered = True
@@ -252,3 +301,5 @@ def import_provider_catalog(
         db.commit()
         db.refresh(import_run)
         return import_summary(import_run)
+    finally:
+        release_provider_import_lock(db, provider_code, import_run.id)

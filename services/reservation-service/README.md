@@ -30,14 +30,20 @@ Public through `nginx-gateway` under `/api/reservations/...`.
 
 Reservations must follow:
 `frontend -> nginx-gateway -> reservation-service -> provider service -> external provider API`.
-Only after the provider call returns should reservation records and events be
-created or staged.
+The provider reservation call remains synchronous and is never queued through
+RabbitMQ. Before calling the provider, the service may create durable
+idempotency, point-lock, and attempt-journal rows so duplicate requests and
+ambiguous provider-success/local-failure states can be inspected. Reservation
+result rows and outbox events are created or staged only after the provider
+call returns.
 
 The service implements:
 
 - reservation truth persistence in `reservations`;
 - successful, failed, and unknown reservation attempt persistence in
   `reservation_attempts`;
+- request idempotency persistence in `reservation_idempotency_records`;
+- short-lived point-level reservation guards in `reservation_point_locks`;
 - pending staged events in `reservation_event_outbox`;
 - catalog point resolution through `catalog-service` before provider calls;
 - synchronous reservation calls to the relevant internal provider service;
@@ -45,6 +51,19 @@ The service implements:
   estimated energy, estimated cost, estimate currency, and estimate basis;
 - JWT-compatible role and provider scoping;
 - safe normalized error responses that do not expose raw provider errors.
+
+Reservation creation accepts an `Idempotency-Key` header. If the request body
+also contains `idempotency_key`, it must match the header. Replaying the same
+user, endpoint, request payload, and idempotency key returns the existing
+result without another provider call. Reusing a key for a different request,
+submitting while the same key is still in progress, or attempting to reserve a
+point with an active local successful reservation returns HTTP 409.
+
+Provider-side unavailable/reserved/missing-point failures are normalized to
+HTTP 409 with a user-safe message. Provider timeouts remain HTTP 504 with an
+unknown attempt state. If the provider reports success but local persistence
+fails, the pre-provider-call attempt journal is marked `unknown` with failure
+metadata; the service does not perform live compensating provider mutations.
 
 RabbitMQ publishing for staged outbox rows is triggered separately from the
 reservation provider-call path so user-facing reservation creation does not
@@ -151,6 +170,7 @@ Reservation creation through the gateway:
 curl -X POST \
   http://localhost:8080/api/reservations/points/redPlug/101/reservations \
   -H "Authorization: Bearer <access-token>" \
+  -H "Idempotency-Key: <client-generated-uuid>" \
   -H "Content-Type: application/json" \
   -d '{"duration_minutes":60}'
 ```
@@ -171,9 +191,14 @@ RABBITMQ_PUBLISH_TIMEOUT_SECONDS
 RABBITMQ_TOPOLOGY_DECLARE_ON_STARTUP
 RESERVATION_OUTBOX_PUBLISH_BATCH_SIZE
 SCHEDULER_INTERNAL_TOKEN
+SAASPLUG_STRICT_SECRETS
+APP_ENV
 ```
 
 `RABBITMQ_EVENT_EXCHANGE` defaults to `saasplug.events`.
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like, unsafe
+placeholder JWT, scheduler-token, and RabbitMQ credential values are rejected
+at startup.
 
 ## Tests
 

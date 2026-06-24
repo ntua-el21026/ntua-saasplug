@@ -54,9 +54,12 @@ when issued.
 
 ## Demo Users
 
-Demo users are seeded idempotently at startup. The demo password comes from
-`DEMO_USER_PASSWORD` and defaults to the safe local placeholder in
-`.env.example`.
+Demo users are seeded idempotently at startup. By default, startup inserts
+missing demo users but does not overwrite existing user roles, provider scopes,
+password hashes, or active flags. Set `RESET_DEMO_USERS_ON_STARTUP=true` only
+for an intentional local/demo reset back to the canonical seed values. The demo
+password comes from `DEMO_USER_PASSWORD` and defaults to the safe local
+placeholder in `.env.example`.
 
 | Email | Role | Provider scope |
 |---|---|---|
@@ -235,8 +238,13 @@ Relevant variables:
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret placeholder |
 | `GOOGLE_REDIRECT_URI` | backend OAuth callback URL registered in Google Console |
 | `GOOGLE_FRONTEND_CALLBACK_URI` | browser route that receives the post-exchange frontend handoff |
+| `RESET_DEMO_USERS_ON_STARTUP` | optional local/demo reset of existing seeded accounts |
+| `SAASPLUG_STRICT_SECRETS` | rejects unsafe placeholder secrets when enabled |
+| `APP_ENV` | production-like values enable strict placeholder validation |
 
 Do not commit real secrets or `.env`.
+When `SAASPLUG_STRICT_SECRETS=true` or `APP_ENV` is production-like,
+placeholder JWT and demo-password values are rejected at startup.
 
 ## Boundary Notes
 

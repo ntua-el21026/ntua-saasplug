@@ -68,13 +68,14 @@ def seed_demo_users(db: Session, settings: Settings) -> None:
             )
             continue
 
-        user.password_hash = demo_password_hash
-        user.auth_provider = "local"
-        user.google_subject = None
-        user.last_login_method = "local"
-        user.roles = [role]
-        user.provider_id = provider_id
-        user.provider_code = provider_code
-        user.is_active = True
+        if settings.reset_demo_users_on_startup:
+            user.password_hash = demo_password_hash
+            user.auth_provider = "local"
+            user.google_subject = None
+            user.last_login_method = "local"
+            user.roles = [role]
+            user.provider_id = provider_id
+            user.provider_code = provider_code
+            user.is_active = True
 
     db.commit()

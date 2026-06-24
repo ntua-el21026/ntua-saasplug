@@ -14,7 +14,7 @@ from app.schemas import (
     StatusCheckLogResponse,
     StatusLookupResponse,
 )
-from app.security import ensure_log_reader, get_current_principal
+from app.security import ensure_can_query_point_status, ensure_log_reader, get_current_principal
 from app.status_logic import get_cache, lookup_status, validate_provider_code
 from saasplug_events.routing import EventType
 
@@ -71,6 +71,7 @@ def read_point_status(
         validate_provider_code(provider_code)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    ensure_can_query_point_status(principal, provider_code)
     provider_client = ProviderServiceClient(settings)
     try:
         response = lookup_status(
@@ -132,12 +133,13 @@ def read_cached_status(
     provider_code: str,
     external_point_id: str,
     db: Session = Depends(get_db),
-    _: CurrentPrincipal = Depends(get_current_principal),
+    principal: CurrentPrincipal = Depends(get_current_principal),
 ) -> StatusCacheResponse:
     try:
         validate_provider_code(provider_code)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    ensure_can_query_point_status(principal, provider_code)
     cache = get_cache(db, provider_code, external_point_id)
     if cache is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status cache entry not found")

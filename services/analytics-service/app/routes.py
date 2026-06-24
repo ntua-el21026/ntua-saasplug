@@ -2,6 +2,7 @@ import csv
 import io
 import json
 from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Response, status
@@ -375,44 +376,81 @@ def export_usage_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(
-        [
-            "occurred_at",
-            "event_type",
-            "provider_code",
-            "internal_point_id",
-            "external_point_id",
-            "point_name",
-            "user_id",
-            "reservation_id",
-            "status",
-            "amount",
-            "currency",
-            "details",
-        ],
-    )
-    for row in rows:
+    if "OPERATOR" in principal.roles:
         writer.writerow(
             [
-                row.occurred_at.isoformat(),
-                row.event_type,
-                row.provider_code or "",
-                row.internal_point_id or "",
-                row.external_point_id or "",
-                row.point_name or "",
-                row.user_id or "",
-                row.reservation_id or "",
-                row.status or "",
-                "" if row.amount is None else row.amount,
-                row.currency or "",
-                json.dumps(row.payload, sort_keys=True, separators=(",", ":")),
+                "occurred_at",
+                "event_type",
+                "provider_code",
+                "internal_point_id",
+                "external_point_id",
+                "point_name",
+                "user_id",
+                "reservation_id",
+                "status",
+                "amount",
+                "currency",
+                "details",
             ],
         )
+        for row in rows:
+            writer.writerow(
+                [
+                    row.occurred_at.isoformat(),
+                    row.event_type,
+                    row.provider_code or "",
+                    row.internal_point_id or "",
+                    row.external_point_id or "",
+                    row.point_name or "",
+                    row.user_id or "",
+                    row.reservation_id or "",
+                    row.status or "",
+                    "" if row.amount is None else row.amount,
+                    row.currency or "",
+                    json.dumps(row.payload, sort_keys=True, separators=(",", ":")),
+                ],
+            )
+    else:
+        writer.writerow(
+            [
+                "occurred_at",
+                "event_type",
+                "provider_code",
+                "internal_point_id",
+                "external_point_id",
+                "point_name",
+                "status",
+                "amount",
+                "currency",
+                "reservation_reference",
+            ],
+        )
+        for row in rows:
+            writer.writerow(
+                [
+                    row.occurred_at.isoformat(),
+                    row.event_type,
+                    row.provider_code or "",
+                    row.internal_point_id or "",
+                    row.external_point_id or "",
+                    row.point_name or "",
+                    row.status or "",
+                    "" if row.amount is None else row.amount,
+                    row.currency or "",
+                    reservation_reference(row.reservation_id),
+                ],
+            )
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="saasplug-usage-{job.id}.csv"'},
     )
+
+
+def reservation_reference(reservation_id: str | None) -> str:
+    if not reservation_id:
+        return ""
+    return sha256(reservation_id.encode("utf-8")).hexdigest()[:16]
 
 
 def ingest_response(results: list[IngestResult]) -> IngestResponse:

@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.event_publisher import stage_outbox_event
@@ -113,6 +114,10 @@ def pay_invoice(
     paid_by_email: str,
     mock_payment_reference: str | None = None,
 ) -> Payment:
+    locked_invoice = db.scalar(select(Invoice).where(Invoice.id == invoice.id).with_for_update())
+    if locked_invoice is not None:
+        invoice = locked_invoice
+
     if invoice.status == "paid":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -122,6 +127,17 @@ def pay_invoice(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error_type": "invoice_not_payable", "message": "Only issued invoices can be paid"},
+        )
+
+    existing_payment = db.scalar(
+        select(Payment)
+        .where(Payment.invoice_id == invoice.id, Payment.status == "succeeded")
+        .limit(1),
+    )
+    if existing_payment is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error_type": "duplicate_invoice_payment", "message": "Invoice already has a successful payment"},
         )
 
     reference = mock_payment_reference or f"MOCK-{invoice.invoice_number}-001"
@@ -143,7 +159,14 @@ def pay_invoice(
         for charge in db.scalars(select(ChargeRecord).where(ChargeRecord.id.in_(charge_ids))).all():
             charge.status = "paid"
 
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error_type": "duplicate_invoice_payment", "message": "Invoice already has a successful payment"},
+        ) from exc
     stage_outbox_event(
         db,
         EventType.BILLING_INVOICE_PAID.value,
@@ -164,7 +187,14 @@ def pay_invoice(
             "mock_payment_reference": payment.mock_payment_reference,
         },
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error_type": "duplicate_invoice_payment", "message": "Invoice already has a successful payment"},
+        ) from exc
     db.refresh(payment)
     return payment
 

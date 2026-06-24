@@ -5,8 +5,12 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from app.database import reset_database_for_tests
+from app.config import get_settings
+from app.database import get_session_factory, reset_database_for_tests
 from app.main import app
+from app.models import User
+from app.seed import seed_demo_users
+from app.security import hash_password
 
 
 DEMO_PASSWORD = "test-demo-password"
@@ -15,6 +19,8 @@ DEMO_PASSWORD = "test-demo-password"
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'auth-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("JWT_SECRET", "test-jwt-secret")
     monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PASSWORD)
@@ -43,6 +49,74 @@ def test_health_endpoint_remains_available(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"service": "auth-service", "status": "healthy"}
+
+
+def test_demo_user_edits_survive_default_seed_execution(client: TestClient) -> None:
+    db = get_session_factory()()
+    try:
+        user = db.query(User).filter(User.email == "red-admin@saasplug.local").one()
+        custom_hash = hash_password("changed-local-password")
+        user.password_hash = custom_hash
+        user.auth_provider = "google"
+        user.google_subject = "existing-google-subject"
+        user.last_login_method = "google"
+        user.roles = ["EV_USER"]
+        user.provider_id = None
+        user.provider_code = None
+        user.is_active = False
+        db.commit()
+
+        seed_demo_users(db, get_settings())
+        db.refresh(user)
+
+        assert user.password_hash == custom_hash
+        assert user.auth_provider == "google"
+        assert user.google_subject == "existing-google-subject"
+        assert user.last_login_method == "google"
+        assert user.roles == ["EV_USER"]
+        assert user.provider_id is None
+        assert user.provider_code is None
+        assert user.is_active is False
+    finally:
+        db.close()
+
+
+def test_demo_user_seed_can_be_explicitly_reset_for_local_setup(client: TestClient, monkeypatch) -> None:
+    db = get_session_factory()()
+    try:
+        user = db.query(User).filter(User.email == "red-admin@saasplug.local").one()
+        user.password_hash = hash_password("changed-local-password")
+        user.roles = ["EV_USER"]
+        user.provider_id = None
+        user.provider_code = None
+        user.is_active = False
+        db.commit()
+
+        monkeypatch.setenv("RESET_DEMO_USERS_ON_STARTUP", "true")
+        seed_demo_users(db, get_settings())
+        db.refresh(user)
+
+        assert user.roles == ["PROVIDER_ADMIN"]
+        assert user.provider_code == "redPlug"
+        assert user.provider_id
+        assert user.is_active is True
+    finally:
+        db.close()
+
+
+def test_strict_secret_validation_rejects_auth_placeholders(monkeypatch) -> None:
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "true")
+    monkeypatch.setenv("JWT_SECRET", "change-me-in-local-env")
+    monkeypatch.setenv("DEMO_USER_PASSWORD", "strict-demo-password")
+
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        get_settings()
+
+    monkeypatch.setenv("JWT_SECRET", "strict-jwt-secret")
+    monkeypatch.setenv("DEMO_USER_PASSWORD", "change-me-demo-password")
+
+    with pytest.raises(RuntimeError, match="DEMO_USER_PASSWORD"):
+        get_settings()
 
 
 def test_seed_user_can_login_and_call_me(client: TestClient) -> None:

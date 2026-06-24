@@ -164,6 +164,16 @@ curl -X POST http://localhost:8080/api/auth/auth/login \
   -d '{"email":"operator@saasplug.local","password":"change-me-demo-password"}'
 ```
 
+Startup inserts missing demo users by default but does not overwrite existing
+demo-user roles, provider scopes, password hashes, or active flags. Use
+`RESET_DEMO_USERS_ON_STARTUP=true` only when intentionally resetting local demo
+accounts.
+
+`.env.example` contains local placeholders only. Before any production-like or
+public demo environment, rotate JWT, scheduler, RabbitMQ, provider, OAuth, and
+database secrets and enable `SAASPLUG_STRICT_SECRETS=true` or a production-like
+`APP_ENV` so unsafe placeholders are rejected at startup.
+
 ## Provider API Integration
 
 The three external provider APIs are represented by provider-specific internal
@@ -202,6 +212,18 @@ shutdown validation.
 
 The verified test total is 184 tests across backend services, frontend, shared
 event contracts, and root gateway contracts.
+
+The 2026-06-24 safe-finalization pass added targeted regression coverage for
+reservation idempotency/locking, provider-status scoping, catalog import locks,
+catalog radius limits, billing payment duplication, provider CSV privacy,
+demo-user seed preservation, strict placeholder rejection, and frontend
+reservation idempotency headers. It also keeps RabbitMQ management bound to
+`127.0.0.1:15672`.
+
+Existing local Docker volumes that predate new database constraints or lock
+tables may need recreation or service-local migrations for a fresh schema
+baseline. Do not use `docker compose down -v` unless deleting local volumes is
+intentional.
 
 ### Test commands
 

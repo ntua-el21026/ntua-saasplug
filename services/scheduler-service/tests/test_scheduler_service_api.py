@@ -42,6 +42,8 @@ def ev_headers() -> dict[str, str]:
 @pytest.fixture()
 def test_context(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'scheduler-test.db'}"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "false")
     monkeypatch.setenv("SCHEDULER_DATABASE_URL", database_url)
     monkeypatch.setenv("SERVICE_NAME", "scheduler-service")
     monkeypatch.setenv("JWT_SECRET", "scheduler-test-secret")
@@ -53,6 +55,18 @@ def test_context(tmp_path, monkeypatch):
     reset_database_for_tests(database_url)
     with TestClient(app) as test_client:
         yield test_client
+    get_settings.cache_clear()
+
+
+def test_strict_secret_validation_rejects_scheduler_placeholders(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "true")
+    monkeypatch.setenv("JWT_SECRET", "strict-scheduler-jwt-secret")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
+
+    with pytest.raises(RuntimeError, match="SCHEDULER_INTERNAL_TOKEN"):
+        get_settings()
+
     get_settings.cache_clear()
 
 

@@ -148,6 +148,12 @@ API key, registration, or frontend secret. The browser still reads charging
 points only from gateway-relative catalog routes and never calls provider APIs
 directly.
 
+Route-level code splitting keeps admin pages, catalog pages, point details,
+reservation history, profile, and the MapLibre-backed map out of the initial
+auth/landing bundle. The MapLibre dependency remains a large lazy chunk, which
+is accepted for the MVP because the map is loaded only when EV catalog routes
+are opened.
+
 The EV map derives its search circle from the rendered MapLibre viewport, not
 from a fixed zoom-to-kilometers table. On pan or zoom, the frontend computes a
 circle that occupies a stable percentage of the visible map, sends
@@ -187,6 +193,9 @@ remain explicit in reservation cards.
 
 Reservation result dialogs have one close control in the modal header. Alerts
 inside the dialog are non-dismissible so a second close icon is not rendered.
+Reservation submissions send a generated `Idempotency-Key` header to
+`reservation-service`. Reusing the same dialog submission key prevents browser
+retries or double submissions from creating duplicate provider calls.
 
 ## Refresh ownership
 
