@@ -56,6 +56,7 @@ temp/
 .cache/
 .playwright/
 .playwright-cli/
+output/playwright/
 
 # Generated diagrams and exports
 *.svg.tmp
