@@ -1,6 +1,8 @@
 import { requestJson } from "./api";
 import type { CatalogPoint, StatusBatchLookupItem, StatusBatchLookupResponse, StatusLookupResponse } from "./types";
 
+const STATUS_BATCH_LIMIT = 500;
+
 export function statusLookupKey(providerCode: string, externalPointId: string): string {
   return `${providerCode}:${externalPointId}`;
 }
@@ -27,19 +29,7 @@ export async function fetchPointStatuses(
   forceRefresh = false,
 ): Promise<StatusBatchLookupResponse> {
   const uniquePoints = uniqueStatusLookupItems(points);
-  if (!uniquePoints.length) {
-    return { items: [], errors: [] };
-  }
-
-  return requestJson<StatusBatchLookupResponse>("/api/status/points/statuses", {
-    method: "POST",
-    accessToken,
-    signal,
-    bodyJson: {
-      points: uniquePoints,
-      force_refresh: forceRefresh,
-    },
-  });
+  return fetchStatusBatches("/api/status/points/statuses", uniquePoints, accessToken, signal, forceRefresh);
 }
 
 export async function fetchCachedPointStatuses(
@@ -48,16 +38,7 @@ export async function fetchCachedPointStatuses(
   signal?: AbortSignal,
 ): Promise<StatusBatchLookupResponse> {
   const uniquePoints = uniqueStatusLookupItems(points);
-  if (!uniquePoints.length) {
-    return { items: [], errors: [] };
-  }
-
-  return requestJson<StatusBatchLookupResponse>("/api/status/cache/statuses", {
-    method: "POST",
-    accessToken,
-    signal,
-    bodyJson: { points: uniquePoints },
-  });
+  return fetchStatusBatches("/api/status/cache/statuses", uniquePoints, accessToken, signal);
 }
 
 export async function fetchPointStatus(
@@ -89,4 +70,41 @@ function uniqueStatusLookupItems(
     });
   });
   return uniquePoints;
+}
+
+async function fetchStatusBatches(
+  path: "/api/status/points/statuses" | "/api/status/cache/statuses",
+  points: StatusBatchLookupItem[],
+  accessToken: string | null | undefined,
+  signal?: AbortSignal,
+  forceRefresh?: boolean,
+): Promise<StatusBatchLookupResponse> {
+  if (!points.length) {
+    return { items: [], errors: [] };
+  }
+
+  const responses = await Promise.all(
+    chunkStatusLookupItems(points).map((batch) => requestJson<StatusBatchLookupResponse>(path, {
+      method: "POST",
+      accessToken,
+      signal,
+      bodyJson: {
+        points: batch,
+        ...(forceRefresh === undefined ? {} : { force_refresh: forceRefresh }),
+      },
+    })),
+  );
+
+  return {
+    items: responses.flatMap((response) => response.items),
+    errors: responses.flatMap((response) => response.errors),
+  };
+}
+
+function chunkStatusLookupItems(points: StatusBatchLookupItem[]): StatusBatchLookupItem[][] {
+  const chunks: StatusBatchLookupItem[][] = [];
+  for (let start = 0; start < points.length; start += STATUS_BATCH_LIMIT) {
+    chunks.push(points.slice(start, start + STATUS_BATCH_LIMIT));
+  }
+  return chunks;
 }

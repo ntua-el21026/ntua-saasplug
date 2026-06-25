@@ -1,5 +1,7 @@
 from datetime import timedelta
+import json
 
+import httpx
 import jwt
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +24,7 @@ from app.models import (
 )
 from app.provider_client import ProviderServiceError
 from app.schemas import CatalogPointDTO, ProviderReservationDTO
+from app.status_client import StatusServiceClient
 
 
 def catalog_point(
@@ -105,6 +108,18 @@ class FakeProviderServiceClient:
         if failure is not None:
             raise failure
         return ProviderReservationDTO.model_validate(self.reservations[(provider_code, external_point_id)])
+
+
+class FakeStatusServiceClient:
+    def __init__(self) -> None:
+        self.calls: list[Reservation] = []
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+    def seed_reserved_status(self, reservation: Reservation) -> None:
+        self.calls.append(reservation)
 
 
 class FakeOutboxPublisher:
@@ -220,6 +235,50 @@ def test_health_endpoint_still_works(test_context) -> None:
     assert response.json()["status"] == "healthy"
 
 
+def test_status_client_seeds_reserved_status_cache_after_success(test_context) -> None:
+    _, _, _, _ = test_context
+    reservation_id = create_db_reservation("redPlug", "101")
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["headers"] = dict(request.headers)
+        captured["body"] = request.read().decode("utf-8")
+        return httpx.Response(200, json={"upserted_count": 1})
+
+    settings = get_settings()
+    db = get_session_factory()()
+    try:
+        reservation = db.get(Reservation, reservation_id)
+        assert reservation is not None
+        checked_at = reservation.updated_at.isoformat()
+        client = StatusServiceClient(settings, transport=httpx.MockTransport(handler))
+        try:
+            client.seed_reserved_status(reservation)
+        finally:
+            client.close()
+    finally:
+        db.close()
+
+    assert captured["url"] == "http://status-service:8000/internal/cache/seed"
+    assert captured["headers"]["x-scheduler-token"] == "scheduler-test-token"
+    body = json.loads(str(captured["body"]))
+    assert body["points"] == [
+        {
+            "provider_code": "redPlug",
+            "external_point_id": "101",
+            "status": "reserved",
+            "reservation_ends_at": "2099-06-12T12:00:00Z",
+            "checked_at": checked_at,
+            "raw_payload": {
+                "source": "reservation_service",
+                "reservation_id": reservation_id,
+                "provider_status": "reserved",
+            },
+        },
+    ]
+
+
 def test_strict_secret_validation_rejects_scheduler_and_rabbitmq_placeholders(monkeypatch) -> None:
     get_settings.cache_clear()
     monkeypatch.setenv("SAASPLUG_STRICT_SECRETS", "true")
@@ -266,8 +325,10 @@ def test_scheduler_internal_outbox_publish_uses_service_owned_publisher(test_con
     assert fake_publisher.closed is True
 
 
-def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) -> None:
+def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context, monkeypatch) -> None:
     client, fake_catalog, fake_provider, call_order = test_context
+    fake_status = FakeStatusServiceClient()
+    monkeypatch.setattr(routes, "StatusServiceClient", lambda settings: fake_status)
 
     response = client.post(
         "/points/redPlug/101/reservations",
@@ -307,6 +368,10 @@ def test_ev_user_creates_successful_reservation_and_stages_outbox(test_context) 
         assert event.payload["estimated_cost_eur"] == 5.12
     finally:
         db.close()
+    assert [(call.provider_code, call.external_point_id, call.status, call.reservation_ends_at) for call in fake_status.calls] == [
+        ("redPlug", "101", "succeeded", "2099-06-12T12:00:00+00:00"),
+    ]
+    assert fake_status.closed is True
 
 
 def test_duplicate_idempotency_key_returns_same_reservation(test_context) -> None:

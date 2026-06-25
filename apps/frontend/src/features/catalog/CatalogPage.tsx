@@ -36,26 +36,61 @@ const DEFAULT_FILTERS: CatalogFilters = {
   includeStale: false,
 };
 const MAP_VIEWPORT_STORAGE_KEY = "saasplug.catalog.viewport.v1";
+const MAX_VISIBLE_CATALOG_POINTS = 75;
+type CatalogPageSnapshot = {
+  userId: string;
+  bounds: Bounds;
+  filters: CatalogFilters;
+  resultLimit: CatalogResultLimit;
+  catalog: CatalogPointListResponse | null;
+  mapCircleReady: boolean;
+  selectedPointId: string | null;
+  statusLookups: Record<string, StatusLookupResponse>;
+};
+
+let catalogPageSnapshot: CatalogPageSnapshot | null = null;
 
 export function CatalogPage() {
   const { session } = useAuth();
-  const [bounds, setBounds] = useState<Bounds>(readStoredBounds);
-  const [filters, setFilters] = useState<CatalogFilters>(DEFAULT_FILTERS);
-  const [resultLimit, setResultLimit] = useState<CatalogResultLimit>("all");
-  const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(null);
-  const [mapCircleReady, setMapCircleReady] = useState(false);
-  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const storedViewportAvailable = hasStoredBounds();
+  const initialSnapshotRef = useRef(
+    storedViewportAvailable && catalogPageSnapshot?.userId === session?.user.id ? catalogPageSnapshot : null,
+  );
+  const restoredViewportRef = useRef(Boolean(initialSnapshotRef.current) || storedViewportAvailable);
+  const skipInitialCatalogReloadRef = useRef(Boolean(initialSnapshotRef.current?.catalog));
+  const [bounds, setBounds] = useState<Bounds>(() => initialSnapshotRef.current?.bounds ?? readStoredBounds());
+  const [filters, setFilters] = useState<CatalogFilters>(() => initialSnapshotRef.current?.filters ?? DEFAULT_FILTERS);
+  const [resultLimit, setResultLimit] = useState<CatalogResultLimit>(() => initialSnapshotRef.current?.resultLimit ?? "all");
+  const [catalog, setCatalog] = useState<CatalogPointListResponse | null>(() => initialSnapshotRef.current?.catalog ?? null);
+  const [mapCircleReady, setMapCircleReady] = useState(() => initialSnapshotRef.current?.mapCircleReady ?? false);
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(() => initialSnapshotRef.current?.selectedPointId ?? null);
+  const [loading, setLoading] = useState(() => !initialSnapshotRef.current?.catalog);
   const [error, setError] = useState<string | null>(null);
-  const [statusLookups, setStatusLookups] = useState<Record<string, StatusLookupResponse>>({});
+  const [statusLookups, setStatusLookups] = useState<Record<string, StatusLookupResponse>>(() => initialSnapshotRef.current?.statusLookups ?? {});
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const latestRequestIdRef = useRef(0);
 
   useEffect(() => {
-    window.sessionStorage.setItem(MAP_VIEWPORT_STORAGE_KEY, JSON.stringify(bounds));
+    writeStoredBounds(bounds);
   }, [bounds]);
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      return;
+    }
+    catalogPageSnapshot = {
+      userId: session.user.id,
+      bounds,
+      filters,
+      resultLimit,
+      catalog,
+      mapCircleReady,
+      selectedPointId,
+      statusLookups,
+    };
+  }, [bounds, catalog, filters, mapCircleReady, resultLimit, selectedPointId, session?.user.id, statusLookups]);
 
   useEffect(() => {
     if (!fullscreen) {
@@ -79,6 +114,12 @@ export function CatalogPage() {
 
   useEffect(() => {
     if (!mapCircleReady) {
+      return;
+    }
+
+    if (skipInitialCatalogReloadRef.current) {
+      skipInitialCatalogReloadRef.current = false;
+      setLoading(false);
       return;
     }
 
@@ -176,10 +217,15 @@ export function CatalogPage() {
   );
   const displayedCatalog = catalogMatchesCurrentCircle ? catalog : null;
   const searchBounds = catalogMatchesCurrentCircle && catalogSearchBounds ? catalogSearchBounds : bounds;
-  const currentItems = useMemo(
+  const currentCircleItems = useMemo(
     () => catalogItemsForCircle.filter((point) => pointWithinCatalogSearchCircle(point, searchBounds)),
     [catalogItemsForCircle, searchBounds],
   );
+  const currentItems = useMemo(
+    () => sampleVisibleCatalogPoints(currentCircleItems, searchBounds),
+    [currentCircleItems, searchBounds],
+  );
+  const visibleItemsLimited = currentItems.length < currentCircleItems.length;
   const selectedPoint = currentItems.find((point) => point.id === selectedPointId) ?? null;
   const queryRadiusKm = catalogQueryRadiusKm(searchBounds);
 
@@ -221,7 +267,8 @@ export function CatalogPage() {
 
   const handleBoundsChange = useCallback((nextBounds: Bounds) => {
     setMapCircleReady(true);
-    setBounds((current) => (sameCatalogSearchCircle(current, nextBounds) ? current : nextBounds));
+    writeStoredBounds(nextBounds);
+    setBounds((current) => (sameMapViewport(current, nextBounds) ? current : nextBounds));
   }, []);
 
   useEffect(() => {
@@ -252,7 +299,9 @@ export function CatalogPage() {
             <div className="results-summary">
               <strong>{displayedCatalog ? currentItems.length : 0} results</strong>
               <span>
-                {displayedCatalog ? `${currentItems.length} shown` : "Loading"} · {queryRadiusKm.toFixed(1)} km radius
+                {displayedCatalog
+                  ? `${currentItems.length}${visibleItemsLimited ? ` of ${currentCircleItems.length}` : ""} shown`
+                  : "Loading"} · {queryRadiusKm.toFixed(1)} km radius
               </span>
             </div>
             {loading ? <LoadingBlock label="Loading catalog" /> : null}
@@ -315,6 +364,7 @@ export function CatalogPage() {
               onBoundsChange={handleBoundsChange}
               layoutMode={fullscreen ? "fullscreen" : "standard"}
               loading={loading}
+              preserveInitialBoundsOnLoad={restoredViewportRef.current}
             />
           </section>
 
@@ -369,11 +419,28 @@ async function loadCatalogPoints(
   };
 }
 
-function readStoredBounds(): Bounds {
+function writeStoredBounds(bounds: Bounds): void {
+  const serialized = JSON.stringify(bounds);
   try {
-    const value = window.sessionStorage.getItem(MAP_VIEWPORT_STORAGE_KEY);
+    window.sessionStorage.setItem(MAP_VIEWPORT_STORAGE_KEY, serialized);
+  } catch {
+    // Session persistence is best-effort only.
+  }
+}
+
+function readStoredBounds(): Bounds {
+  return readBoundsFromStorage(window.sessionStorage) ?? ATHENS_DEFAULT_BOUNDS;
+}
+
+function hasStoredBounds(): boolean {
+  return readBoundsFromStorage(window.sessionStorage) !== null;
+}
+
+function readBoundsFromStorage(storage: Storage): Bounds | null {
+  try {
+    const value = storage.getItem(MAP_VIEWPORT_STORAGE_KEY);
     if (!value) {
-      return ATHENS_DEFAULT_BOUNDS;
+      return null;
     }
     const parsed = JSON.parse(value) as Partial<Bounds>;
     if (
@@ -386,10 +453,64 @@ function readStoredBounds(): Bounds {
       || parsed.minLat >= parsed.maxLat || parsed.minLng >= parsed.maxLng
       || parsed.zoom < MAP_MIN_ZOOM || parsed.zoom > MAP_MAX_ZOOM || parsed.radiusKm <= 0
     ) {
-      return ATHENS_DEFAULT_BOUNDS;
+      return null;
     }
     return parsed as Bounds;
   } catch {
-    return ATHENS_DEFAULT_BOUNDS;
+    return null;
   }
+}
+
+function sampleVisibleCatalogPoints(points: CatalogPoint[], bounds: Bounds): CatalogPoint[] {
+  if (points.length <= MAX_VISIBLE_CATALOG_POINTS) {
+    return points;
+  }
+
+  const seed = sampleSeedForBounds(bounds);
+  return [...points]
+    .sort((a, b) => {
+      const scoreDelta = stableHash(`${seed}:${pointSampleKey(a)}`) - stableHash(`${seed}:${pointSampleKey(b)}`);
+      return scoreDelta || pointSampleKey(a).localeCompare(pointSampleKey(b));
+    })
+    .slice(0, MAX_VISIBLE_CATALOG_POINTS);
+}
+
+function sampleSeedForBounds(bounds: Bounds): string {
+  const circle = catalogSearchCircle(bounds);
+  return [
+    circle.centerLat.toFixed(4),
+    circle.centerLng.toFixed(4),
+    circle.radiusKm.toFixed(2),
+    bounds.zoom.toFixed(3),
+  ].join(":");
+}
+
+function pointSampleKey(point: CatalogPoint): string {
+  return `${point.provider_code}:${point.external_point_id}:${point.id}`;
+}
+
+function stableHash(input: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function sameMapViewport(a: Bounds, b: Bounds): boolean {
+  const centerA = {
+    lat: (a.minLat + a.maxLat) / 2,
+    lng: (a.minLng + a.maxLng) / 2,
+  };
+  const centerB = {
+    lat: (b.minLat + b.maxLat) / 2,
+    lng: (b.minLng + b.maxLng) / 2,
+  };
+  return (
+    Math.abs(a.zoom - b.zoom) < 0.0001
+    && Math.abs(centerA.lat - centerB.lat) < 0.00005
+    && Math.abs(centerA.lng - centerB.lng) < 0.00005
+    && Math.abs(a.radiusKm - b.radiusKm) < 0.02
+  );
 }

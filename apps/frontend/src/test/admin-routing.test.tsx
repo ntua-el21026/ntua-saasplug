@@ -922,7 +922,7 @@ describe("admin role routing", () => {
     expect(blueSwitch).not.toBeChecked();
   });
 
-  it("scopes provider point inventory to the signed-in provider", async () => {
+  it("scopes provider point inventory and applies status filters across the full provider list", async () => {
     storeSession("PROVIDER_ADMIN");
     mockFetch("PROVIDER_ADMIN");
     window.history.pushState({}, "", "/provider/points");
@@ -949,7 +949,7 @@ describe("admin role routing", () => {
       const raw = String(catalogCall?.[0]);
       const url = new URL(raw, "http://app.test");
       expect(url.searchParams.get("providerCode")).toBe("redPlug");
-      expect(url.searchParams.get("limit")).toBe("40");
+      expect(url.searchParams.get("limit")).toBe("500");
       expect(url.searchParams.has("status")).toBe(false);
       expect(url.searchParams.get("connector")).toBe("7");
       expect(url.searchParams.get("includeStale")).toBe("false");
@@ -1361,6 +1361,10 @@ describe("admin role routing", () => {
     expect(screen.getAllByText(/^s$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/every day/i)).toBeInTheDocument();
     expect(screen.getByText(/status cache 300s/i)).toBeInTheDocument();
+    expect(screen.getByText("Status cache TTL")).toBeInTheDocument();
+    expect(screen.getByText(/cached charging-point statuses stay valid/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/status cache ttl seconds/i)).toHaveValue(300);
+    expect(screen.getByText(/minimum 30s · default 300s/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /apply minimum/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /reset defaults/i })).toBeEnabled();
 
@@ -1460,6 +1464,34 @@ describe("admin role routing", () => {
     const patchCall = patchCalls[patchCalls.length - 1];
     expect(patchCall).toBeDefined();
     expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({ interval_seconds: 172800 });
+  });
+
+  it("lets operators update the status cache ttl from the scheduler control plane", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/sync");
+
+    render(<App />);
+
+    const ttlInput = await screen.findByLabelText(/status cache ttl seconds/i);
+    fireEvent.change(ttlInput, { target: { value: "90" } });
+    const form = ttlInput.closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form as HTMLFormElement);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/status/cache/policy",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+    const patchCalls = vi.mocked(fetch).mock.calls.filter(([input, options]) => (
+      input === "/api/status/cache/policy" && options?.method === "PATCH"
+    ));
+    const patchCall = patchCalls[patchCalls.length - 1];
+    expect(patchCall).toBeDefined();
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({ ttl_seconds: 90 });
+    expect(await screen.findByText(/status cache ttl updated to 90s/i)).toBeInTheDocument();
   });
 
   it("lets operators run the ordered maintenance sequence", async () => {

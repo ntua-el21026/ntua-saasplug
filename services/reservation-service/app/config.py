@@ -55,6 +55,8 @@ class Settings:
             "RESERVATION_CATALOG_SERVICE_URL",
             "http://catalog-service:8000",
         ).rstrip("/")
+        self.status_service_url = os.getenv("STATUS_SERVICE_URL", "http://status-service:8000").rstrip("/")
+        self.status_seed_timeout_seconds = float(os.getenv("RESERVATION_STATUS_SEED_TIMEOUT_SECONDS", "5"))
         self.provider_timeout_seconds = float(os.getenv("RESERVATION_PROVIDER_TIMEOUT_SECONDS", "5"))
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
         self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")

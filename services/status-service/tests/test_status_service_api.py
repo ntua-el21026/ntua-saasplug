@@ -195,6 +195,30 @@ def test_internal_seed_stores_imported_status_as_cache_without_provider_call(tes
     assert fake_client.calls == []
 
 
+def test_internal_seed_preserves_reservation_service_source(test_context) -> None:
+    client, _ = test_context
+
+    response = client.post(
+        "/internal/cache/seed",
+        headers=scheduler_headers(),
+        json={
+            "points": [{
+                "provider_code": "redPlug",
+                "external_point_id": "101",
+                "status": "reserved",
+                "reservation_ends_at": "2026-06-13T00:35:00Z",
+                "raw_payload": {"source": "reservation_service", "reservation_id": "reservation-1"},
+            }],
+        },
+    )
+    cache_response = client.get("/cache/redPlug/101", headers=operator_headers())
+
+    assert response.status_code == 200
+    assert cache_response.status_code == 200
+    assert cache_response.json()["status"] == "reserved"
+    assert cache_response.json()["source"] == "reservation_service"
+
+
 def test_cache_batch_read_returns_expired_cache_without_provider_refresh(test_context) -> None:
     client, fake_client = test_context
     assert client.post(

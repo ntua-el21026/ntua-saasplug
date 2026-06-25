@@ -134,6 +134,15 @@ describe("catalog map UI", () => {
     expect(initialPointCall).toBeDefined();
     const initialRadiusKm = Number(initialPointCall?.searchParams.get("radiusKm"));
 
+    const initialCatalogCallCount = catalogPointCalls(fetchMock).length;
+    const mapElement = document.querySelector(".maplibre-map");
+    expect(mapElement).not.toBeNull();
+    fireEvent(
+      mapElement as Element,
+      new CustomEvent("saasplug:test-pan", { detail: { latDelta: 0, lngDelta: 0 } }),
+    );
+    await expectNoAdditionalCatalogCalls(fetchMock, initialCatalogCallCount);
+
     await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
 
     expect(await screen.findByText("4 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
@@ -154,25 +163,100 @@ describe("catalog map UI", () => {
     expect(document.querySelector('[data-point-id="red-far-outside"]')).not.toBeInTheDocument();
   }, 10_000);
 
-  it("preserves the adjusted map viewport when the map route is reopened", async () => {
-    mockGateway();
+  it("caps dense map viewports to 75 sampled sidebar rows and markers", async () => {
+    const densePoints = makeDensePoints(120);
+    mockGateway(densePoints);
     storeSession();
     window.history.pushState({}, "", "/map");
 
-    const firstView = render(<App />);
+    render(<App />);
+
+    expect(await screen.findByText("75 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
+    expect(screen.getByText(/75 of 120 shown/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll(".charging-point-card")).toHaveLength(75);
+      expect(document.querySelectorAll(".maplibre-point-marker")).toHaveLength(75);
+    });
+
+    const renderedIndexes = Array.from(document.querySelectorAll(".charging-point-card strong"))
+      .map((node) => Number(node.textContent?.match(/Dense Hub (\d+)/)?.[1] ?? -1))
+      .filter((index) => index >= 0);
+    expect(renderedIndexes).toHaveLength(75);
+    expect(renderedIndexes.some((index) => index >= 75)).toBe(true);
+  }, 10_000);
+
+  it("preserves the adjusted map viewport when leaving and reopening the map route", async () => {
+    const fetchMock = mockGateway();
+    storeSession();
+    window.history.pushState({}, "", "/map");
+
+    render(<App />);
 
     expect(await screen.findByText("3 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
-    await waitFor(() => {
-      expect(readStoredViewport()?.zoom).toBe(14);
+    const zoomedViewport = await waitFor(() => {
+      const stored = readStoredViewport();
+      expect(stored?.zoom).toBe(14);
+      return stored;
     });
-    firstView.unmount();
 
-    const reopenedView = render(<App />);
+    const mapElement = document.querySelector(".maplibre-map");
+    expect(mapElement).not.toBeNull();
+    fireEvent(
+      mapElement as Element,
+      new CustomEvent("saasplug:test-pan", { detail: { latDelta: 0.003, lngDelta: -0.004 } }),
+    );
+    fireEvent(
+      mapElement as Element,
+      new CustomEvent("saasplug:test-camera", { detail: { zoom: 13.35 } }),
+    );
+    const pannedViewport = await waitFor(() => {
+      const stored = readStoredViewport();
+      expect(stored?.zoom).toBeCloseTo(13.35, 5);
+      expect(stored?.centerLat).toBeCloseTo((zoomedViewport?.centerLat ?? 0) + 0.003, 5);
+      expect(stored?.centerLng).toBeCloseTo((zoomedViewport?.centerLng ?? 0) - 0.004, 5);
+      expect(stored?.radiusKm).toBeGreaterThan(0);
+      return stored;
+    });
 
-    expect(await screen.findByText("4 results", undefined, ASYNC_WAIT)).toBeInTheDocument();
-    expect(readStoredViewport()?.zoom).toBe(14);
-    reopenedView.unmount();
+    expect(pannedViewport).not.toBeNull();
+    const latestPannedCall = await waitFor(() => {
+      const call = latestCatalogPointCall(fetchMock);
+      expect(call).toBeDefined();
+      expect(Number(call?.searchParams.get("centerLat"))).toBeCloseTo(pannedViewport?.centerLat ?? 0, 5);
+      expect(Number(call?.searchParams.get("centerLng"))).toBeCloseTo(pannedViewport?.centerLng ?? 0, 5);
+      expect(Number(call?.searchParams.get("radiusKm"))).toBeCloseTo(pannedViewport?.radiusKm ?? 0, 5);
+      return call;
+    });
+    expect(latestPannedCall).toBeDefined();
+    const visibleMarkerIdsBeforeNavigation = await waitFor(() => {
+      const ids = visibleMarkerIds();
+      expect(ids.length).toBeGreaterThan(0);
+      return ids;
+    });
+    const catalogCallsBeforeNavigation = catalogPointCalls(fetchMock).length;
+
+    await userEvent.click(screen.getAllByRole("link", { name: "Reservations" })[0]);
+    expect(await screen.findByRole("heading", { name: /^reservations$/i }, ASYNC_WAIT)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("link", { name: "Map" })[0]);
+
+    expect(await screen.findByText(`${visibleMarkerIdsBeforeNavigation.length} results`, undefined, ASYNC_WAIT)).toBeInTheDocument();
+    await waitFor(() => {
+      const stored = readStoredViewport();
+      expect(stored?.zoom).toBeCloseTo(13.35, 5);
+      expect(stored?.centerLat).toBeCloseTo(pannedViewport?.centerLat ?? 0, 5);
+      expect(stored?.centerLng).toBeCloseTo(pannedViewport?.centerLng ?? 0, 5);
+      expect(stored?.radiusKm).toBeCloseTo(pannedViewport?.radiusKm ?? 0, 5);
+    });
+    const restoredCall = latestCatalogPointCall(fetchMock);
+    expect(restoredCall).toBeDefined();
+    expect(Number(restoredCall?.searchParams.get("centerLat"))).toBeCloseTo(pannedViewport?.centerLat ?? 0, 5);
+    expect(Number(restoredCall?.searchParams.get("centerLng"))).toBeCloseTo(pannedViewport?.centerLng ?? 0, 5);
+    expect(Number(restoredCall?.searchParams.get("radiusKm"))).toBeCloseTo(pannedViewport?.radiusKm ?? 0, 5);
+    await waitFor(() => {
+      expect(visibleMarkerIds()).toEqual(visibleMarkerIdsBeforeNavigation);
+    });
+    await expectNoAdditionalCatalogCalls(fetchMock, catalogCallsBeforeNavigation);
   }, 10_000);
 
   it("opens and exits fullscreen map mode with the result list preserved", async () => {
@@ -266,13 +350,23 @@ describe("catalog map UI", () => {
 });
 
 function latestCatalogPointCall(fetchMock: ReturnType<typeof mockGateway>): URL | undefined {
-  const pointCalls = fetchMock.mock.calls
+  const pointCalls = catalogPointCalls(fetchMock)
+    .map(({ url }) => url);
+  return pointCalls[pointCalls.length - 1];
+}
+
+function catalogPointCalls(fetchMock: ReturnType<typeof mockGateway>) {
+  return fetchMock.mock.calls
     .map(([input]) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      return new URL(raw, "http://app.test");
+      return { url: new URL(raw, "http://app.test") };
     })
-    .filter((url) => url.pathname === "/api/catalog/points");
-  return pointCalls[pointCalls.length - 1];
+    .filter(({ url }) => url.pathname === "/api/catalog/points");
+}
+
+async function expectNoAdditionalCatalogCalls(fetchMock: ReturnType<typeof mockGateway>, count: number) {
+  await new Promise((resolve) => window.setTimeout(resolve, 450));
+  expect(catalogPointCalls(fetchMock)).toHaveLength(count);
 }
 
 function catalogPointViewCalls(fetchMock: ReturnType<typeof mockGateway>) {
@@ -296,12 +390,44 @@ function storeSession() {
   );
 }
 
-function readStoredViewport(): { zoom?: number } | null {
+function readStoredViewport(): { centerLat?: number; centerLng?: number; radiusKm?: number; zoom?: number } | null {
   const stored = window.sessionStorage.getItem(VIEWPORT_STORAGE_KEY);
-  return stored ? JSON.parse(stored) as { zoom?: number } : null;
+  if (!stored) {
+    return null;
+  }
+  const parsed = JSON.parse(stored) as {
+    centerLat?: number;
+    centerLng?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+    radiusKm?: number;
+    zoom?: number;
+  };
+  return {
+    centerLat: typeof parsed.centerLat === "number"
+      ? parsed.centerLat
+      : typeof parsed.minLat === "number" && typeof parsed.maxLat === "number"
+        ? (parsed.minLat + parsed.maxLat) / 2
+        : undefined,
+    centerLng: typeof parsed.centerLng === "number"
+      ? parsed.centerLng
+      : typeof parsed.minLng === "number" && typeof parsed.maxLng === "number"
+      ? (parsed.minLng + parsed.maxLng) / 2
+      : undefined,
+    radiusKm: parsed.radiusKm,
+    zoom: parsed.zoom,
+  };
 }
 
-function mockGateway() {
+function visibleMarkerIds(): string[] {
+  return Array.from(document.querySelectorAll(".maplibre-point-marker"))
+    .map((node) => (node as HTMLElement).dataset.pointId)
+    .filter((pointId): pointId is string => Boolean(pointId));
+}
+
+function mockGateway(catalogPoints: CatalogPoint[] = points) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const url = new URL(raw, "http://app.test");
@@ -324,8 +450,8 @@ function mockGateway() {
       // Deliberately return every point to prove the UI fails closed to the
       // echoed search circle instead of rendering broad API responses.
       return json({
-        items: points.slice(offset, offset + limit),
-        total: points.length,
+        items: catalogPoints.slice(offset, offset + limit),
+        total: catalogPoints.length,
         limit,
         offset,
         bounds_applied: true,
@@ -335,13 +461,39 @@ function mockGateway() {
     }
 
     if (url.pathname === "/api/status/cache/statuses") {
-      return json(statusBatchResponse(init));
+      return json(statusBatchResponse(init, catalogPoints));
+    }
+
+    if (url.pathname === "/api/reservations/reservations/me") {
+      return json([]);
+    }
+
+    if (url.pathname === "/api/analytics/ev/reservations/summary") {
+      return json({
+        user_id: user.id,
+        total_reservations: 0,
+        successful_reservations: 0,
+        failed_reservations: 0,
+        total_duration_minutes: 0,
+        distinct_points: 0,
+        estimated_reservations: 0,
+        missing_estimate_count: 0,
+        total_estimated_energy_kwh: null,
+        total_estimated_cost_eur: null,
+        average_estimated_cost_per_point_eur: null,
+        average_estimated_cost_per_reservation_eur: null,
+        currency: "EUR",
+        estimate_basis: "none",
+        last_event_ingested_at: null,
+        last_aggregate_computed_at: null,
+        analytics_delay_notice: "aggregates_current",
+      });
     }
 
     const statusLookupMatch = url.pathname.match(/^\/api\/status\/points\/([^/]+)\/([^/]+)\/status$/);
     if (statusLookupMatch) {
       const [, providerCode, externalPointId] = statusLookupMatch;
-      const requestedPoint = points.find((item) => (
+      const requestedPoint = catalogPoints.find((item) => (
         item.provider_code === decodeURIComponent(providerCode)
         && item.external_point_id === decodeURIComponent(externalPointId)
       ));
@@ -356,7 +508,7 @@ function mockGateway() {
     const pointViewMatch = url.pathname.match(/^\/api\/catalog\/points\/([^/]+)\/([^/]+)\/views$/);
     if (pointViewMatch) {
       const [, providerCode, externalPointId] = pointViewMatch;
-      const viewedPoint = points.find((item) => (
+      const viewedPoint = catalogPoints.find((item) => (
         item.provider_code === decodeURIComponent(providerCode)
         && item.external_point_id === decodeURIComponent(externalPointId)
       ));
@@ -369,14 +521,14 @@ function mockGateway() {
   return fetchMock;
 }
 
-function statusBatchResponse(init?: RequestInit) {
+function statusBatchResponse(init?: RequestInit, catalogPoints: CatalogPoint[] = points) {
   const body = typeof init?.body === "string"
     ? JSON.parse(init.body) as { points?: Array<{ provider_code: CatalogPoint["provider_code"]; external_point_id: string }> }
     : {};
   const requestedPoints = body.points ?? [];
   return {
     items: requestedPoints.map((requestedPoint) => {
-      const catalogPoint = points.find((item) => (
+      const catalogPoint = catalogPoints.find((item) => (
         item.provider_code === requestedPoint.provider_code
         && item.external_point_id === requestedPoint.external_point_id
       ));
@@ -384,6 +536,22 @@ function statusBatchResponse(init?: RequestInit) {
     }),
     errors: [],
   };
+}
+
+function makeDensePoints(count: number): CatalogPoint[] {
+  const providers: CatalogPoint["provider_code"][] = ["redPlug", "greenPlug", "bluePlug"];
+  return Array.from({ length: count }, (_, index) => {
+    const row = Math.floor(index / 12);
+    const column = index % 12;
+    return point(
+      `dense-${index}`,
+      providers[index % providers.length],
+      `Dense Hub ${String(index).padStart(3, "0")}`,
+      `dense-${index}`,
+      37.985 + (row - 5) * 0.00025,
+      23.78 + (column - 6) * 0.00025,
+    );
+  });
 }
 
 function statusLookupResponse(

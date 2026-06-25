@@ -35,6 +35,7 @@ from app.security import (
     is_operator,
     is_provider_admin,
 )
+from app.status_client import StatusServiceClient, seed_reserved_status_best_effort
 
 router = APIRouter(tags=["reservations"])
 
@@ -150,6 +151,7 @@ def reserve_point(
 
     catalog_client = CatalogServiceClient(settings)
     provider_client = ProviderServiceClient(settings)
+    status_client = StatusServiceClient(settings)
     try:
         reservation = create_reservation(
             db,
@@ -161,6 +163,7 @@ def reserve_point(
             provider_client,
             idempotency_key,
         )
+        seed_reserved_status_best_effort(status_client, reservation)
         return reservation_response(reservation)
     except ReservationReplay as replay:
         return reservation_response(replay.reservation)
@@ -169,6 +172,7 @@ def reserve_point(
     finally:
         catalog_client.close()
         provider_client.close()
+        status_client.close()
 
 
 @router.get("/reservations/me", response_model=list[ReservationResponse])
