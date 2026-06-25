@@ -23,7 +23,6 @@ from app.schemas import (
     CurrentPrincipal,
     OutboxEventResponse,
     OutboxPublishResponse,
-    ReservationAttemptResponse,
     ReservationCreateRequest,
     ReservationResponse,
 )

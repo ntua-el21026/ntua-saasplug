@@ -333,7 +333,7 @@ def get_or_create_idempotency_record(
     db.add(record)
     try:
         db.commit()
-    except IntegrityError as exc:
+    except IntegrityError:
         db.rollback()
         return get_or_create_idempotency_record(
             db,

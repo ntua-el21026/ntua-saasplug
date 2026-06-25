@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../../components/AppShell";
@@ -31,7 +31,6 @@ import type {
   CatalogImportRun,
   CatalogImportSummary,
   CatalogPointListResponse,
-  Charge,
   Invoice,
   OperatorDailyTrend,
   OperatorProviderComparison,
@@ -77,7 +76,6 @@ type AsyncState<T> = {
   loading: boolean;
 };
 
-const DEFAULT_LIMIT = 100;
 const ANALYTICS_TABS = [
   { value: "activity", label: "Activity trend" },
   { value: "status", label: "Views by status" },

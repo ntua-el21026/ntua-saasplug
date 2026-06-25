@@ -89,6 +89,7 @@ NTUA-saasPlug/
 │   │   │   └── vite-env.d.ts
 │   │   ├── .dockerignore
 │   │   ├── Dockerfile
+│   │   ├── eslint.config.js
 │   │   ├── index.html
 │   │   ├── nginx.conf
 │   │   ├── package-lock.json
@@ -405,6 +406,9 @@ NTUA-saasPlug/
 │   │   └── README.md
 │   └── README.md
 ├── scripts/
+│   ├── lint/
+│   │   ├── run-all.sh
+│   │   └── run-python.sh
 │   ├── postman/
 │   │   ├── lib/
 │   │   │   └── env.sh
@@ -632,13 +636,15 @@ NTUA-saasPlug/
 │   ├── README.md
 │   └── test_gateway_contract.py
 ├── .env.example
+├── .env.example.correct
 ├── .gitattributes
 ├── .gitignore
 ├── AGENTS.md
-├── design-qa.md
 ├── docker-compose.yml
 ├── LICENSE
 ├── openapi.json
-└── README.md
+├── pyproject.toml
+├── README.md
+└── requirements-dev.txt
 
-Total directories: 102, Total files: 540
+Total directories: 103, Total files: 545

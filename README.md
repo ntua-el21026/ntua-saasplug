@@ -28,7 +28,8 @@ The accepted MVP architecture is documented in
 The implemented repository follows this split:
 
 - one role-based React + TypeScript + Vite frontend app,
-- Nginx API gateway/reverse proxy on host port `8080`,
+- Nginx API gateway/reverse proxy on configurable host port
+  `${GATEWAY_HTTP_PORT:-8080}`,
 - Python FastAPI backend services,
 - REST/JSON internal APIs,
 - RabbitMQ topic exchange `saasplug.events` for asynchronous propagation,
@@ -115,7 +116,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Public entrypoints:
+Public entrypoints, assuming the default `GATEWAY_HTTP_PORT=8080`:
 
 | Endpoint                                        | Purpose                            |
 | ----------------------------------------------- | ---------------------------------- |
@@ -142,11 +143,13 @@ PostgreSQL and RabbitMQ volumes and return to a fresh baseline.
 ## Demo Users
 
 Demo users are seeded by `auth-service` from the server-side
-`DEMO_USER_PASSWORD` environment variable. The frontend deliberately does not
-receive, render, or prefill that password. For demos, the presenter should
-provide the password out-of-band. The login role shortcuts fill the account
-email and keep any password value the presenter has already typed in the
-password field.
+`DEMO_USER_PASSWORD` environment variable. By default this remains a
+server-side seed value. For controlled coursework/demo builds, Compose passes
+it to the frontend build as `VITE_DEMO_LOGIN_PASSWORD` so the login password
+input can be prefilled for faster role switching. This is intentionally
+demo-only because `VITE_*` values are browser-delivered configuration. The
+login role shortcuts fill the account email and keep the current password
+field value.
 
 | Email                        | Role             | Provider scope |
 | ---------------------------- | ---------------- | -------------- |
@@ -223,7 +226,7 @@ reservation idempotency headers. Follow-up reservation coverage verifies that
 provider success with a timezone-naive future expiry is normalized as UTC,
 returns a succeeded reservation, stages a revenue-bearing success event, and
 renders reservation timing in the EV/provider/operator UI. It also keeps
-RabbitMQ management bound to `127.0.0.1:15672`.
+RabbitMQ management bound to `127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}`.
 
 Existing local Docker volumes that predate new database constraints or lock
 tables may need recreation or service-local migrations for a fresh schema

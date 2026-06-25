@@ -22,8 +22,8 @@ services, one PostgreSQL container per stateful service, and RabbitMQ.
 
 | Component | Host port | Purpose |
 |---|---:|---|
-| `nginx-gateway` | `8080` | Frontend and public API gateway |
-| `rabbitmq` | `15672` | RabbitMQ management UI for local inspection |
+| `nginx-gateway` | `${GATEWAY_HTTP_PORT:-8080}` | Frontend and public API gateway |
+| `rabbitmq` | `${RABBITMQ_MANAGEMENT_PORT:-15672}` on `127.0.0.1` | RabbitMQ management UI for local inspection |
 
 Backend services, frontend port `5173`, PostgreSQL containers, and RabbitMQ
 AMQP port are Docker-internal for the MVP.
@@ -62,15 +62,15 @@ docker compose ps
 Smoke checks:
 
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/api/auth/health
-curl http://localhost:8080/api/providers/health
-curl http://localhost:8080/api/catalog/health
-curl http://localhost:8080/api/status/health
-curl http://localhost:8080/api/reservations/health
-curl http://localhost:8080/api/analytics/health
-curl http://localhost:8080/api/billing/health
-curl http://localhost:8080/api/scheduler/health
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/auth/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/providers/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/catalog/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/status/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/reservations/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/analytics/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/billing/health"
+curl "http://localhost:${GATEWAY_HTTP_PORT:-8080}/api/scheduler/health"
 ```
 
 Stop and remove local volumes:

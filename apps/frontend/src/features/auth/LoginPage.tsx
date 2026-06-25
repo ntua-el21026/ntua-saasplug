@@ -34,12 +34,16 @@ const DEMO_ACCOUNTS = [
   },
 ];
 
+function getDemoLoginPassword() {
+  return import.meta.env.VITE_DEMO_LOGIN_PASSWORD ?? "";
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, googleSignIn } = useAuth();
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(getDemoLoginPassword);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

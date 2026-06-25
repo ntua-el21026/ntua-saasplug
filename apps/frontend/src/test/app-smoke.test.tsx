@@ -11,6 +11,7 @@ describe("App", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     window.localStorage.clear();
     window.history.pushState({}, "", "/");
   });
@@ -44,6 +45,20 @@ describe("App", () => {
     expect(passwordInput).toHaveValue("presenter-provided-password");
     await userEvent.click(screen.getByRole("button", { name: /show password/i }));
     expect(passwordInput).toHaveAttribute("type", "text");
+    view.unmount();
+  });
+
+  it("prefills the login password from demo build configuration when provided", async () => {
+    vi.stubEnv("VITE_DEMO_LOGIN_PASSWORD", "demo-prefill-password");
+    window.history.pushState({}, "", "/login");
+
+    const view = render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /sign in to saasplug/i })).toBeInTheDocument();
+    const passwordInput = screen.getByLabelText("Password", { selector: "input" });
+    expect(passwordInput).toHaveValue("demo-prefill-password");
+    await userEvent.click(screen.getByRole("button", { name: /operator/i }));
+    expect(passwordInput).toHaveValue("demo-prefill-password");
     view.unmount();
   });
 
