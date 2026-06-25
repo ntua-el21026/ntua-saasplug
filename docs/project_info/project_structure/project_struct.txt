@@ -83,7 +83,8 @@ NTUA-saasPlug/
 │   │   │   │   ├── catalog-map-ui.test.tsx
 │   │   │   │   ├── frontend-secret-boundary.test.ts
 │   │   │   │   ├── routing.test.ts
-│   │   │   │   └── setup.ts
+│   │   │   │   ├── setup.ts
+│   │   │   │   └── status-lookups.test.ts
 │   │   │   ├── App.tsx
 │   │   │   ├── main.tsx
 │   │   │   └── vite-env.d.ts
@@ -586,7 +587,8 @@ NTUA-saasPlug/
 │   │   │   ├── reservation_logic.py
 │   │   │   ├── routes.py
 │   │   │   ├── schemas.py
-│   │   │   └── security.py
+│   │   │   ├── security.py
+│   │   │   └── status_client.py
 │   │   ├── tests/
 │   │   │   └── test_reservation_service_api.py
 │   │   ├── .dockerignore
@@ -647,4 +649,4 @@ NTUA-saasPlug/
 ├── README.md
 └── requirements-dev.txt
 
-Total directories: 103, Total files: 545
+Total directories: 103, Total files: 547

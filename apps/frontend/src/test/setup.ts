@@ -37,6 +37,34 @@ vi.mock("maplibre-gl", () => {
     private bounds: MockBounds;
     private center: { lng: number; lat: number };
     private zoom: number;
+    private readonly handleTestPan = (event: Event) => {
+      const detail = (event as CustomEvent<{ latDelta?: number; lngDelta?: number }>).detail ?? {};
+      this.center = {
+        lng: this.center.lng + (detail.lngDelta ?? 0),
+        lat: this.center.lat + (detail.latDelta ?? 0),
+      };
+      this.bounds = this.boundsForCurrentView();
+      this.emit("moveend");
+    };
+    private readonly handleTestCamera = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        center?: { lat: number; lng: number };
+        latDelta?: number;
+        lngDelta?: number;
+        zoom?: number;
+      }>).detail ?? {};
+      this.center = detail.center
+        ? { lat: detail.center.lat, lng: detail.center.lng }
+        : {
+            lng: this.center.lng + (detail.lngDelta ?? 0),
+            lat: this.center.lat + (detail.latDelta ?? 0),
+          };
+      if (detail.zoom !== undefined) {
+        this.zoom = detail.zoom;
+      }
+      this.bounds = this.boundsForCurrentView();
+      this.emit("moveend");
+    };
 
     constructor(options: { container: HTMLElement | string; center?: [number, number]; zoom?: number }) {
       this.container = typeof options.container === "string"
@@ -48,6 +76,8 @@ vi.mock("maplibre-gl", () => {
       this.center = { lng, lat };
       this.zoom = options.zoom ?? 11;
       this.bounds = this.boundsForCurrentView();
+      this.container.addEventListener("saasplug:test-pan", this.handleTestPan);
+      this.container.addEventListener("saasplug:test-camera", this.handleTestCamera);
     }
 
     addControl(control: unknown, position: string = "top-right") {
@@ -151,6 +181,8 @@ vi.mock("maplibre-gl", () => {
     }
 
     remove() {
+      this.container.removeEventListener("saasplug:test-pan", this.handleTestPan);
+      this.container.removeEventListener("saasplug:test-camera", this.handleTestCamera);
       this.container.replaceChildren();
     }
 

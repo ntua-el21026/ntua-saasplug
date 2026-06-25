@@ -80,6 +80,7 @@ export function boundsCenter(bounds: Bounds): MapCenter {
 }
 
 export function boundsFromCenter(center: MapCenter, zoom: number, radiusKm = fallbackCatalogRadiusKm(zoom)): Bounds {
+  const normalizedZoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom));
   const normalizedRadiusKm = normalizeCatalogRadiusKm(radiusKm);
   const latRadius = normalizedRadiusKm / 111.32;
   const lngRadius = normalizedRadiusKm / (111.32 * Math.max(0.2, Math.cos(toRadians(center.lat))));
@@ -89,7 +90,7 @@ export function boundsFromCenter(center: MapCenter, zoom: number, radiusKm = fal
     maxLat: center.lat + latRadius,
     minLng: center.lng - lngRadius,
     maxLng: center.lng + lngRadius,
-    zoom: Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, Math.round(zoom))),
+    zoom: normalizedZoom,
     radiusKm: normalizedRadiusKm,
   };
 }
@@ -132,7 +133,7 @@ export function sameCatalogSearchCircle(a: Bounds, b: Bounds): boolean {
     Math.abs(aCircle.centerLat - bCircle.centerLat) < 0.000001 &&
     Math.abs(aCircle.centerLng - bCircle.centerLng) < 0.000001 &&
     Math.abs(aCircle.radiusKm - bCircle.radiusKm) < 0.000001 &&
-    a.zoom === b.zoom
+    Math.abs(a.zoom - b.zoom) < 0.0001
   );
 }
 
@@ -152,7 +153,7 @@ function distanceKm(a: MapCenter, b: MapCenter): number {
 }
 
 function fallbackCatalogRadiusKm(zoom: number): number {
-  return normalizeCatalogRadiusKm(DEFAULT_RADIUS_AT_ZOOM_15_KM * 2 ** (15 - Math.round(zoom)));
+  return normalizeCatalogRadiusKm(DEFAULT_RADIUS_AT_ZOOM_15_KM * 2 ** (15 - zoom));
 }
 
 function normalizeCatalogRadiusKm(radiusKm: number): number {

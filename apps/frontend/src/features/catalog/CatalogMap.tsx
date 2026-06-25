@@ -37,6 +37,7 @@ export function CatalogMap({
   onBoundsChange,
   layoutMode = "standard",
   loading = false,
+  preserveInitialBoundsOnLoad = false,
 }: {
   points: CatalogPoint[];
   bounds: Bounds;
@@ -47,6 +48,7 @@ export function CatalogMap({
   onBoundsChange: (bounds: Bounds) => void;
   layoutMode?: "standard" | "fullscreen";
   loading?: boolean;
+  preserveInitialBoundsOnLoad?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -54,6 +56,7 @@ export function CatalogMap({
   const markersRef = useRef<Marker[]>([]);
   const programmaticMoveRef = useRef(false);
   const initialBoundsRef = useRef(bounds);
+  const latestBoundsRef = useRef(bounds);
   const latestSelectRef = useRef(onSelectPoint);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -64,6 +67,8 @@ export function CatalogMap({
   const selectedPoint = plotted.find((point) => point.id === selectedPointId) ?? null;
   const circleBounds = searchBounds ?? bounds;
   const radiusKm = catalogQueryRadiusKm(circleBounds);
+
+  latestBoundsRef.current = bounds;
 
   useEffect(() => {
     latestSelectRef.current = onSelectPoint;
@@ -88,12 +93,15 @@ export function CatalogMap({
         const maplibre = module;
         maplibreRef.current = maplibre;
 
+        const initialBounds = latestBoundsRef.current;
+        initialBoundsRef.current = initialBounds;
+
         const map = new maplibre.Map({
           attributionControl: { compact: true },
           container: containerRef.current,
           style: OPENFREEMAP_STYLE_URL,
-          center: mapCenter(initialBoundsRef.current),
-          zoom: initialBoundsRef.current.zoom,
+          center: mapCenter(initialBounds),
+          zoom: initialBounds.zoom,
           maxZoom: MAP_MAX_ZOOM,
           minZoom: MAP_MIN_ZOOM,
         });
@@ -102,7 +110,7 @@ export function CatalogMap({
         map.addControl(new maplibre.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
 
         handleLoad = () => {
-          const viewportBounds = boundsFromMap(map);
+          const viewportBounds = preserveInitialBoundsOnLoad ? initialBoundsRef.current : boundsFromMap(map);
           updateRadiusLayer(map, viewportBounds);
           setMapReady(true);
           onBoundsChange(viewportBounds);
@@ -152,7 +160,7 @@ export function CatalogMap({
       mapRef.current = null;
       maplibreRef.current = null;
     };
-  }, [onBoundsChange]);
+  }, [onBoundsChange, preserveInitialBoundsOnLoad]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -166,7 +174,7 @@ export function CatalogMap({
       markProgrammaticMove(programmaticMoveRef);
       jumpMapToBounds(map, bounds);
     }
-  }, [bounds]);
+  }, [bounds, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -492,7 +500,7 @@ function markProgrammaticMove(ref: { current: boolean }) {
 
 function boundsFromMap(map: MapLibreMap): Bounds {
   const center = map.getCenter();
-  const zoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, Math.round(map.getZoom())));
+  const zoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, map.getZoom()));
   return boundsFromCenter({ lat: center.lat, lng: center.lng }, zoom, searchRadiusKmFromMap(map));
 }
 
@@ -508,7 +516,7 @@ function sameBounds(a: Bounds, b: Bounds): boolean {
     Math.abs(a.maxLat - b.maxLat) < epsilon &&
     Math.abs(a.minLng - b.minLng) < epsilon &&
     Math.abs(a.maxLng - b.maxLng) < epsilon &&
-    a.zoom === b.zoom &&
+    Math.abs(a.zoom - b.zoom) < 0.0001 &&
     Math.abs(a.radiusKm - b.radiusKm) < 0.005
   );
 }

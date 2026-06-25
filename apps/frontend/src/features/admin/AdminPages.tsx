@@ -175,6 +175,10 @@ type SchedulerRunDurationSummary = {
   latestFinishedAt: string | null;
 };
 
+type SchedulerControlRow =
+  | { kind: "job"; job: SchedulerJob }
+  | { kind: "status-cache"; policy: StatusCachePolicy };
+
 const SCHEDULER_JOB_COPY: Record<string, SchedulerJobCopy> = {
   "catalog.import.all": {
     title: "Import all provider catalogs",
@@ -664,6 +668,68 @@ function SchedulerScheduleEditor({
   );
 }
 
+function StatusCacheScheduleEditor({
+  accessToken,
+  policy,
+  onSaved,
+  onMessage,
+}: {
+  accessToken: string;
+  policy: StatusCachePolicy;
+  onSaved: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const initialValue = String(policy.ttl_seconds);
+  const [value, setValue] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  async function savePolicy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const nextTtl = Number(value);
+      await requestJson<StatusCachePolicy>("/api/status/cache/policy", {
+        method: "PATCH",
+        accessToken,
+        bodyJson: { ttl_seconds: nextTtl },
+      });
+      onMessage(`Status cache TTL updated to ${nextTtl}s.`);
+      onSaved();
+    } catch (caught) {
+      onMessage(messageFromUnknownError(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="scheduler-schedule-form" onSubmit={savePolicy}>
+      <label>
+        <span>TTL</span>
+        <span className="scheduler-input-with-unit">
+          <input
+            aria-label="status cache ttl seconds"
+            min={policy.minimum_ttl_seconds}
+            step={30}
+            type="number"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
+          <small>s</small>
+        </span>
+      </label>
+      <span className="muted">Minimum {policy.minimum_ttl_seconds}s · default {policy.default_ttl_seconds}s</span>
+      <button className="button-secondary" type="submit" disabled={saving}>
+        {saving ? "Saving..." : "Save"}
+      </button>
+    </form>
+  );
+}
+
 function requireProvider(providerCode: ProviderCode | null) {
   if (!providerCode) {
     throw new Error("This provider admin account is not scoped to a provider.");
@@ -717,6 +783,7 @@ async function loadProviderCatalogPoints(
   query: string,
   filters: CatalogFilters,
 ): Promise<CatalogPointListResponse> {
+  const effectiveFetchSize: ProviderPointFetchSize = filters.status ? "all" : fetchSize;
   const requestPage = (limit: number, offset: number) => {
     const params = new URLSearchParams({
       providerCode,
@@ -733,10 +800,10 @@ async function loadProviderCatalogPoints(
     return requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken });
   };
 
-  if (fetchSize !== "all") {
+  if (effectiveFetchSize !== "all") {
     return resolveCatalogPointStatuses(
       accessToken,
-      scopeCatalogToProvider(await requestPage(fetchSize, 0), providerCode),
+      scopeCatalogToProvider(await requestPage(effectiveFetchSize, 0), providerCode),
       filters.status,
     );
   }
@@ -2345,14 +2412,25 @@ export function OperatorSyncPage() {
               {schedulerState.data ? (
                 <DataTable
                   className="scheduler-table"
-                  rows={schedulerState.data.jobs}
-                  getRowKey={(row) => row.job_key}
+                  rows={[
+                    ...schedulerState.data.jobs.map((job): SchedulerControlRow => ({ kind: "job", job })),
+                    { kind: "status-cache" as const, policy: schedulerState.data.statusCachePolicy },
+                  ]}
+                  getRowKey={(row) => (row.kind === "job" ? row.job.job_key : "status-cache-policy")}
                   columns={[
                     {
                       key: "job",
                       label: "Job",
                       render: (row) => {
-                        const copy = schedulerJobCopy(row);
+                        if (row.kind === "status-cache") {
+                          return (
+                            <span className="scheduler-job-cell">
+                              <strong>Status cache TTL</strong>
+                              <small>Controls how long cached charging-point statuses stay valid before a point tap refreshes them.</small>
+                            </span>
+                          );
+                        }
+                        const copy = schedulerJobCopy(row.job);
                         return (
                           <span className="scheduler-job-cell">
                             <strong>{copy.title}</strong>
@@ -2364,28 +2442,58 @@ export function OperatorSyncPage() {
                     {
                       key: "target",
                       label: "Runs in",
-                      render: (row) => <span className="scheduler-target-service">{serviceDisplayName(row.target_service)}</span>,
+                      render: (row) => (
+                        <span className="scheduler-target-service">
+                          {row.kind === "status-cache" ? "Status" : serviceDisplayName(row.job.target_service)}
+                        </span>
+                      ),
                     },
                     {
                       key: "schedule",
                       label: "Schedule",
-                      render: (row) => (
-                        <SchedulerScheduleEditor
+                      render: (row) => (row.kind === "status-cache" ? (
+                        <StatusCacheScheduleEditor
                           accessToken={accessToken}
-                          job={row}
+                          policy={row.policy}
                           onSaved={() => setRefreshKey((value) => value + 1)}
                           onMessage={setMessage}
                         />
-                      ),
+                      ) : (
+                        <SchedulerScheduleEditor
+                          accessToken={accessToken}
+                          job={row.job}
+                          onSaved={() => setRefreshKey((value) => value + 1)}
+                          onMessage={setMessage}
+                        />
+                      )),
                     },
-                    { key: "enabled", label: "Enabled", render: (row) => <SyncRunStatusBadge status={row.enabled ? "active" : "paused"} /> },
-                    { key: "last", label: "Last run", render: (row) => <SyncRunStatusBadge status={row.last_run_status ?? "unknown"} /> },
-                    { key: "next", label: "Next run", render: (row) => formatDateTime(row.next_run_at) },
+                    {
+                      key: "enabled",
+                      label: "Enabled",
+                      render: (row) => (row.kind === "status-cache"
+                        ? <SyncRunStatusBadge status="active" />
+                        : <SyncRunStatusBadge status={row.job.enabled ? "active" : "paused"} />),
+                    },
+                    {
+                      key: "last",
+                      label: "Last run",
+                      render: (row) => (row.kind === "status-cache"
+                        ? "Policy"
+                        : <SyncRunStatusBadge status={row.job.last_run_status ?? "unknown"} />),
+                    },
+                    {
+                      key: "next",
+                      label: "Next run",
+                      render: (row) => (row.kind === "status-cache" ? "On demand" : formatDateTime(row.job.next_run_at)),
+                    },
                     {
                       key: "actions",
                       label: "Actions",
                       render: (row) => {
-                        const copy = schedulerJobCopy(row);
+                        if (row.kind === "status-cache") {
+                          return <span className="muted">Saved with TTL</span>;
+                        }
+                        const copy = schedulerJobCopy(row.job);
                         return (
                           <div className="button-row">
                             <button
@@ -2394,7 +2502,7 @@ export function OperatorSyncPage() {
                               disabled={operationRunning}
                               onClick={() => runAction(
                                 copy.title.toLowerCase(),
-                                () => requestJson<SchedulerRun>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/run`, { method: "POST", accessToken }),
+                                () => requestJson<SchedulerRun>(`/api/scheduler/jobs/${encodeURIComponent(row.job.job_key)}/run`, { method: "POST", accessToken }),
                                 () => setRefreshKey((value) => value + 1),
                               )}
                             >
@@ -2405,12 +2513,12 @@ export function OperatorSyncPage() {
                               type="button"
                               disabled={operationRunning}
                               onClick={() => runAction(
-                                `${row.enabled ? "pause" : "resume"} ${copy.title.toLowerCase()}`,
-                                () => requestJson<SchedulerJob>(`/api/scheduler/jobs/${encodeURIComponent(row.job_key)}/${row.enabled ? "pause" : "resume"}`, { method: "POST", accessToken }),
+                                `${row.job.enabled ? "pause" : "resume"} ${copy.title.toLowerCase()}`,
+                                () => requestJson<SchedulerJob>(`/api/scheduler/jobs/${encodeURIComponent(row.job.job_key)}/${row.job.enabled ? "pause" : "resume"}`, { method: "POST", accessToken }),
                                 () => setRefreshKey((value) => value + 1),
                               )}
                             >
-                              {row.enabled ? "Pause" : "Resume"}
+                              {row.job.enabled ? "Pause" : "Resume"}
                             </button>
                           </div>
                         );
