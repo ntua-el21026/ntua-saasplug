@@ -217,6 +217,65 @@ def test_second_lookup_within_ttl_returns_cache_without_provider_call(test_conte
     assert fake_client.calls == [("redPlug", "101")]
 
 
+def test_batch_status_lookup_uses_status_cache_and_refreshes_missing_points(test_context) -> None:
+    client, fake_client = test_context
+    assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200
+    fake_client.statuses[("redPlug", "101")] = provider_status("redPlug", "101", "reserved")
+
+    response = client.post(
+        "/points/statuses",
+        headers=ev_headers(),
+        json={
+            "points": [
+                {"provider_code": "redPlug", "external_point_id": "101"},
+                {"provider_code": "redPlug", "external_point_id": "102"},
+                {"provider_code": "redPlug", "external_point_id": "102"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["errors"] == []
+    statuses = {(item["provider_code"], item["external_point_id"]): item for item in payload["items"]}
+    assert statuses[("redPlug", "101")]["status"] == "available"
+    assert statuses[("redPlug", "101")]["cache_hit"] is True
+    assert statuses[("redPlug", "101")]["provider_called"] is False
+    assert statuses[("redPlug", "102")]["status"] == "charging"
+    assert statuses[("redPlug", "102")]["cache_hit"] is False
+    assert statuses[("redPlug", "102")]["provider_called"] is True
+    assert fake_client.calls == [("redPlug", "101"), ("redPlug", "102")]
+
+
+def test_batch_status_lookup_returns_per_point_errors(test_context) -> None:
+    client, fake_client = test_context
+    fake_client.failures[("redPlug", "101")] = ProviderServiceError(
+        "redPlug",
+        "provider_http_error",
+        "Provider rejected status lookup",
+        status_code=502,
+        external_status_code=500,
+    )
+
+    response = client.post(
+        "/points/statuses",
+        headers=ev_headers(),
+        json={"points": [{"provider_code": "redPlug", "external_point_id": "101"}]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"] == []
+    assert payload["errors"] == [{
+        "provider_code": "redPlug",
+        "external_point_id": "101",
+        "status": "unknown",
+        "error_type": "provider_http_error",
+        "message": "Provider rejected status lookup",
+        "external_status_code": 500,
+    }]
+
+
 def test_operator_cache_policy_changes_existing_cache_expiry_immediately(test_context) -> None:
     client, fake_client = test_context
     assert client.get("/points/redPlug/101/status", headers=ev_headers()).status_code == 200

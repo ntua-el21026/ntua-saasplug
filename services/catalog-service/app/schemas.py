@@ -37,6 +37,8 @@ class CatalogPointDetailResponse(CatalogPointResponse):
 
 class PointViewRequest(BaseModel):
     view_source: str = Field(default="map_quick_view", max_length=64)
+    status: str | None = None
+    reservation_ends_at: str | None = None
 
 
 class CatalogSearchCircleResponse(BaseModel):

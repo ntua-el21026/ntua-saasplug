@@ -710,7 +710,11 @@ def test_marker_point_view_endpoint_publishes_billable_point_view_event(test_con
 
     response = client.post(
         "/points/bluePlug/301/views",
-        json={"view_source": "map_quick_view"},
+        json={
+            "view_source": "map_quick_view",
+            "status": "available",
+            "reservation_ends_at": None,
+        },
         headers=auth_headers(["EV_USER"], "evuser@saasplug.local"),
     )
 
@@ -725,7 +729,7 @@ def test_marker_point_view_endpoint_publishes_billable_point_view_event(test_con
     assert envelope.event_type == EventType.USAGE_POINT_VIEWED.value
     assert envelope.payload["provider_code"] == "bluePlug"
     assert envelope.payload["external_point_id"] == "301"
-    assert envelope.payload["status"] == "reserved"
+    assert envelope.payload["status"] == "available"
     assert envelope.payload["view_source"] == "map_quick_view"
     assert envelope.payload["user_id"] == "user-evuser@saasplug.local"
 

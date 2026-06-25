@@ -12,6 +12,9 @@ from app.provider_client import ProviderServiceClient, ProviderServiceError
 from app.schemas import (
     CurrentPrincipal,
     ProviderFreshnessResponse,
+    StatusBatchLookupRequest,
+    StatusBatchLookupResponse,
+    StatusBatchLookupError,
     StatusCacheResponse,
     StatusCachePolicyResponse,
     StatusCachePolicyUpdateRequest,
@@ -93,6 +96,69 @@ def log_response_for_principal(log: StatusCheckLog, principal: CurrentPrincipal)
     if "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
         return provider_admin_log_response(log)
     return operator_log_response(log)
+
+
+@router.post("/points/statuses", response_model=StatusBatchLookupResponse)
+def read_point_statuses(
+    body: StatusBatchLookupRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> StatusBatchLookupResponse:
+    unique_points: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for point in body.points:
+        provider_code = point.provider_code
+        external_point_id = point.external_point_id
+        try:
+            validate_provider_code(provider_code)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        ensure_can_query_point_status(principal, provider_code)
+        key = (provider_code, external_point_id)
+        if key not in seen:
+            seen.add(key)
+            unique_points.append(key)
+
+    provider_client = ProviderServiceClient(settings)
+    items: list[StatusLookupResponse] = []
+    errors: list[StatusBatchLookupError] = []
+    try:
+        for provider_code, external_point_id in unique_points:
+            try:
+                response = lookup_status(
+                    db,
+                    provider_code=provider_code,
+                    external_point_id=external_point_id,
+                    force_refresh=body.force_refresh,
+                    principal=principal,
+                    settings=settings,
+                    provider_client=provider_client,
+                )
+                publish_status_event(settings, principal, response, force_refresh=body.force_refresh)
+                items.append(response)
+            except ProviderServiceError as exc:
+                publish_status_error_event(
+                    settings,
+                    principal,
+                    provider_code=provider_code,
+                    external_point_id=external_point_id,
+                    force_refresh=body.force_refresh,
+                    error_type=exc.error_type,
+                    external_status_code=exc.external_status_code,
+                )
+                errors.append(
+                    StatusBatchLookupError(
+                        provider_code=provider_code,
+                        external_point_id=external_point_id,
+                        error_type=exc.error_type,
+                        message=exc.message,
+                        external_status_code=exc.external_status_code,
+                    ),
+                )
+        return StatusBatchLookupResponse(items=items, errors=errors)
+    finally:
+        provider_client.close()
 
 
 @router.get("/points/{provider_code}/{external_point_id}/status", response_model=StatusLookupResponse)

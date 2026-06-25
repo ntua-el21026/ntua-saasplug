@@ -86,6 +86,9 @@ class ProviderSummaryResponse(BaseModel):
     total_searches: int
     total_point_views: int
     total_status_checks: int
+    status_cache_hits: int
+    status_provider_calls: int
+    status_cache_hit_rate: float | None
     successful_reservations: int
     failed_reservations: int
     reservation_conversion_rate: float | None

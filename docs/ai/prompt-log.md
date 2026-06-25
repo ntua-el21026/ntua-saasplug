@@ -88,6 +88,8 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 059 | 2026-06-25 | Direct map controls polish prompt plus analytics clarification | N/A | Remove custom map pan/zoom pad, restyle fullscreen as right-side icon control, and clarify point-view status chart behavior | `completed` | `docs/ai/codex-runs/059-map-controls-polish.md` |
 | 060 | 2026-06-25 | Direct product-logic update prompt | N/A | Treat EV map/list quick-view opens as billable and analytic point views | `completed` | `docs/ai/codex-runs/060-map-quick-view-point-events.md` |
 | 060 | 2026-06-25 | Direct operator pricing UI prompt | N/A | Operator pricing page tabs and pricing policy sentence removal | `completed` | `docs/ai/codex-runs/060-operator-pricing-tabs.md` |
+| 061 | 2026-06-25 | Direct provider points filter prompt | N/A | Provider charging-points filter card and analytics metric explanation | `completed` | `docs/ai/codex-runs/061-provider-points-filters.md` |
+| 062 | 2026-06-25 | Direct invoices and sync UI prompt | N/A | Remove duplicate invoice provider filter and sync manual-operations tab | `completed` | `docs/ai/codex-runs/062-invoices-and-sync-dedup-polish.md` |
 
 ---
 

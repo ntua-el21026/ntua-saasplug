@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 
@@ -57,6 +57,8 @@ export function CatalogMap({
   const latestSelectRef = useRef(onSelectPoint);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const legendPanelId = useId();
 
   const plotted = useMemo(() => points.filter(pointHasCoordinates), [points]);
   const selectedPoint = plotted.find((point) => point.id === selectedPointId) ?? null;
@@ -235,6 +237,11 @@ export function CatalogMap({
         <div className="map-radius-label" aria-label="Current catalog radius">
           {radiusKm.toFixed(1)} km radius
         </div>
+        <MapLegendControl
+          open={legendOpen}
+          panelId={legendPanelId}
+          onToggle={() => setLegendOpen((current) => !current)}
+        />
         {mapError ? (
           <div className="map-service-warning" role="status">
             {mapError}
@@ -250,7 +257,42 @@ export function CatalogMap({
           <ChargingPointMapPanel point={selectedPoint} bounds={bounds} onClose={onClosePoint} />
         ) : null}
       </div>
-      <AvailabilityLegend />
+    </div>
+  );
+}
+
+function MapLegendControl({
+  open,
+  panelId,
+  onToggle,
+}: {
+  open: boolean;
+  panelId: string;
+  onToggle: () => void;
+}) {
+  const label = open ? "Hide provider marker legend" : "Show provider marker legend";
+  return (
+    <div className={`map-legend-control ${open ? "is-open" : ""}`}>
+      {open ? (
+        <div id={panelId} className="map-legend-panel">
+          <AvailabilityLegend className="map-legend-list" />
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="map-legend-toggle"
+        aria-controls={panelId}
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        onClick={onToggle}
+      >
+        <span className="map-legend-toggle-icon" aria-hidden="true">
+          <span className="map-legend-toggle-dot legend-redPlug" />
+          <span className="map-legend-toggle-dot legend-greenPlug" />
+          <span className="map-legend-toggle-dot legend-bluePlug" />
+        </span>
+      </button>
     </div>
   );
 }

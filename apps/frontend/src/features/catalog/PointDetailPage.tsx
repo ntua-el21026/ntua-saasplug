@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AccessDenied } from "../../components/AccessDenied";
@@ -72,21 +72,11 @@ function booleanField(payload: Record<string, unknown> | null, field: string): b
   return typeof value === "boolean" ? value : null;
 }
 
-function isUnconfirmedAvailableStatus(
-  point: CatalogPointDetail | null,
-  status: StatusLookupResponse | StatusCacheResponse | null,
-): boolean {
-  if (point?.status !== "reserved" || status?.status !== "available") {
-    return false;
-  }
-  return !("provider_called" in status) || !status.provider_called || status.returned_stale;
-}
-
 function displayStatus(
-  point: CatalogPointDetail | null,
+  _point: CatalogPointDetail | null,
   status: StatusLookupResponse | StatusCacheResponse | null,
 ): StatusValue {
-  return isUnconfirmedAvailableStatus(point, status) ? "reserved" : status?.status ?? point?.status ?? "unknown";
+  return status?.status ?? "unknown";
 }
 
 export function PointDetailPage() {
@@ -108,11 +98,37 @@ export function PointDetailPage() {
   const isEvUser = session?.user.roles.includes("EV_USER") ?? false;
   const isProviderAdmin = session?.user.roles.includes("PROVIDER_ADMIN") ?? false;
   const isOwnProviderPoint = !isProviderAdmin || session?.user.provider_code === providerCode;
-  const reservationStatusRefreshRef = useRef<string | null>(null);
   const displayedStatus = displayStatus(point, status);
   const displayedReservationEnd = displayedStatus === "reserved"
-    ? status?.status === "reserved" ? status.reservation_ends_at : point?.reservation_ends_at
+    ? status?.reservation_ends_at ?? null
     : null;
+
+  const lookupStatus = useCallback(async (forceRefresh = false): Promise<boolean> => {
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      const payload = await requestJson<StatusLookupResponse>(
+        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=${forceRefresh ? "true" : "false"}`,
+        { accessToken: session?.accessToken },
+      );
+      setStatus(payload);
+      return true;
+    } catch (caught) {
+      setStatusError(messageFromUnknownError(caught));
+      try {
+        const cached = await requestJson<StatusCacheResponse>(
+          `/api/status/cache/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}`,
+          { accessToken: session?.accessToken },
+        );
+        setStatus(cached);
+        return true;
+      } catch {
+        return false;
+      }
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [externalPointId, providerCode, session?.accessToken]);
 
   useEffect(() => {
     if (!isOwnProviderPoint) {
@@ -151,46 +167,21 @@ export function PointDetailPage() {
     if (session?.accessToken && isOwnProviderPoint) {
       lookupStatus();
     }
-  }, [session?.accessToken, isOwnProviderPoint, providerCode, externalPointId]);
+  }, [isOwnProviderPoint, lookupStatus, session?.accessToken]);
 
   useEffect(() => {
-    if (!isUnconfirmedAvailableStatus(point, status)) {
-      return;
+    if (!session?.accessToken || !isOwnProviderPoint || !status?.expires_at) {
+      return undefined;
     }
-    const pointKey = `${providerCode}:${externalPointId}`;
-    if (reservationStatusRefreshRef.current === pointKey) {
-      return;
+    const expiresAt = Date.parse(status.expires_at);
+    if (!Number.isFinite(expiresAt)) {
+      return undefined;
     }
-    reservationStatusRefreshRef.current = pointKey;
-    void lookupStatus(true);
-  }, [externalPointId, point, providerCode, status]);
-
-  async function lookupStatus(forceRefresh = false): Promise<boolean> {
-    setStatusLoading(true);
-    setStatusError(null);
-    try {
-      const payload = await requestJson<StatusLookupResponse>(
-        `/api/status/points/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}/status?forceRefresh=${forceRefresh ? "true" : "false"}`,
-        { accessToken: session?.accessToken },
-      );
-      setStatus(payload);
-      return true;
-    } catch (caught) {
-      setStatusError(messageFromUnknownError(caught));
-      try {
-        const cached = await requestJson<StatusCacheResponse>(
-          `/api/status/cache/${encodeURIComponent(providerCode)}/${encodeURIComponent(externalPointId)}`,
-          { accessToken: session?.accessToken },
-        );
-        setStatus(cached);
-        return true;
-      } catch {
-        return false;
-      }
-    } finally {
-      setStatusLoading(false);
-    }
-  }
+    const timerId = window.setTimeout(() => {
+      void lookupStatus(false);
+    }, Math.max(1000, expiresAt - Date.now() + 250));
+    return () => window.clearTimeout(timerId);
+  }, [isOwnProviderPoint, lookupStatus, session?.accessToken, status?.expires_at]);
 
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -234,17 +225,7 @@ export function PointDetailPage() {
       );
       setReservation(payload);
       if (payload.status === "succeeded") {
-        const nextStatus = (payload.provider_status ?? "reserved") as StatusValue;
-        setStatus((current) => current ? {
-          ...current,
-          status: nextStatus,
-          reservation_ends_at: payload.reservation_ends_at,
-        } : current);
-        setPoint((current) => current ? {
-          ...current,
-          status: nextStatus,
-          reservation_ends_at: payload.reservation_ends_at,
-        } : current);
+        void lookupStatus(true);
       }
       setReservationRetryBlocked(false);
     } catch (caught) {

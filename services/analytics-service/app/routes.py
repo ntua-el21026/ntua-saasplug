@@ -183,6 +183,9 @@ def provider_summary(
         total_searches=totals["searches"],
         total_point_views=totals["point_views"],
         total_status_checks=totals["status_checks"],
+        status_cache_hits=totals["status_cache_hits"],
+        status_provider_calls=totals["status_provider_calls"],
+        status_cache_hit_rate=conversion_rate(totals["status_cache_hits"], totals["status_checks"]),
         successful_reservations=totals["successful_reservations"],
         failed_reservations=totals["failed_reservations"],
         reservation_conversion_rate=conversion_rate(
@@ -497,6 +500,8 @@ def provider_totals(metrics: list[ProviderDailyMetric]) -> dict:
         "searches": sum(metric.searches for metric in metrics),
         "point_views": sum(metric.point_views for metric in metrics),
         "status_checks": sum(metric.status_checks for metric in metrics),
+        "status_cache_hits": sum(metric.status_cache_hits for metric in metrics),
+        "status_provider_calls": sum(metric.status_provider_calls for metric in metrics),
         "successful_reservations": sum(metric.successful_reservations for metric in metrics),
         "failed_reservations": sum(metric.failed_reservations for metric in metrics),
         "observed_amount": sum(metric.observed_amount for metric in metrics),

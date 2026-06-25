@@ -202,7 +202,7 @@ Provider analytics must be realistic and useful, but not overly complex. Provide
 
 - total searches involving the provider,
 - total point views/clicks, including map/list quick views and full detail views,
-- status checks,
+- status cache hit rate and live provider status refresh count,
 - successful reservations,
 - failed reservations,
 - reservation conversion rate,
@@ -359,7 +359,7 @@ Use a hybrid provider data acquisition strategy.
 | Charging point catalog/list | Local provider snapshots and aggregated catalog. |
 | Search/filter/map | Local aggregated catalog through `catalog-service`. |
 | Point details | Cached/local aggregated catalog. |
-| Live status | Backend-mediated provider call through `status-service` and provider service, with 5-minute cache. |
+| Displayed current status | Backend-mediated lookup through `status-service` and provider service, with operator-configurable cache TTL. |
 | Reservation | Synchronous backend-mediated provider call through `reservation-service` and provider service. |
 | Analytics | Events and analytics read models, not provider live calls. |
 | Billing | Events and billing records, not provider live calls. |
@@ -454,11 +454,11 @@ Provider services must store:
 
 ## SPEC-2.9 Status strategy
 
-Status lookup is real-time from the user's perspective, but cached for 5
-minutes by default. The active TTL is an operator-owned persistent policy with
-a 30-second minimum; the operator Sync control-plane presets update this policy
-alongside interval jobs. A policy change recalculates expiry for existing cache
-rows immediately.
+Status lookup is real-time from the user's perspective, but cached by
+`status-service` for 5 minutes by default. The active TTL is an operator-owned
+persistent policy with a 30-second minimum; the operator Sync control-plane
+presets update this policy alongside interval jobs. A policy change
+recalculates expiry for existing cache rows immediately.
 
 Flow:
 
@@ -479,10 +479,14 @@ unknown
 
 Provider-specific unknown or missing status maps to `unknown`.
 
-If the cached/local catalog reports `reserved` while a non-live status cache
-response reports `available`, the frontend must keep the reservation visible
-and request a single backend-mediated forced status refresh. Only a confirmed
-live provider response may replace that reservation status in point details.
+Every frontend current-status display must use `status-service`, including map
+quick views, list cards, point details, and provider/operator point tables.
+`catalog-service` status is an import snapshot for catalog persistence and
+background context, not the current-status source of truth for UI rendering.
+When a cache row is expired, `status-service` refreshes it through the relevant
+provider service. Reservations do not trust the cache; `reservation-service`
+calls the provider service synchronously and lets the provider accept or reject
+the reservation against current provider state.
 
 ## SPEC-2.10 Reservation strategy
 
@@ -1177,7 +1181,9 @@ Dashboard reads are synchronous API calls to analytics/billing services, but the
 
 ## SPEC-5.13 Point details reads
 
-Point details are synchronous reads from the cached/local aggregated catalog. Optional status lookup goes through `status-service` and its 5-minute cache.
+Point details are synchronous reads from the cached/local aggregated catalog for
+static point metadata. Displayed current status goes through `status-service`
+and its active cache policy.
 
 ## SPEC-5.14 Orchestrator decision
 
@@ -1253,7 +1259,7 @@ Provider dashboard includes:
 
 - total point views,
 - total searches involving provider,
-- status checks,
+- status cache hit rate and live provider status refresh count,
 - successful reservations,
 - failed reservations,
 - reservation conversion rate,
@@ -1314,8 +1320,8 @@ Missing values remain unavailable and are excluded from cost totals and
 averages.
 
 Reserved-point timing is displayed wherever the owning read model contains it.
-Catalog/status point views show the reserved-until timestamp, while reservation
-records show the created-to-end reservation window.
+UI current-status views show the `status-service` reserved-until timestamp,
+while reservation records show the created-to-end reservation window.
 
 ## SPEC-6.8 Aggregate tables
 
@@ -1762,9 +1768,10 @@ The frontend must debounce map pan/zoom requests.
 
 ## SPEC-9.6 Point details UI
 
-Point details are read from cached/local aggregated catalog.
+Point metadata is read from the cached/local aggregated catalog.
 
-Optional status lookup uses `status-service`.
+Displayed current status uses `status-service`; the frontend must not render
+catalog snapshot status as current availability.
 
 Displayed data:
 

@@ -37,6 +37,30 @@ class StatusLookupResponse(BaseModel):
     warning: str | None = None
 
 
+class StatusBatchLookupItem(BaseModel):
+    provider_code: str
+    external_point_id: str
+
+
+class StatusBatchLookupRequest(BaseModel):
+    points: list[StatusBatchLookupItem] = Field(min_length=1, max_length=500)
+    force_refresh: bool = False
+
+
+class StatusBatchLookupError(BaseModel):
+    provider_code: str
+    external_point_id: str
+    status: str = "unknown"
+    error_type: str
+    message: str
+    external_status_code: int | None = None
+
+
+class StatusBatchLookupResponse(BaseModel):
+    items: list[StatusLookupResponse]
+    errors: list[StatusBatchLookupError]
+
+
 class StatusCacheResponse(BaseModel):
     provider_code: str
     external_point_id: str

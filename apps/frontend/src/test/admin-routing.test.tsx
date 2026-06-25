@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -76,6 +76,9 @@ function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
   if (pathname === "/api/catalog/points/redPlug/1515489") {
     return catalogPointDetail();
   }
+  if (pathname === "/api/status/points/statuses") {
+    return statusBatchLookup(options);
+  }
   if (pathname === "/api/status/points/redPlug/1515489/status") {
     return statusLookup();
   }
@@ -87,7 +90,7 @@ function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
     return reservationResponse();
   }
   if (pathname === "/api/catalog/freshness") {
-    return [];
+    return catalogFreshnessRows();
   }
   if (pathname === "/api/status/freshness") {
     return statusFreshnessRows();
@@ -148,7 +151,10 @@ function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
     return schedulerHealth();
   }
   if (pathname === "/api/scheduler/jobs") {
-    return [schedulerJob(), invoicePreparationJob()];
+    return [schedulerJob(), manualCatalogJob(), invoicePreparationJob()];
+  }
+  if (pathname === "/api/scheduler/jobs/catalog.import.red/run") {
+    return { ...schedulerRun(), id: "run-manual-red", job_key: "catalog.import.red", trigger_type: "manual" };
   }
   if (pathname === "/api/scheduler/jobs/intervals/apply-minimum") {
     return schedulerIntervalPreset("minimum");
@@ -157,7 +163,7 @@ function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
     return schedulerIntervalPreset("defaults");
   }
   if (pathname === "/api/scheduler/runs") {
-    return [schedulerRun()];
+    return schedulerRuns();
   }
   if (pathname === "/api/scheduler/jobs/run-maintenance") {
     return {
@@ -186,6 +192,9 @@ function providerSummary() {
     total_searches: 18,
     total_point_views: 12,
     total_status_checks: 8,
+    status_cache_hits: 6,
+    status_provider_calls: 2,
+    status_cache_hit_rate: 0.75,
     successful_reservations: 4,
     failed_reservations: 1,
     reservation_conversion_rate: null,
@@ -459,6 +468,26 @@ function statusLookup() {
   };
 }
 
+function statusBatchLookup(options?: RequestInit) {
+  const body = typeof options?.body === "string"
+    ? JSON.parse(options.body) as { points?: Array<{ provider_code: ProviderCode; external_point_id: string }> }
+    : {};
+  const requestedPoints = body.points ?? [];
+  return {
+    items: requestedPoints.map((point) => ({
+      ...statusLookup(),
+      provider_code: point.provider_code,
+      external_point_id: point.external_point_id,
+      normalized_point_id: `${point.provider_code}:${point.external_point_id}`,
+      status: point.provider_code === "redPlug" && point.external_point_id === "1515489" ? "reserved" : "available",
+      reservation_ends_at: point.provider_code === "redPlug" && point.external_point_id === "1515489"
+        ? "2026-06-13T00:35:00Z"
+        : null,
+    })),
+    errors: [],
+  };
+}
+
 function statusCachePolicy(ttlSeconds: number) {
   return {
     ttl_seconds: ttlSeconds,
@@ -513,6 +542,25 @@ function statusFreshnessRows() {
       last_checked_at: "2026-06-13T00:00:00Z",
       last_log_status: "succeeded",
       last_error_type: null,
+    },
+  ];
+}
+
+function catalogFreshnessRows() {
+  return [
+    {
+      provider_code: "redPlug",
+      active_count: 4,
+      stale_count: 1,
+      last_successful_import_at: "2026-06-13T00:00:00Z",
+      last_import_status: "completed",
+    },
+    {
+      provider_code: "greenPlug",
+      active_count: 5,
+      stale_count: 0,
+      last_successful_import_at: "2026-06-13T00:00:00Z",
+      last_import_status: "completed",
     },
   ];
 }
@@ -644,6 +692,20 @@ function invoicePreparationJob() {
   };
 }
 
+function manualCatalogJob() {
+  return {
+    ...schedulerJob(),
+    id: "job-manual-red",
+    job_key: "catalog.import.red",
+    description: "Manually import redPlug catalog through catalog-service.",
+    target_url_path: "/internal/jobs/catalog/imports/providers/redPlug",
+    schedule_type: "manual",
+    interval_seconds: null,
+    cron_expression: null,
+    next_run_at: null,
+  };
+}
+
 function catalogImportRuns() {
   return [
     {
@@ -703,6 +765,27 @@ function schedulerRun() {
   };
 }
 
+function schedulerRuns() {
+  return [
+    {
+      ...schedulerRun(),
+      id: "run-3",
+      job_key: "reservation.publish-outbox",
+      duration_ms: 85,
+      target_service: "reservation-service",
+      target_url_path: "/internal/jobs/outbox/publish-pending",
+      finished_at: "2026-06-13T00:00:04Z",
+    },
+    {
+      ...schedulerRun(),
+      id: "run-2",
+      duration_ms: 3000,
+      finished_at: "2026-06-13T00:00:03Z",
+    },
+    schedulerRun(),
+  ];
+}
+
 describe("admin role routing", () => {
   afterEach(() => {
     cleanup();
@@ -717,6 +800,7 @@ describe("admin role routing", () => {
     window.history.pushState({}, "", "/");
 
     render(<App />);
+    await vi.dynamicImportSettled();
 
     expect(await screen.findByRole("heading", { name: /your network overview/i })).toBeInTheDocument();
     expect(await screen.findByText(/daily successful reservations across your charging network/i)).toBeInTheDocument();
@@ -735,6 +819,8 @@ describe("admin role routing", () => {
 
     expect(await screen.findByRole("heading", { name: /^your performance$/i })).toBeInTheDocument();
     expect(await screen.findByText("€0.00")).toBeInTheDocument();
+    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText(/6 cached/i)).toBeInTheDocument();
     expect(screen.getByText("Red provider admin")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /provider activity bar chart/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /update analytics|refresh stats/i })).not.toBeInTheDocument();
@@ -847,6 +933,12 @@ describe("admin role routing", () => {
     expect(await screen.findByText("Owned redPlug charger")).toBeInTheDocument();
     expect(screen.queryByText("Foreign greenPlug charger")).not.toBeInTheDocument();
     expect(screen.queryByText("greenPlug")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /show filters/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /show filters/i }));
+    expect(screen.queryByLabelText(/^provider$/i)).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/^status$/i), "reserved");
+    await userEvent.selectOptions(screen.getByLabelText(/charger type/i), "7");
+    await userEvent.click(screen.getByLabelText(/include stale/i));
     await userEvent.selectOptions(screen.getByLabelText(/entries fetched/i), "40");
     await waitFor(() => {
       const catalogCall = [...vi.mocked(fetch).mock.calls].reverse().find(([input]) => {
@@ -858,7 +950,12 @@ describe("admin role routing", () => {
       const url = new URL(raw, "http://app.test");
       expect(url.searchParams.get("providerCode")).toBe("redPlug");
       expect(url.searchParams.get("limit")).toBe("40");
+      expect(url.searchParams.has("status")).toBe(false);
+      expect(url.searchParams.get("connector")).toBe("7");
+      expect(url.searchParams.get("includeStale")).toBe("false");
     });
+    expect(await screen.findByText("Owned redPlug charger")).toBeInTheDocument();
+    expect(screen.queryByText("Foreign greenPlug charger")).not.toBeInTheDocument();
   });
 
   it("allows provider admins to open their own point details without reservation controls", async () => {
@@ -876,7 +973,7 @@ describe("admin role routing", () => {
     expect(screen.queryByRole("heading", { name: /access denied/i })).not.toBeInTheDocument();
   });
 
-  it("keeps a catalog reservation visible while reconciling an older cached available status", async () => {
+  it("uses status-service status on point details even when catalog snapshot differs", async () => {
     storeSession("EV_USER");
     const statusRequests: string[] = [];
     vi.stubGlobal(
@@ -894,16 +991,7 @@ describe("admin role routing", () => {
         if (url.pathname === "/api/status/points/redPlug/1515489/status") {
           const forceRefresh = url.searchParams.get("forceRefresh") ?? "false";
           statusRequests.push(forceRefresh);
-          return new Response(JSON.stringify(forceRefresh === "true"
-            ? {
-              ...statusLookup(),
-              status: "reserved",
-              reservation_ends_at: "2026-06-13T00:35:00Z",
-              cache_hit: false,
-              provider_called: true,
-              source: "provider_live",
-            }
-            : statusLookup()), { headers: { "Content-Type": "application/json" }, status: 200 });
+          return new Response(JSON.stringify(statusLookup()), { headers: { "Content-Type": "application/json" }, status: 200 });
         }
         return new Response(JSON.stringify(responseFor(url, "EV_USER", options)), {
           headers: { "Content-Type": "application/json" },
@@ -916,9 +1004,9 @@ describe("admin role routing", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /owned redplug charger/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/^reserved$/i).length).toBeGreaterThan(0);
-    await waitFor(() => expect(statusRequests).toEqual(["false", "true"]));
-    expect(screen.getAllByText(/^reserved$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^available$/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(statusRequests).toEqual(["false"]));
+    expect(screen.queryByText(/^reserved$/i)).not.toBeInTheDocument();
   });
 
   it("lets EV users replace reservation duration and close the reservation result", async () => {
@@ -1262,13 +1350,48 @@ describe("admin role routing", () => {
     expect(screen.getByText(/fetch the latest charging points/i)).toBeInTheDocument();
     expect(screen.getByText(/prepare invoice previews/i)).toBeInTheDocument();
     expect(screen.getByText(/daily at 02:30/i)).toBeInTheDocument();
+    expect(screen.getByText(/refresh redplug charging-point records/i)).toBeInTheDocument();
+    expect(screen.getByText(/^manual$/i)).toBeInTheDocument();
     expect(screen.queryByText(/billing prepare-invoices/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /manual operations/i })).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("86400")).toBeInTheDocument();
     expect(screen.getAllByText(/^s$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/every day/i)).toBeInTheDocument();
     expect(screen.getByText(/status cache 300s/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /apply minimum/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /reset defaults/i })).toBeEnabled();
+
+    const manualJobRow = screen.getByText(/import redplug catalog/i).closest("tr");
+    expect(manualJobRow).not.toBeNull();
+    await userEvent.click(within(manualJobRow as HTMLElement).getByRole("button", { name: /^run$/i }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/scheduler/jobs/catalog.import.red/run",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByText(/finished import redplug catalog/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /run history/i }));
+    const durationChart = await screen.findByRole("img", { name: /average run duration/i });
+    expect(within(durationChart).getAllByText(/import all provider catalogs/i)).toHaveLength(1);
+    expect(within(durationChart).getByText("2,000 ms")).toBeInTheDocument();
+    expect(screen.getByText(/2 runs/i)).toBeInTheDocument();
+  });
+
+  it("renders operator invoices without a provider filter", async () => {
+    storeSession("OPERATOR");
+    mockFetch("OPERATOR");
+    window.history.pushState({}, "", "/operator/invoices");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /operator invoices/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /issue invoice/i })).toHaveAttribute("href", "/operator/invoices/new");
+    expect(screen.queryByLabelText(/^provider$/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/billing/invoices", expect.any(Object)));
+    const invoiceCalls = vi.mocked(fetch).mock.calls.filter(([input]) => input === "/api/billing/invoices");
+    expect(invoiceCalls).toHaveLength(1);
   });
 
   it("lets operators apply minimum intervals and restore documented defaults", async () => {
@@ -1451,7 +1574,13 @@ describe("admin role routing", () => {
     expect(await screen.findByRole("heading", { name: /system overview/i })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("tab", { name: /scheduler posture/i }));
     expect(await screen.findByRole("heading", { name: /scheduler posture/i })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /run duration milliseconds bar chart/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /average run duration milliseconds bar chart/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /data freshness/i }));
+    expect(await screen.findByText(/provider labels repeat/i)).toBeInTheDocument();
+    expect(screen.getByText(/catalog freshness/i)).toBeInTheDocument();
+    expect(screen.getByText(/status cache freshness/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /stale catalog points bar chart/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /expired status entries bar chart/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /background activity/i }));
     expect(await screen.findByText(/scheduler runs/i)).toBeInTheDocument();
     expect((await screen.findAllByText(/succeeded/i)).length).toBeGreaterThan(0);

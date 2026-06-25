@@ -59,18 +59,19 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
             )
             apply_ev_reservation_event(ev_bucket, event)
 
-        if event.provider_code:
+        for provider_code in provider_codes_for_provider_aggregates(event):
             provider_hour_bucket = provider_hourly.setdefault(
-                (event.provider_code, event_hour),
-                empty_provider_bucket(event.provider_code, event_hour),
+                (provider_code, event_hour),
+                empty_provider_bucket(provider_code, event_hour),
             )
             provider_day_bucket = provider_daily.setdefault(
-                (event.provider_code, event_day),
-                empty_provider_bucket(event.provider_code, event_day),
+                (provider_code, event_day),
+                empty_provider_bucket(provider_code, event_day),
             )
             apply_provider_event(provider_hour_bucket, event)
             apply_provider_event(provider_day_bucket, event)
 
+        if event.provider_code:
             if event.internal_point_id or event.external_point_id:
                 point_key = (
                     event.provider_code,
@@ -109,6 +110,8 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
                 searches=bucket["searches"],
                 point_views=bucket["point_views"],
                 status_checks=bucket["status_checks"],
+                status_cache_hits=bucket["status_cache_hits"],
+                status_provider_calls=bucket["status_provider_calls"],
                 successful_reservations=bucket["successful_reservations"],
                 failed_reservations=bucket["failed_reservations"],
                 observed_amount=bucket["observed_amount"],
@@ -125,6 +128,8 @@ def refresh_aggregates(db: Session) -> AggregateRefreshResult:
                 searches=bucket["searches"],
                 point_views=bucket["point_views"],
                 status_checks=bucket["status_checks"],
+                status_cache_hits=bucket["status_cache_hits"],
+                status_provider_calls=bucket["status_provider_calls"],
                 successful_reservations=bucket["successful_reservations"],
                 failed_reservations=bucket["failed_reservations"],
                 conversion_numerator=bucket["successful_reservations"],
@@ -224,11 +229,37 @@ def empty_provider_bucket(provider_code: str, bucket) -> dict:
         "searches": 0,
         "point_views": 0,
         "status_checks": 0,
+        "status_cache_hits": 0,
+        "status_provider_calls": 0,
         "successful_reservations": 0,
         "failed_reservations": 0,
         "observed_amount": 0.0,
         "currency": None,
     }
+
+
+def provider_codes_for_provider_aggregates(event: UsageEvent) -> list[str]:
+    if event.event_type == EventType.USAGE_SEARCH_PERFORMED.value:
+        if event.provider_code:
+            return [event.provider_code]
+        return normalized_provider_codes(event.payload.get("matched_provider_codes"))
+    return [event.provider_code] if event.provider_code else []
+
+
+def normalized_provider_codes(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    provider_codes: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        provider_code = item.strip()
+        if not provider_code or provider_code in seen:
+            continue
+        seen.add(provider_code)
+        provider_codes.append(provider_code)
+    return provider_codes
 
 
 def empty_operator_bucket() -> dict:
@@ -266,6 +297,10 @@ def apply_provider_event(bucket: dict, event: UsageEvent) -> None:
         bucket["point_views"] += 1
     elif event.event_type == EventType.STATUS_POINT_CHECKED.value:
         bucket["status_checks"] += 1
+        if event.payload.get("cache_hit") is True:
+            bucket["status_cache_hits"] += 1
+        if event.payload.get("provider_called") is True:
+            bucket["status_provider_calls"] += 1
     elif event.event_type == EventType.RESERVATION_SUCCEEDED.value:
         bucket["successful_reservations"] += 1
         estimate = estimated_cost_components(event.payload)
