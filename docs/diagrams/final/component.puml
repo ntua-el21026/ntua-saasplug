@@ -1,24 +1,23 @@
 @startuml
-title saasPlug final component diagram
+title saasPlug final component model (repository and runtime aligned)
 left to right direction
 skinparam componentStyle rectangle
+skinparam shadowing false
 
-actor "Browser user" as Browser
+actor "EV User" as EV
+actor "Provider Admin" as ProviderAdmin
+actor "Operator" as Operator
 
-package "apps" {
-  component "frontend\napps/frontend" as Frontend
-}
+component "Browser\nrole-based React app" as Browser
+component "frontend\napps/frontend\nReact/Vite static build\nserved by Nginx on :5173" as Frontend
+component "nginx-gateway\ndeploy/nginx/default.conf\npublic HTTP :8080 -> container :80" as Gateway
 
-package "deploy" {
-  component "nginx-gateway\ndeploy/nginx/default.conf" as Gateway
-}
-
-package "services" {
+package "FastAPI services\ninternal Docker port :8000" {
   component "auth-service\nservices/auth-service" as Auth
-  component "provider-registry-service\nservices/provider-registry-service" as Registry
-  component "red-provider-service\nservices/red-provider-service" as RedProvider
-  component "green-provider-service\nservices/green-provider-service" as GreenProvider
-  component "blue-provider-service\nservices/blue-provider-service" as BlueProvider
+  component "provider-registry-service\nservices/provider-registry-service" as ProviderRegistry
+  component "red-provider-service\nservices/red-provider-service\n/internal only" as RedProvider
+  component "green-provider-service\nservices/green-provider-service\n/internal only" as GreenProvider
+  component "blue-provider-service\nservices/blue-provider-service\n/internal only" as BlueProvider
   component "catalog-service\nservices/catalog-service" as Catalog
   component "status-service\nservices/status-service" as Status
   component "reservation-service\nservices/reservation-service" as Reservation
@@ -27,32 +26,34 @@ package "services" {
   component "scheduler-service\nservices/scheduler-service" as Scheduler
 }
 
-package "packages" {
-  component "event contracts\npackages/events" as EventContracts
+package "Service-owned PostgreSQL databases" {
+  database "auth-postgres" as AuthDb
+  database "provider-registry-postgres" as ProviderRegistryDb
+  database "red-provider-postgres" as RedDb
+  database "green-provider-postgres" as GreenDb
+  database "blue-provider-postgres" as BlueDb
+  database "catalog-postgres" as CatalogDb
+  database "status-postgres" as StatusDb
+  database "reservation-postgres" as ReservationDb
+  database "analytics-postgres" as AnalyticsDb
+  database "billing-postgres" as BillingDb
+  database "scheduler-postgres" as SchedulerDb
 }
 
-queue "RabbitMQ\nexchange: saasplug.events" as RabbitMQ
+queue "rabbitmq\nsaasplug.events exchange\nanalytics.events queue\nbilling.reservations queue" as Rabbit
+component "packages/events\nsaasplug_events" as EventsPackage
 
-database "auth-postgres" as AuthDb
-database "provider-registry-postgres" as RegistryDb
-database "red-provider-postgres" as RedDb
-database "green-provider-postgres" as GreenDb
-database "blue-provider-postgres" as BlueDb
-database "catalog-postgres" as CatalogDb
-database "status-postgres" as StatusDb
-database "reservation-postgres" as ReservationDb
-database "analytics-postgres" as AnalyticsDb
-database "billing-postgres" as BillingDb
-database "scheduler-postgres" as SchedulerDb
+cloud "External redPlug API" as RedExternal
+cloud "External greenPlug API" as GreenExternal
+cloud "External bluePlug API" as BlueExternal
 
-cloud "redPlug API" as RedApi
-cloud "greenPlug API" as GreenApi
-cloud "bluePlug API" as BlueApi
-
+EV --> Browser
+ProviderAdmin --> Browser
+Operator --> Browser
 Browser --> Gateway : HTTP / and /api/*
-Gateway --> Frontend : static app
-Gateway --> Auth : /api/auth/*
-Gateway --> Registry : /api/providers/*
+Gateway --> Frontend : /
+Gateway --> Auth : /api/auth/* -> /auth/*
+Gateway --> ProviderRegistry : /api/providers/* and /api/provider-registry/*
 Gateway --> Catalog : /api/catalog/*
 Gateway --> Status : /api/status/*
 Gateway --> Reservation : /api/reservations/*
@@ -60,28 +61,8 @@ Gateway --> Analytics : /api/analytics/*
 Gateway --> Billing : /api/billing/*
 Gateway --> Scheduler : /api/scheduler/*
 
-Catalog --> RedProvider : provider snapshots
-Catalog --> GreenProvider : provider snapshots
-Catalog --> BlueProvider : provider snapshots
-Status --> RedProvider : internal status lookup
-Status --> GreenProvider : internal status lookup
-Status --> BlueProvider : internal status lookup
-Reservation --> Catalog : point resolution
-Reservation --> RedProvider : synchronous reservation
-Reservation --> GreenProvider : synchronous reservation
-Reservation --> BlueProvider : synchronous reservation
-
-Scheduler --> Catalog : internal jobs
-Scheduler --> Analytics : internal jobs
-Scheduler --> Billing : internal jobs
-Scheduler --> Reservation : internal jobs
-
-RedProvider --> RedApi : provider REST API
-GreenProvider --> GreenApi : provider REST API
-BlueProvider --> BlueApi : provider REST API
-
 Auth --> AuthDb
-Registry --> RegistryDb
+ProviderRegistry --> ProviderRegistryDb
 RedProvider --> RedDb
 GreenProvider --> GreenDb
 BlueProvider --> BlueDb
@@ -92,18 +73,52 @@ Analytics --> AnalyticsDb
 Billing --> BillingDb
 Scheduler --> SchedulerDb
 
-Reservation --> RabbitMQ : reservation events
-RedProvider --> RabbitMQ : snapshot readiness
-GreenProvider --> RabbitMQ : snapshot readiness
-BlueProvider --> RabbitMQ : snapshot readiness
-Catalog --> RabbitMQ : catalog import events
-Billing --> RabbitMQ : billing outbox events
-Analytics --> RabbitMQ : consume analytics.events
-Billing --> RabbitMQ : consume billing.reservations
+Catalog --> RedProvider : import via POST /internal/sync\nGET /internal/points
+Catalog --> GreenProvider : import via POST /internal/sync\nGET /internal/points
+Catalog --> BlueProvider : import via POST /internal/sync\nGET /internal/points
+Catalog --> Status : seed imported status cache\nPOST /internal/cache/seed
 
-Reservation ..> EventContracts
-Catalog ..> EventContracts
-Analytics ..> EventContracts
-Billing ..> EventContracts
+Status --> RedProvider : live status\nGET /internal/points/{id}/status
+Status --> GreenProvider : live status
+Status --> BlueProvider : live status
 
+Reservation --> Catalog : resolve catalog point
+Reservation --> RedProvider : reserve\nPOST /internal/points/{id}/reservations
+Reservation --> GreenProvider : reserve
+Reservation --> BlueProvider : reserve
+Reservation --> Status : seed reserved status cache
+
+Scheduler --> Catalog : internal catalog import jobs
+Scheduler --> Reservation : reservation outbox publish job
+Scheduler --> Billing : billing drain, invoice, outbox jobs
+Scheduler --> Analytics : consume events and refresh aggregates
+
+RedProvider --> RedExternal : /points, /point/{id}, /reserve/{id}/{minutes}
+GreenProvider --> GreenExternal : /chargingPoints,\n/chargingPoints/{id}/reservations
+BlueProvider --> BlueExternal : /locations,\n/location/{id}/status,\n/location/{id}/hold?minutes
+
+Catalog --> Rabbit : publish usage.search_performed,\nusage.point_viewed,\ncatalog.points.imported
+Status --> Rabbit : publish status.point_checked
+Reservation --> Rabbit : outbox drain publishes\nreservation.succeeded / reservation.failed
+Billing --> Rabbit : outbox drain publishes\nbilling.charge_created,\nbilling.invoice_issued,\nbilling.invoice_paid
+Rabbit --> Analytics : deliver analytics.events
+Rabbit --> Billing : deliver billing.reservations
+
+EventsPackage ..> Catalog : publisher helpers
+EventsPackage ..> Status : publisher helpers
+EventsPackage ..> Reservation : outbox publisher helpers
+EventsPackage ..> Billing : consumer and publisher helpers
+EventsPackage ..> Analytics : consumer helpers
+
+note bottom of Gateway
+Gateway blocks service-owned internal job prefixes for catalog, reservations,
+analytics, and billing. Scheduler calls internal job endpoints over the Docker network.
+end note
+
+note right of Rabbit
+The events package also declares provider.sync.requested,
+provider.points.snapshot_ready, and catalog.provider_snapshots.
+Those are topology definitions only in the current code path:
+provider adapters do not publish RabbitMQ events.
+end note
 @enduml

@@ -1,0 +1,34 @@
+{
+  "globs": [
+    "**/*.md",
+    "!apps/frontend/node_modules/**",
+    "!apps/frontend/dist/**",
+    "!docs/ai/codex-runs/[0-9]*.md",
+    "!docs/ai/codex-runs/00B-*.md",
+    "!docs/ai/codex-runs/_template.md",
+    "!docs/ai/prompts/prompt_*.md",
+    "!docs/ai/prompts_chatgpt/prompts/prompt_*.md",
+    "!packages/events/build/**",
+    "!reports/**",
+    "!tmp/**",
+    "!.git/**",
+    "!.pytest_cache/**",
+    "!**/.pytest_cache/**"
+  ],
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": {
+      "siblings_only": true
+    },
+    "MD025": false,
+    "MD033": {
+      "allowed_elements": [
+        "br",
+        "details",
+        "summary"
+      ]
+    },
+    "MD060": false
+  }
+}

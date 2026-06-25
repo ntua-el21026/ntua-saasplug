@@ -1,63 +1,83 @@
 @startuml
-title saasPlug final use cases
+title saasPlug final use case model (code-derived)
 left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
 
-actor "EV User\nEV_USER" as EvUser
-actor "Provider Admin\nPROVIDER_ADMIN" as ProviderAdmin
-actor "Operator\nOPERATOR" as Operator
-actor "External Provider APIs\nredPlug / greenPlug / bluePlug" as ProviderApis
+actor "EV User\n(EV_USER)" as EV
+actor "Provider Admin\n(PROVIDER_ADMIN)" as ProviderAdmin
+actor "Operator\n(OPERATOR)" as Operator
+actor "External Provider APIs\nredPlug / greenPlug / bluePlug" as ExternalProviders
+actor "Scheduler service" as Scheduler
 
-rectangle "saasPlug SaaS application" {
-  usecase "Register and login" as UCAuth
-  usecase "Search charging points\nby map bounds" as UCSearch
-  usecase "View cached point details" as UCDetails
-  usecase "Check live point status" as UCStatus
-  usecase "Reserve charging point" as UCReserve
-  usecase "View own reservations" as UCReservations
+rectangle "saasPlug platform" {
+  usecase "Register and login\nlocal credentials or Google OAuth" as Auth
+  usecase "View profile\nand change password" as Profile
 
-  usecase "View provider dashboard" as UCProviderDashboard
-  usecase "Inspect own points" as UCProviderPoints
-  usecase "View provider analytics" as UCProviderAnalytics
-  usecase "Export own usage logs" as UCProviderExport
-  usecase "View and pay own invoices" as UCProviderInvoices
-  usecase "Manage limited provider settings" as UCProviderSettings
+  usecase "Search charging points\nviewport radius, filters, paging" as Search
+  usecase "View point details\nand record point view" as PointDetail
+  usecase "Check point status\ncache hit, live refresh, fallback" as StatusLookup
+  usecase "Reserve charging point\nidempotent request and point lock" as Reserve
+  usecase "View own reservations" as OwnReservations
+  usecase "View EV analytics summary" as EvAnalytics
 
-  usecase "Manage providers" as UCManageProviders
-  usecase "Trigger provider/catalog sync" as UCSync
-  usecase "View operator analytics" as UCOperatorAnalytics
-  usecase "Manage pricing rules" as UCPricing
-  usecase "Issue invoices" as UCIssueInvoices
-  usecase "Inspect system status" as UCSystem
+  usecase "View provider dashboard\nanalytics, invoices, export" as ProviderDashboard
+  usecase "Manage own provider settings" as ProviderSettings
+  usecase "View provider catalog points" as ProviderPoints
+  usecase "Pay provider invoice\nmock full payment" as PayInvoice
 
-  usecase "Expose provider catalog,\nstatus, and reservation APIs" as UCProviderApis
+  usecase "Manage provider registry\ncreate, patch, activate/deactivate" as ProviderRegistry
+  usecase "Run catalog sync\nall providers or one provider" as CatalogSync
+  usecase "Operate scheduler\njobs, intervals, manual runs" as SchedulerOps
+  usecase "View operator analytics\ncatalog, billing, system health" as OperatorAnalytics
+  usecase "Manage pricing rules\nand issue invoices" as BillingOps
+  usecase "Drain event outboxes\nreservation and billing" as OutboxOps
+
+  usecase "Adapt provider APIs\nlist, detail/status, reserve/hold" as ProviderAdapters
 }
 
-EvUser --> UCAuth
-EvUser --> UCSearch
-EvUser --> UCDetails
-EvUser --> UCStatus
-EvUser --> UCReserve
-EvUser --> UCReservations
+EV --> Auth
+EV --> Profile
+EV --> Search
+EV --> PointDetail
+EV --> StatusLookup
+EV --> Reserve
+EV --> OwnReservations
+EV --> EvAnalytics
 
-ProviderAdmin --> UCAuth
-ProviderAdmin --> UCProviderDashboard
-ProviderAdmin --> UCProviderPoints
-ProviderAdmin --> UCProviderAnalytics
-ProviderAdmin --> UCProviderExport
-ProviderAdmin --> UCProviderInvoices
-ProviderAdmin --> UCProviderSettings
+ProviderAdmin --> Auth
+ProviderAdmin --> Profile
+ProviderAdmin --> ProviderDashboard
+ProviderAdmin --> ProviderSettings
+ProviderAdmin --> ProviderPoints
+ProviderAdmin --> PayInvoice
 
-Operator --> UCAuth
-Operator --> UCManageProviders
-Operator --> UCSync
-Operator --> UCOperatorAnalytics
-Operator --> UCPricing
-Operator --> UCIssueInvoices
-Operator --> UCSystem
+Operator --> Auth
+Operator --> Profile
+Operator --> ProviderRegistry
+Operator --> CatalogSync
+Operator --> SchedulerOps
+Operator --> OperatorAnalytics
+Operator --> BillingOps
+Operator --> OutboxOps
 
-UCStatus --> UCProviderApis
-UCReserve --> UCProviderApis
-UCSync --> UCProviderApis
-ProviderApis --> UCProviderApis
+Scheduler --> CatalogSync
+Scheduler --> OutboxOps
+Scheduler --> OperatorAnalytics
+Scheduler --> BillingOps
 
+Search .> StatusLookup : <<include>>
+PointDetail .> StatusLookup : <<include>>
+Reserve .> PointDetail : <<include>>
+Reserve .> StatusLookup : <<include>>
+CatalogSync .> ProviderAdapters : <<include>>
+StatusLookup .> ProviderAdapters : <<include>>
+Reserve .> ProviderAdapters : <<include>>
+ExternalProviders --> ProviderAdapters
+
+note bottom of ProviderAdapters
+Provider adapters are internal FastAPI services.
+They store local snapshots and call the external provider APIs.
+They do not publish RabbitMQ events in the implemented runtime.
+end note
 @enduml

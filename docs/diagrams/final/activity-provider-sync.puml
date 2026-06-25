@@ -1,21 +1,67 @@
 @startuml
-title Provider sync and catalog import activity
+title Provider adapter sync and catalog import activity
+skinparam shadowing false
 
 start
-:OPERATOR triggers provider sync or catalog import control;
-:Responsible provider service calls its external provider API;
-:Store raw provider payloads;
-:Normalize provider-specific schema into internal DTOs;
-:Upsert provider-local point snapshots;
-:Record sync run and point changes;
-:Optionally publish provider.points.snapshot_ready event;
-:catalog-service imports provider snapshots through internal provider endpoint;
-:Detect inserts, updates, unchanged points, stale points, and inactive points;
-:Store aggregated normalized catalog points;
-:Record catalog import run and changes;
-:Publish catalog.points.imported event when configured;
-:analytics-service consumes or ingests catalog event;
-:Dashboards show freshness from owned tables/projections;
-stop
 
+partition "Operator or scheduler-service" {
+  :Trigger catalog import\nall providers or one provider;
+}
+
+partition "catalog-service" {
+  :Validate operator or X-Scheduler-Token;
+  :Create catalog_import_runs row;
+  :Acquire catalog_import_locks row\nfor provider_code;
+  if (Lock acquired?) then (yes)
+    :Call provider adapter POST /internal/sync;
+  else (no)
+    :Mark import skipped/conflict;
+    stop
+  endif
+}
+
+partition "Provider adapter service\nred / green / blue" {
+  :Read provider integration configuration;
+  :Call external list endpoint;
+  :Store raw_provider_payloads;
+  :Normalize provider fields to saasPlug shape;
+  :Upsert provider_point_snapshots;
+  :Record provider_point_changes and provider_sync_runs;
+  :Return SyncSummaryResponse;
+}
+
+partition "catalog-service" {
+  :Call provider adapter GET /internal/points;
+  :Read normalized provider snapshots;
+  :Upsert catalog_points;
+  :Record catalog_point_changes;
+  :Mark missing points stale/inactive as needed;
+  :Complete catalog_import_runs;
+  :Release catalog_import_locks;
+  :Seed imported statuses through\nstatus-service /internal/cache/seed;
+  :Best-effort publish catalog.points.imported;
+}
+
+partition "status-service" {
+  :Upsert status_cache from imported snapshots;
+}
+
+partition "RabbitMQ saasplug.events" {
+  :Route catalog.points.imported\nto analytics.events;
+}
+
+partition "analytics-service" {
+  :Consume analytics.events during drain;
+  :Store usage_events and catalog_health_snapshots;
+  :Refresh provider/operator aggregates when job runs;
+}
+
+note right
+The events package declares provider.sync.requested,
+provider.points.snapshot_ready, and catalog.provider_snapshots,
+but the implemented provider adapter services do not publish RabbitMQ events.
+The live import path is catalog-service -> provider adapter -> catalog-service.
+end note
+
+stop
 @enduml

@@ -1,251 +1,441 @@
 @startuml
-title saasPlug final persistence ownership model
+title saasPlug final service-owned data model
+left to right direction
 hide circle
 skinparam linetype ortho
+skinparam shadowing false
 
-package "auth-service / auth-postgres" {
-  entity users {
+package "auth-postgres" {
+  entity "users" as auth_users {
     * id : uuid
     --
     email
     password_hash
+    auth_provider
+    google_subject
+    last_login_method
     roles
+    provider_id
     provider_code
     is_active
+    created_at
+    updated_at
   }
-  entity refresh_tokens {
+
+  entity "refresh_tokens" as refresh_tokens {
     * id : uuid
     --
     user_id
     token_hash
     expires_at
     revoked_at
+    created_at
   }
+
+  entity "oauth_states" as oauth_states {
+    * id : uuid
+    --
+    state_hash
+    code_verifier
+    expires_at
+    consumed_at
+    created_at
+  }
+
+  auth_users ||--o{ refresh_tokens
 }
 
-package "provider-registry-service / provider-registry-postgres" {
-  entity providers {
+package "provider-registry-postgres" {
+  entity "providers" as providers {
     * id : uuid
     --
     provider_code
     display_name
+    legal_name
+    contact_email
     api_base_url
+    api_key_env_var
+    api_auth_type
+    api_auth_header
+    timeout_seconds
     is_active
+    is_seeded
+    created_at
+    updated_at
   }
-  entity provider_config_audit_logs {
+
+  entity "provider_config_audit_logs" as provider_audit {
     * id : uuid
     --
+    provider_id
     provider_code
+    actor_user_id
     actor_email
+    actor_roles
     action
+    changed_fields
     created_at
   }
+
+  providers ||--o{ provider_audit
 }
 
-package "provider services / provider-local PostgreSQL" {
-  entity provider_point_snapshots {
+package "provider-postgres per adapter\nred / green / blue" {
+  entity "provider_point_snapshots" as provider_snapshots {
     * id : uuid
     --
     provider_code
     external_point_id
-    normalized_payload
-    is_active
-  }
-  entity raw_provider_payloads {
-    * id : uuid
-    --
-    provider_code
-    external_point_id
+    normalized_point_id
+    status
+    reservation_ends_at
+    price_per_kwh_eur
+    capacity
+    connector
+    location_name
+    address
     raw_payload
+    payload_hash
+    is_active
+    last_seen_at
+    created_at
+    updated_at
   }
-  entity provider_sync_runs {
+
+  entity "raw_provider_payloads" as raw_payloads {
+    * id : uuid
+    --
+    provider_code
+    endpoint
+    external_point_id
+    payload
+    status_code
+    fetched_at
+  }
+
+  entity "provider_sync_runs" as provider_sync_runs {
     * id : uuid
     --
     provider_code
     status
     started_at
-    finished_at
+    completed_at
+    fetched_count
+    upserted_count
+    failed_count
+    error_message
   }
-  entity provider_point_changes {
-    * id : uuid
-    --
-    sync_run_id
-    change_type
-    external_point_id
-  }
-}
 
-package "catalog-service / catalog-postgres" {
-  entity catalog_points {
+  entity "provider_point_changes" as provider_changes {
     * id : uuid
     --
     provider_code
     external_point_id
-    name
+    normalized_point_id
+    change_type
+    changed_fields
+    created_at
+  }
+}
+
+package "catalog-postgres" {
+  entity "catalog_points" as catalog_points {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    normalized_point_id
+    display_name
     latitude
     longitude
+    status
+    reservation_ends_at
+    price_per_kwh_eur
+    capacity
+    connector
     is_active
-    source_updated_at
+    is_stale
+    last_provider_seen_at
+    last_catalog_sync_at
+    raw_provider_payload
   }
-  entity catalog_import_runs {
+
+  entity "catalog_import_runs" as catalog_import_runs {
     * id : uuid
     --
     provider_code
     status
-    imported_count
+    triggered_by
+    provider_sync_triggered
+    provider_fetched_count
+    catalog_upserted_count
+    catalog_changed_count
+    catalog_marked_stale_count
+    error_message
+    started_at
+    completed_at
   }
-  entity catalog_point_changes {
-    * id : uuid
-    --
-    import_run_id
-    change_type
-    provider_code
-    external_point_id
-  }
-}
 
-package "status-service / status-postgres" {
-  entity status_cache {
-    * id : uuid
+  entity "catalog_import_locks" as catalog_import_locks {
+    * provider_code
     --
-    provider_code
-    external_point_id
-    normalized_status
+    owner_run_id
+    acquired_at
     expires_at
   }
-  entity status_check_logs {
+
+  entity "catalog_point_changes" as catalog_changes {
     * id : uuid
     --
     provider_code
     external_point_id
-    actor_email
-    result
+    normalized_point_id
+    changed_fields
+    created_at
   }
 }
 
-package "reservation-service / reservation-postgres" {
-  entity reservations {
+package "status-postgres" {
+  entity "status_cache" as status_cache {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    status
+    reservation_ends_at
+    price_per_kwh_eur
+    capacity
+    connector
+    fetched_at
+    expires_at
+    source
+    provider_error
+  }
+
+  entity "status_cache_policy" as status_policy {
+    * id : uuid
+    --
+    ttl_seconds
+    stale_ttl_seconds
+    updated_at
+  }
+
+  entity "status_check_logs" as status_logs {
+    * id : uuid
+    --
+    provider_code
+    external_point_id
+    cache_hit
+    force_refresh
+    provider_called
+    returned_stale
+    status
+    source
+    error_message
+    checked_at
+  }
+}
+
+package "reservation-postgres" {
+  entity "reservations" as reservations {
     * id : uuid
     --
     user_id
     provider_code
     external_point_id
     status
-    provider_reservation_id
+    duration_minutes
+    reservation_starts_at
+    reservation_ends_at
+    estimated_energy_kwh
+    estimated_cost_eur
+    reconciliation_required
+    created_at
+    updated_at
   }
-  entity reservation_attempts {
+
+  entity "reservation_attempts" as reservation_attempts {
     * id : uuid
     --
     reservation_id
-    result
+    provider_code
+    external_point_id
+    outcome_status
     provider_status_code
+    provider_response
+    error_message
+    created_at
   }
-  entity reservation_event_outbox {
+
+  entity "reservation_idempotency_records" as reservation_idem {
     * id : uuid
     --
+    idempotency_key
+    user_id
+    request_hash
     reservation_id
-    event_type
-    published_at
+    status
+    response_payload
+    created_at
+    updated_at
   }
+
+  entity "reservation_point_locks" as reservation_locks {
+    * provider_code + external_point_id
+    --
+    owner_reservation_id
+    acquired_at
+    expires_at
+  }
+
+  entity "reservation_event_outbox" as reservation_outbox {
+    * id : uuid
+    --
+    event_type
+    event_payload
+    status
+    attempts
+    next_attempt_at
+    published_at
+    created_at
+  }
+
+  reservations ||--o{ reservation_attempts
+  reservations ||--o{ reservation_idem
 }
 
-package "analytics-service / analytics-postgres" {
-  entity usage_events {
-    * event_id : uuid
+package "analytics-postgres" {
+  entity "usage_events" as usage_events {
+    * id : uuid
     --
+    event_id
     event_type
     provider_code
+    external_point_id
+    user_id
     occurred_at
     payload
   }
-  entity provider_hourly_metrics
-  entity provider_daily_metrics
-  entity point_daily_metrics
-  entity provider_status_daily_metrics
-  entity operator_daily_metrics
-  entity catalog_health_snapshots
-  entity billing_summary_snapshots
-  entity export_jobs
+
+  entity "provider_hourly_metrics" as provider_hourly
+  entity "provider_daily_metrics" as provider_daily
+  entity "point_daily_metrics" as point_daily
+  entity "provider_status_daily_metrics" as status_daily
+  entity "operator_daily_metrics" as operator_daily
+  entity "ev_reservation_daily_metrics" as ev_daily
+  entity "catalog_health_snapshots" as catalog_health
+  entity "billing_summary_snapshots" as billing_summary
+  entity "export_jobs" as export_jobs
 }
 
-package "billing-service / billing-postgres" {
-  entity pricing_rules {
+package "billing-postgres" {
+  entity "pricing_rules" as pricing_rules
+  entity "billing_events" as billing_events {
+    * id : uuid
+    --
+    event_id
+    event_type
+    provider_code
+    billable
+    processed_status
+    payload
+    occurred_at
+  }
+
+  entity "charge_records" as charge_records {
+    * id : uuid
+    --
+    billing_event_id
+    provider_code
+    charge_type
+    amount_eur
+    invoice_id
+    paid_at
+    created_at
+  }
+
+  entity "invoices" as invoices {
     * id : uuid
     --
     provider_code
-    active
-    fees
+    invoice_number
+    status
+    period_start
+    period_end
+    subtotal_eur
+    total_eur
+    due_date
+    paid_at
   }
-  entity billing_events {
-    * event_id : uuid
+
+  entity "invoice_lines" as invoice_lines {
+    * id : uuid
+    --
+    invoice_id
+    charge_record_id
+    description
+    amount_eur
+  }
+
+  entity "payments" as payments
+  entity "billing_event_outbox" as billing_outbox {
+    * id : uuid
     --
     event_type
-    result
-  }
-  entity charge_records {
-    * id : uuid
-    --
-    source_event_id
-    provider_code
-    amount
+    event_payload
     status
+    attempts
+    next_attempt_at
+    published_at
+    created_at
   }
-  entity invoices {
-    * id : uuid
-    --
-    provider_code
-    status
-    total_amount
-  }
-  entity invoice_lines
-  entity payments
-  entity billing_event_outbox
+
+  billing_events ||--o{ charge_records
+  invoices ||--o{ invoice_lines
+  invoices ||--o{ payments
+  charge_records ||--o{ invoice_lines
 }
 
-package "scheduler-service / scheduler-postgres" {
-  entity scheduled_jobs {
+package "scheduler-postgres" {
+  entity "scheduled_jobs" as scheduled_jobs {
     * id : uuid
     --
     job_key
     target_service
-    target_url_path
-    schedule_type
+    target_path
+    interval_seconds
+    cron_expression
+    timezone
     enabled
-    next_run_at
+    paused
+    updated_at
   }
-  entity job_runs {
+
+  entity "job_runs" as job_runs {
     * id : uuid
     --
     job_key
     status
-    trigger_type
+    started_at
+    completed_at
     target_http_status
     response_summary
+    attempt_count
   }
+
+  scheduled_jobs ||--o{ job_runs
 }
 
-users ||--o{ refresh_tokens
-providers ||--o{ provider_config_audit_logs
-provider_sync_runs ||--o{ provider_point_changes
-catalog_import_runs ||--o{ catalog_point_changes
-reservations ||--o{ reservation_attempts
-reservations ||--o{ reservation_event_outbox
-invoices ||--o{ invoice_lines
-invoices ||--o{ payments
-pricing_rules ..> charge_records : pricing scope
-usage_events ..> provider_daily_metrics : rebuilds
-billing_events ..> charge_records : source_event_id
-scheduled_jobs ||--o{ job_runs
-provider_point_snapshots ..> catalog_points : provider_code + external_point_id
-catalog_points ..> status_cache : provider_code + external_point_id
-catalog_points ..> reservations : provider_code + external_point_id
-reservation_event_outbox ..> usage_events : RabbitMQ event_id
-reservation_event_outbox ..> billing_events : RabbitMQ event_id
+providers .. catalog_points : provider_code logical ownership
+provider_snapshots .. catalog_points : imported normalized snapshots
+catalog_points .. status_cache : provider_code + external_point_id
+catalog_points .. reservations : provider_code + external_point_id
+reservations .. charge_records : reservation events create charges
+charge_records .. billing_summary : billing events feed analytics
+usage_events .. provider_daily : aggregate refresh
 
 note bottom
-Relationships crossing package boundaries are logical IDs, event IDs, snapshots,
-projections, or scheduler metadata. They are not cross-service foreign keys and
-do not imply shared database ownership.
+Each package is a separate PostgreSQL container and service ownership boundary.
+Cross-package links are logical data flow relationships, not cross-database foreign keys.
 end note
-
 @enduml

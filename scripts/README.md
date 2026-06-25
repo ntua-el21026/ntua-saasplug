@@ -1,28 +1,26 @@
 # Scripts
 
-This folder is reserved for repository utility scripts.
+This folder contains repository utility scripts for validation and local
+Postman/Newman runs.
 
-## Purpose
+## Contents
 
-Scripts added here should support reproducible development, validation,
-documentation generation, or maintenance tasks.
+| Path | Purpose |
+|---|---|
+| `lint/run-all.sh` | Runs repository lint/check helpers |
+| `lint/run-python.sh` | Runs Python-oriented checks |
+| `lint/run-markdown.sh` | Runs Markdown lint across project Markdown files |
+| `postman/run-smoke.sh` | Newman smoke suite wrapper |
+| `postman/run-regression.sh` | Newman regression suite wrapper |
+| `postman/run-security.sh` | Newman security suite wrapper |
+| `postman/run-mutation.sh` | Newman local mutation suite wrapper |
+| `postman/run-all-local.sh` | Runs the local Postman suites in sequence |
+| `postman/lib/env.sh` | Reads safe runner inputs from a local env file without printing secrets |
 
-## Belongs here
+## Rules
 
-- Safe local helper scripts.
-- Documentation or diagram generation helpers.
-- Validation scripts that do not require real secrets.
+- Do not commit generated reports from `reports/`.
+- Do not print `.env` contents.
+- Keep destructive actions opt-in and documented.
 
-## Must not be placed here
-
-- Application business logic.
-- Service runtime entrypoints that belong inside a service folder.
-- Real secrets or environment files.
-- Destructive scripts without explicit documentation and user approval.
-
-No scripts are implemented in this scaffold.
-
-## References
-
-- `AGENTS.md`
-- `docs/specs/SPECIFICATIONS.md`
+See `scripts/postman/README.md` for Postman runner details.

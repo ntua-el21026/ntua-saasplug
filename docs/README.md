@@ -1,39 +1,27 @@
 # Documentation
 
-This folder contains project documentation, accepted specifications,
-professor-provided assignment material, final UML diagrams, verification
-records, submission notes, and AI run logs.
+`docs/` contains the course-facing documentation, final diagrams, verification
+records, Postman collections, assignment materials, and Codex logs.
 
-## Purpose
+## Index
 
-Documentation in this folder provides traceability for the NTUA course
-deliverable and for future implementation prompts.
+| Path | Purpose |
+|---|---|
+| `specs/` | Accepted implementation specifications |
+| `architecture-summary.md` | Concise implemented architecture summary |
+| `diagrams/final/saasplug-final-uml.md` | Self-contained final UML model |
+| `diagrams/final/diagram-audit.md` | Code-derived diagram audit and correction notes |
+| `diagrams/intermediate/` | Historical draft UML sources |
+| `assignment/` | Professor-provided assignment, SRS, provider YAML/Postman/PDF material |
+| `lectures/` | Course lecture material |
+| `postman/` | Local app Postman/Newman suites, data, and environment template |
+| `final-verification.md` | Verification history and latest checks |
+| `submission-checklist.md` | Packaging/grading checklist |
+| `ai/` | Prompt log, canonical prompts, and Codex run reports |
 
-## Belongs here
+## Rules
 
-- Accepted specifications under `docs/specs/`.
-- Final architecture summary in `docs/architecture-summary.md`.
-- Final verification report in `docs/final-verification.md`.
-- Submission checklist in `docs/submission-checklist.md`.
-- Final PlantUML diagrams under `docs/diagrams/final/`.
-- Professor-provided assignment and lecture material under `docs/assignment/`
-  and `docs/lectures/`.
-- AI prompt files and run reports under `docs/ai/`.
-
-## Must not be placed here
-
-- Application source code.
-- Docker runtime files.
-- Real secrets.
-- Fallback Markdown GitHub project-management artifacts unless explicitly
-  requested.
-
-## References
-
-- `AGENTS.md`
-- `docs/specs/SPECIFICATIONS.md`
-- `docs/architecture-summary.md`
-- `docs/final-verification.md`
-- `docs/submission-checklist.md`
-- `docs/diagrams/final/README.md`
-- `docs/ai/prompt-log.md`
+- Keep professor-provided material unchanged.
+- Do not place application source or runtime secrets under `docs/`.
+- Generated reports belong under ignored output locations such as `reports/`,
+  not in documentation folders.

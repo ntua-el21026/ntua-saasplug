@@ -1,169 +1,62 @@
 # red-provider-service
 
-## Responsibility
+## Purpose
 
-`red-provider-service` owns the `redPlug` provider adapter. It calls the
-`redPlug` external API, normalizes payloads into internal DTOs, stores
-provider-local point snapshots, stores raw payloads for traceability, records
-sync runs, and exposes internal-only endpoints used by catalog, status, and
-reservation services.
+Internal adapter for `redPlug`. It calls the external redPlug API, normalizes
+responses, and stores provider-local snapshots and raw payloads.
 
-## Owned database
+## Runtime
 
-`red-provider-postgres`
+- Compose service: `red-provider-service`
+- Container port: `8000`
+- Database: `red-provider-postgres`
+- Main app: `app/main.py`
+- API prefix: `/internal`
 
-Owned tables:
+## Responsibilities
+
+- Sync redPlug point lists from `/points`.
+- Read point detail/status through `/point/{pointid}`.
+- Reserve points through `/reserve/{pointid}/{minutes}`.
+- Store raw provider payloads, normalized snapshots, sync runs, and point
+  changes.
+- Expose normalized internal DTOs to catalog, status, and reservation services.
+
+## API Surface
+
+| Scope | Method/path | Purpose |
+|---|---|---|
+| Internal | `GET /internal/provider` | Provider identity |
+| Internal | `GET /internal/points` | Local normalized snapshots |
+| Internal | `POST /internal/sync` | Fetch and store latest redPlug list |
+| Internal | `GET /internal/points/{external_point_id}` | Point detail |
+| Internal | `GET /internal/points/{external_point_id}/status` | Live status/detail |
+| Internal | `POST /internal/points/{external_point_id}/reservations` | Provider reservation mutation |
+| Internal | `GET /internal/sync-runs` | Sync history |
+| Health | `GET /health`, `GET /ready` | Service health |
+
+## Persistence
 
 | Table | Purpose |
 |---|---|
-| `provider_point_snapshots` | Latest normalized local snapshot per `redPlug` point |
-| `raw_provider_payloads` | Raw provider responses by endpoint and point |
-| `provider_sync_runs` | Sync run status, counts, and failure messages |
-| `provider_point_changes` | Simple provider-local change metadata |
+| `provider_point_snapshots` | Latest normalized redPlug point state |
+| `raw_provider_payloads` | Stored external API responses |
+| `provider_sync_runs` | Sync run status and counts |
+| `provider_point_changes` | Change records from sync/detail updates |
 
-## Provider API source
+## Messaging
 
-Source of truth:
+This service does not publish or consume RabbitMQ events in the current
+implementation.
 
-```text
-docs/assignment/providers/yaml/redPlug.yaml
-docs/assignment/providers/postman_collections/redPlug.postman_collection.json
-```
+## Dependencies
 
-External endpoint mapping:
-
-| Internal action | `redPlug` endpoint |
-|---|---|
-| List points | `GET /points` |
-| Point details/status | `GET /point/{pointid}` |
-| Reservation default | `POST /reserve/{pointid}` |
-| Reservation with duration | `POST /reserve/{pointid}/{minutes}` |
-
-Provider fields mapped:
-
-| Internal field | `redPlug` field |
-|---|---|
-| `external_point_id` | `pointid` |
-| `status` | `status` |
-| `reservation_ends_at` | `reservationendtime` |
-| `capacity` | `cap` |
-| `connector` | `connector` |
-| `location_name` | `locationName` |
-| `address` | `address` |
-| `price_per_kwh_eur` | not provided by redPlug |
-
-## Internal endpoints
-
-Provider services are internal-only and are not routed through Nginx.
-
-```text
-GET  /
-GET  /health
-GET  /ready
-GET  /internal/provider
-GET  /internal/points
-POST /internal/sync
-GET  /internal/points/{external_point_id}
-GET  /internal/points/{external_point_id}/status
-POST /internal/points/{external_point_id}/reservations
-GET  /internal/sync-runs
-```
-
-## Normalized DTOs
-
-Point snapshots use:
-
-```text
-provider_code
-external_point_id
-normalized_point_id
-status
-reservation_ends_at
-price_per_kwh_eur
-capacity
-connector
-location_name
-address
-raw_payload
-last_seen_at
-```
-
-Status responses use:
-
-```text
-provider_code
-external_point_id
-normalized_point_id
-status
-reservation_ends_at
-checked_at
-```
-
-Reservation responses use:
-
-```text
-provider_code
-external_point_id
-normalized_point_id
-provider_reservation_id
-status
-reservation_ends_at
-price_per_kwh_eur
-raw_payload
-```
-
-Status values are normalized to:
-
-```text
-available
-charging
-reserved
-malfunction
-offline
-unknown
-```
-
-Unexpected, missing, or unmapped provider statuses become `unknown`.
-
-## Sync behavior
-
-`POST /internal/sync` calls `GET /points`, stores raw payloads, upserts local
-point snapshots, records change metadata, and writes a sync run. If the
-provider call fails, previous snapshots are preserved and a failed sync run is
-recorded.
-
-Prompt 05 does not publish RabbitMQ events or write catalog data.
-
-## Safe secret handling
-
-Runtime configuration uses:
-
-```text
-PROVIDER_BASE_URL
-RED_PROVIDER_BASE_URL
-PROVIDER_API_TIMEOUT_SECONDS
-PROVIDER_AUTH_SCHEME=Bearer
-PROVIDER_API_KEY_ENV_VAR
-RED_PROVIDER_API_KEY
-```
-
-When configured, the service sends the provider key as
-`Authorization: Bearer <api-key>`. It returns only the key environment-variable
-name in metadata responses and never returns raw API key values.
+- Calls: external redPlug API using Bearer provider API key when configured.
+- Called by: `catalog-service`, `status-service`, `reservation-service`.
+- External systems: redPlug provider API.
 
 ## Tests
 
 ```bash
-docker compose run --rm --no-deps red-provider-service pytest -q
+docker compose run --build --rm --no-deps red-provider-service pytest -q
 ```
-
-Tests use fake provider HTTP responses and do not require live `redPlug`
-availability.
-
-## Limitations
-
-- `catalog-service` owns the aggregated catalog.
-- `status-service` owns the five-minute status cache.
-- `reservation-service` owns reservation truth and events.
-- Analytics, billing, frontend screens, and RabbitMQ business consumers are
-  outside this service boundary.

@@ -104,6 +104,10 @@ Current live producers:
 | `reservation-service` | `reservation.succeeded`, `reservation.failed` |
 | `billing-service` | `billing.charge_created`, `billing.invoice_issued`, `billing.invoice_paid` |
 
+`provider.points.snapshot_ready` and `catalog.provider_snapshots` are declared
+topology elements only in the current implementation; the provider adapter
+services do not publish RabbitMQ events.
+
 Catalog and status usage events are best-effort propagation after the
 corresponding read/import/log operation has completed. They must not make the
 live user request fail if RabbitMQ is temporarily unavailable.

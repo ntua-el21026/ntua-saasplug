@@ -1,249 +1,125 @@
 # saasPlug
 
-saasPlug is the NTUA ECE Technologies of Software Services course project for
-academic year 2025-2026. It is a Dockerized SaaS web application for EV
-charging point discovery, reservation, provider analytics, billing, and
+saasPlug is a Dockerized NTUA ECE course SaaS app for EV charging-point
+search, live status lookup, reservation, provider analytics, billing, and
 operator administration.
 
-## Project Overview
+## Implemented Scope
 
-saasPlug integrates three hypothetical charging infrastructure providers:
-
-- `redPlug`
-- `greenPlug`
-- `bluePlug`
-
-EV users search charging points, inspect cached details and live status, and
-reserve charging points. Provider administrators inspect their own points,
-analytics, invoices, mock payments, exports, and limited settings. Operators
-manage providers, pricing, catalog imports, invoice issuance, event drains, and
-system status.
+- EV users can register, log in, search charging points on a MapLibre map, view
+  current status, reserve a point, and inspect reservation summaries.
+- Provider admins can inspect their provider's catalog, analytics, invoices,
+  exports, pricing, and settings.
+- Operators can manage providers, pricing, catalog imports, invoices, scheduler
+  jobs, event drains, and system health.
+- `redPlug`, `greenPlug`, and `bluePlug` are integrated through internal
+  provider-adapter services.
 
 ## Architecture
 
-The accepted MVP architecture is documented in
-`docs/specs/SPECIFICATIONS.md` and summarized in
-`docs/architecture-summary.md`.
+The local runtime is defined by `docker-compose.yml`:
 
-The implemented repository follows this split:
+- one React + TypeScript + Vite frontend, built as static assets and served by
+  Nginx inside the `frontend` container;
+- one public `nginx-gateway` on `${GATEWAY_HTTP_PORT:-8080}`;
+- Python FastAPI backend services on Docker-internal port `8000`;
+- one PostgreSQL container per stateful service;
+- RabbitMQ topic exchange `saasplug.events` for implemented asynchronous
+  propagation;
+- scheduler-controlled internal jobs for imports, event drains, outbox
+  publishing, invoice preparation, and aggregate refresh.
 
-- one role-based React + TypeScript + Vite frontend app,
-- Nginx API gateway/reverse proxy on configurable host port
-  `${GATEWAY_HTTP_PORT:-8080}`,
-- Python FastAPI backend services,
-- REST/JSON internal APIs,
-- RabbitMQ topic exchange `saasplug.events` for asynchronous propagation,
-- one PostgreSQL container per stateful service,
-- final PlantUML diagrams under `docs/diagrams/final/`.
+The browser calls only gateway-relative `/api/...` paths. Provider adapters,
+service-owned internal job endpoints, PostgreSQL, and AMQP are Docker-internal.
 
-The frontend calls only `/api/...` gateway routes. It must not call
-Docker-internal service ports, RabbitMQ, external provider APIs, or provider
-service internals directly from the browser.
+## Runtime Inventory
 
-## Canonical Runtime Components
+| Compose service | Purpose | Owned database |
+|---|---|---|
+| `frontend` | Role-based browser UI | none |
+| `nginx-gateway` | Public frontend/API reverse proxy | none |
+| `auth-service` | Users, local auth, Google OAuth, JWT/refresh tokens | `auth-postgres` |
+| `provider-registry-service` | Provider metadata and audit logs | `provider-registry-postgres` |
+| `red-provider-service` | Internal redPlug adapter and snapshot store | `red-provider-postgres` |
+| `green-provider-service` | Internal greenPlug adapter and snapshot store | `green-provider-postgres` |
+| `blue-provider-service` | Internal bluePlug adapter and snapshot store | `blue-provider-postgres` |
+| `catalog-service` | Aggregated catalog, search, imports, point views | `catalog-postgres` |
+| `status-service` | Status cache, live lookup, logs, fallback | `status-postgres` |
+| `reservation-service` | Reservation truth, idempotency, provider mutation, outbox | `reservation-postgres` |
+| `analytics-service` | Event ingestion, aggregates, dashboards, CSV export | `analytics-postgres` |
+| `billing-service` | Pricing, charges, invoices, mock payments, billing outbox | `billing-postgres` |
+| `scheduler-service` | Job metadata, manual runs, ordered maintenance | `scheduler-postgres` |
+| `rabbitmq` | Event exchange and queues | RabbitMQ volume |
 
-```text
-frontend
-nginx-gateway
-auth-service
-provider-registry-service
-red-provider-service
-green-provider-service
-blue-provider-service
-catalog-service
-status-service
-reservation-service
-analytics-service
-billing-service
-scheduler-service
-rabbitmq
-```
+## Gateway Paths
 
-## Data Ownership
+| Prefix | Target |
+|---|---|
+| `/` | `frontend` |
+| `/api/auth/*` | `auth-service`; auth routes are exposed as `/api/auth/auth/*` |
+| `/api/providers/*`, `/api/provider-registry/*` | `provider-registry-service` |
+| `/api/catalog/*` | `catalog-service` |
+| `/api/status/*` | `status-service` |
+| `/api/reservations/*` | `reservation-service` |
+| `/api/analytics/*` | `analytics-service` |
+| `/api/billing/*` | `billing-service` |
+| `/api/scheduler/*` | `scheduler-service` |
 
-Each stateful service owns exactly one PostgreSQL container.
+## Local Setup
 
-| Service                     | Database container           |
-| --------------------------- | ---------------------------- |
-| `auth-service`              | `auth-postgres`              |
-| `provider-registry-service` | `provider-registry-postgres` |
-| `red-provider-service`      | `red-provider-postgres`      |
-| `green-provider-service`    | `green-provider-postgres`    |
-| `blue-provider-service`     | `blue-provider-postgres`     |
-| `catalog-service`           | `catalog-postgres`           |
-| `status-service`            | `status-postgres`            |
-| `reservation-service`       | `reservation-postgres`       |
-| `analytics-service`         | `analytics-postgres`         |
-| `billing-service`           | `billing-postgres`           |
-| `scheduler-service`         | `scheduler-postgres`         |
-
-Rules:
-
-- no cross-service SQL joins,
-- no shared mutable database tables,
-- controlled duplication only as snapshots, projections, or cached views,
-- provider services keep provider-local snapshots and raw payloads,
-- `catalog-service` owns the aggregated normalized catalog,
-- `reservation-service` owns reservation truth,
-- `analytics-service` owns usage events and aggregate/cache tables,
-- `billing-service` owns pricing, charges, invoices, and mock payments.
-
-## Repository Layout
-
-| Path                               | Purpose                                                   |
-| ---------------------------------- | --------------------------------------------------------- |
-| `apps/frontend/`                   | Single role-based frontend app                            |
-| `services/`                        | FastAPI microservices                                     |
-| `packages/events/`                 | Shared RabbitMQ event contracts and helpers               |
-| `packages/shared-contracts/`       | Shared contract package placeholder                       |
-| `packages/provider-normalization/` | Provider-normalization package placeholder                |
-| `deploy/nginx/`                    | Nginx gateway configuration                               |
-| `docs/specs/`                      | Accepted project specifications                           |
-| `docs/diagrams/final/`             | Final PlantUML UML diagrams                               |
-| `docs/assignment/`                 | Professor-provided assignment materials and provider YAML |
-| `docs/lectures/`                   | Course lecture material                                   |
-| `docs/ai/`                         | Codex prompts, run reports, and prompt log                |
-| `scripts/`                         | Repository utility scripts                                |
-
-## Local Runtime
-
-Use `.env.example` as the safe local template. Do not commit a real `.env`.
+Use `.env.example` as the safe template. Do not commit a real `.env` and do
+not print local secret values in reports.
 
 ```bash
 cp .env.example .env
-docker compose config
+docker compose config --quiet
 docker compose up -d --build
 docker compose ps
 ```
 
-Public entrypoints, assuming the default `GATEWAY_HTTP_PORT=8080`:
+Default local entrypoints:
 
-| Endpoint                                        | Purpose                            |
-| ----------------------------------------------- | ---------------------------------- |
-| `http://localhost:8080/`                        | Frontend through Nginx             |
-| `http://localhost:8080/health`                  | Gateway health                     |
-| `http://localhost:8080/api/auth/health`         | `auth-service` health              |
-| `http://localhost:8080/api/providers/health`    | `provider-registry-service` health |
-| `http://localhost:8080/api/catalog/health`      | `catalog-service` health           |
-| `http://localhost:8080/api/status/health`       | `status-service` health            |
-| `http://localhost:8080/api/reservations/health` | `reservation-service` health       |
-| `http://localhost:8080/api/analytics/health`    | `analytics-service` health         |
-| `http://localhost:8080/api/billing/health`      | `billing-service` health           |
-| `http://localhost:8080/api/scheduler/health`    | `scheduler-service` health         |
+- frontend and gateway: `http://localhost:8080/`
+- gateway health: `http://localhost:8080/health`
+- service health through gateway: `/api/<service-prefix>/health`
+- RabbitMQ management UI: `http://localhost:15672/`, bound to localhost by
+  default
 
-Stop the local stack with:
+Stop the stack with:
 
 ```bash
 docker compose down
 ```
 
-Use `docker compose down -v` only when you intentionally want to delete local
-PostgreSQL and RabbitMQ volumes and return to a fresh baseline.
+Use `docker compose down -v` only when intentionally deleting local PostgreSQL
+and RabbitMQ volumes.
 
-## Demo Users
+## Demo Accounts
 
-Demo users are seeded by `auth-service` from the server-side
-`DEMO_USER_PASSWORD` environment variable. By default this remains a
-server-side seed value. For controlled coursework/demo builds, Compose passes
-it to the frontend build as `VITE_DEMO_LOGIN_PASSWORD` so the login password
-input can be prefilled for faster role switching. This is intentionally
-demo-only because `VITE_*` values are browser-delivered configuration. The
-login role shortcuts fill the account email and keep the current password
-field value.
+`auth-service` seeds demo accounts from server-side environment values.
 
-| Email                        | Role             | Provider scope |
-| ---------------------------- | ---------------- | -------------- |
-| `operator@saasplug.local`    | `OPERATOR`       | none           |
-| `evuser@saasplug.local`      | `EV_USER`        | none           |
-| `red-admin@saasplug.local`   | `PROVIDER_ADMIN` | `redPlug`      |
-| `green-admin@saasplug.local` | `PROVIDER_ADMIN` | `greenPlug`    |
-| `blue-admin@saasplug.local`  | `PROVIDER_ADMIN` | `bluePlug`     |
+| Email | Role | Provider scope |
+|---|---|---|
+| `operator@saasplug.local` | `OPERATOR` | none |
+| `evuser@saasplug.local` | `EV_USER` | none |
+| `red-admin@saasplug.local` | `PROVIDER_ADMIN` | `redPlug` |
+| `green-admin@saasplug.local` | `PROVIDER_ADMIN` | `greenPlug` |
+| `blue-admin@saasplug.local` | `PROVIDER_ADMIN` | `bluePlug` |
 
-Login through the gateway:
+## Common Commands
+
+Frontend:
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"operator@saasplug.local","password":"<demo-password>"}'
+cd apps/frontend
+npm test -- --run
+npm run build
 ```
 
-Startup inserts missing demo users by default but does not overwrite existing
-demo-user roles, provider scopes, password hashes, or active flags. Use
-`RESET_DEMO_USERS_ON_STARTUP=true` only when intentionally resetting local demo
-accounts.
-
-`.env.example` contains local placeholders only. Before any production-like or
-public demo environment, rotate `DEMO_USER_PASSWORD`, `JWT_SECRET`, scheduler,
-RabbitMQ, provider, OAuth, and database secrets and enable
-`SAASPLUG_STRICT_SECRETS=true` or a production-like `APP_ENV` so unsafe
-placeholders are rejected at startup. Rotate `JWT_SECRET` after any environment
-where browser-delivered demo credentials may previously have been used.
-
-## Provider API Integration
-
-The three external provider APIs are represented by provider-specific internal
-services:
-
-| Provider    | Service                  | Source contract                                 |
-| ----------- | ------------------------ | ----------------------------------------------- |
-| `redPlug`   | `red-provider-service`   | `docs/assignment/providers/yaml/redPlug.yaml`   |
-| `greenPlug` | `green-provider-service` | `docs/assignment/providers/yaml/greenPlug.yaml` |
-| `bluePlug`  | `blue-provider-service`  | `docs/assignment/providers/yaml/bluePlug.yaml`  |
-
-Provider services use provider credentials from the private local `.env`.
-Credentials must not be committed. The live provider APIs use:
-
-```text
-Authorization: Bearer <api-key>
-```
-
-The default placeholder configuration is `PROVIDER_AUTH_SCHEME=Bearer` in
-`.env.example`.
-
-## Validation
-
-The current final verification evidence is recorded in:
-
-```text
-docs/final-verification.md
-```
-
-The latest live-environment verification covered frontend tests/build, backend
-service tests, scheduler tests, shared event package tests, root gateway
-contract tests, Docker Compose config/startup/health checks, authenticated
-gateway smoke checks, live provider read-only checks, scheduler manual-run
-smoke checks, internal-route gateway blocking, PlantUML validation, and Docker
-shutdown validation.
-
-The verified test total is 184 tests across backend services, frontend, shared
-event contracts, and root gateway contracts.
-
-The 2026-06-24 safe-finalization pass added targeted regression coverage for
-reservation idempotency/locking, provider-status scoping, catalog import locks,
-catalog radius limits, billing payment duplication, provider CSV privacy,
-demo-user seed preservation, strict placeholder rejection, and frontend
-reservation idempotency headers. Follow-up reservation coverage verifies that
-provider success with a timezone-naive future expiry is normalized as UTC,
-returns a succeeded reservation, stages a revenue-bearing success event, and
-renders reservation timing in the EV/provider/operator UI. It also keeps
-RabbitMQ management bound to `127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}`.
-
-Existing local Docker volumes that predate new database constraints or lock
-tables may need recreation or service-local migrations for a fresh schema
-baseline. Do not use `docker compose down -v` unless deleting local volumes is
-intentional.
-
-### Test commands
-
-Run service-local tests through Docker Compose so each service uses its own
-declared runtime dependencies:
+Backend service tests:
 
 ```bash
 docker compose run --build --rm --no-deps auth-service pytest -q
-docker compose run --build --rm --no-deps provider-registry-service pytest -q
-docker compose run --build --rm --no-deps red-provider-service pytest -q
-docker compose run --build --rm --no-deps green-provider-service pytest -q
-docker compose run --build --rm --no-deps blue-provider-service pytest -q
 docker compose run --build --rm --no-deps catalog-service pytest -q
 docker compose run --build --rm --no-deps status-service pytest -q
 docker compose run --build --rm --no-deps reservation-service pytest -q
@@ -252,42 +128,42 @@ docker compose run --build --rm --no-deps billing-service pytest -q
 docker compose run --build --rm --no-deps scheduler-service pytest -q
 ```
 
-Run shared event package tests through a backend image that installs the package:
+Shared event package:
 
 ```bash
-docker compose run --build --rm --no-deps analytics-service sh -lc 'cd /tmp/packages/events && pytest -q'
+PYTHONPATH=packages/events python -m pytest packages/events/tests -q
 ```
 
-Run frontend tests and the production build:
+Repository checks:
 
 ```bash
-docker compose run --build --rm --no-deps frontend npm test
-docker compose run --build --rm --no-deps frontend npm run build
+scripts/lint/run-all.sh
+scripts/lint/run-markdown.sh
+docker compose config --quiet
 ```
 
-Run root gateway contract tests only after the stack is running:
+Postman/Newman suites are documented in `docs/postman/README.md` and
+`scripts/postman/README.md`.
 
-```bash
-docker compose up -d --build
-python3 -m unittest discover tests -v
-```
+## Documentation Map
 
-## Submission Artifacts
+| Path | Purpose |
+|---|---|
+| `docs/specs/SPECIFICATIONS.md` | Accepted project specification |
+| `docs/architecture-summary.md` | Architecture summary and MVP boundaries |
+| `docs/diagrams/final/saasplug-final-uml.md` | Self-contained final UML model |
+| `docs/diagrams/final/diagram-audit.md` | Final diagram audit and correction notes |
+| `docs/final-verification.md` | Verification history and latest evidence |
+| `docs/submission-checklist.md` | Submission checklist |
+| `docs/postman/` | Local Postman/Newman collections and data |
+| `docs/assignment/` | Professor-provided assignment and provider materials |
+| `docs/ai/` | Prompt log and Codex run reports |
 
-Primary final artifacts:
+## Submission Notes
 
-- `docs/architecture-summary.md`
-- `docs/final-verification.md`
-- `docs/submission-checklist.md`
-- `docs/diagrams/final/`
-- `docs/specs/SPECIFICATIONS.md`
-- `docs/ai/prompt-log.md`
-
-## References
-
-- Repository instructions: `AGENTS.md`
-- Accepted specifications: `docs/specs/SPECIFICATIONS.md`
-- Frontend documentation: `apps/frontend/README.md`
-- Services documentation: `services/README.md`
-- Deployment documentation: `deploy/README.md`
-- Final diagrams: `docs/diagrams/final/README.md`
+- Submit source and documentation, not local `.env` files or generated
+  reports.
+- Generated PlantUML PNG/SVG outputs and Newman reports are not committed.
+- Final UML sources are in `docs/diagrams/final/`; the grader-facing Markdown
+  entrypoint is `docs/diagrams/final/saasplug-final-uml.md`.
+- The current verification record is `docs/final-verification.md`.

@@ -1,46 +1,129 @@
 @startuml
-title EV search, status, and reservation activity
+title EV search, status lookup, and reservation activity
+skinparam shadowing false
 
 start
-:EV_USER opens frontend through nginx-gateway;
-:Login or validate existing session;
-:Move map or adjust filters;
-:Frontend requests /api/catalog/points with bounds;
-:catalog-service returns normalized cached points;
-:EV_USER selects a point;
-:Frontend requests cached point details;
-:Frontend optionally requests live status;
 
-if (status cache valid?) then (yes)
-  :status-service returns cached normalized status;
-else (no)
-  :status-service calls provider service internally;
-  if (provider lookup succeeds?) then (yes)
-    :Store refreshed status cache and log;
+partition "EV User / React frontend" {
+  :Open /map or point detail;
+  :Hold access token from auth-service login;
+  :Derive centerLat, centerLng, radiusKm\nfrom map viewport;
+  :Apply filters q, providerCode, status,\nconnector, includeStale, limit, offset;
+}
+
+partition "nginx-gateway" {
+  :Proxy /api/catalog/points to catalog-service;
+}
+
+partition "catalog-service" {
+  :Validate circle radius\n(max 10 km);
+  :Query catalog_points owned by catalog-postgres;
+  :Return CatalogPointListResponse\nwith search_circle metadata;
+  :Best-effort publish usage.search_performed;
+}
+
+partition "React frontend" {
+  :Render points on map and list;
+  :Request cache-only statuses for visible points;
+}
+
+partition "status-service" {
+  :POST /cache/statuses reads status_cache only;
+  :Return cached statuses and cache metadata;
+}
+
+partition "React frontend" {
+  if (User selects point?) then (yes)
+    :Request catalog detail and record view;
   else (no)
-    if (last known cached status exists?) then (yes)
-      :Return last known cached status with warning;
+    stop
+  endif
+}
+
+partition "catalog-service" {
+  :Read catalog point detail;
+  :Best-effort publish usage.point_viewed;
+}
+
+partition "React frontend" {
+  :Request live status for selected point\nor force refresh;
+}
+
+partition "status-service" {
+  if (Fresh cache and no force refresh?) then (yes)
+    :Return cached status;
+    :Publish status.point_checked\n(cache_hit=true);
+  else (no)
+    :Acquire per-point in-process lock;
+    :Call provider adapter\n/internal/points/{externalPointId}/status;
+  endif
+}
+
+partition "Provider adapter service" {
+  :Call external provider detail/status API;
+  :Store raw payload and local normalized snapshot;
+}
+
+partition "status-service" {
+  if (Provider status succeeds?) then (yes)
+    :Upsert status_cache;
+    :Append status_check_logs;
+    :Publish status.point_checked\n(source=provider_live);
+    :Return live status;
+  else (no)
+    if (Stale cache exists?) then (yes)
+      :Record provider error;
+      :Return stale cached status with warning;
+      :Publish status.point_checked\n(source=cache_fallback);
     else (no)
-      :Return normalized error and failed log;
+      :Write failed status_check_logs;
+      :Publish status.point_checked error metadata;
+      :Return lookup error;
       stop
     endif
   endif
-endif
+}
 
-if (EV_USER submits reservation?) then (yes)
-  :reservation-service resolves point through catalog-service;
-  :reservation-service calls provider service synchronously;
-  if (provider reservation succeeds?) then (yes)
-    :Store reservation truth and successful attempt;
-    :Stage reservation.succeeded outbox event;
+partition "React frontend" {
+  if (EV reserves point?) then (yes)
+    :Send POST /api/reservations/points/{provider}/{id}/reservations\nwith duration and idempotency key;
   else (no)
-    :Store failed or unknown reservation attempt;
-    :Stage reservation.failed outbox event;
+    stop
   endif
-  :Frontend shows reservation result;
-else (no)
-  :EV_USER continues browsing;
-endif
+}
+
+partition "reservation-service" {
+  :Resolve catalog point through catalog-service;
+  :Create/read reservation_idempotency_records;
+  :Acquire reservation_point_locks;
+  :Reject conflicting active successful reservation;
+  :Call provider adapter reservation endpoint;
+}
+
+partition "Provider adapter service" {
+  :Call external reserve/hold API\nwith provider-specific path/body/query;
+  :Return normalized reservation payload;
+}
+
+partition "reservation-service" {
+  if (Provider confirms future reservation end?) then (yes)
+    :Store succeeded reservation and attempt;
+    :Estimate energy and reservation cost;
+    :Seed status cache as reserved through status-service internal API;
+    :Stage reservation.succeeded in reservation_event_outbox;
+    :Return ReservationResponse;
+  else (ambiguous or failed)
+    :Store failed or unknown reservation outcome;
+    :Store provider attempt and reconciliation metadata;
+    :Stage reservation.failed when applicable;
+    :Return error or unknown outcome;
+  endif
+}
+
+partition "scheduler-service / operator job" {
+  :Call reservation-service outbox drain;
+  :Publish pending reservation events to RabbitMQ;
+}
 
 stop
 @enduml

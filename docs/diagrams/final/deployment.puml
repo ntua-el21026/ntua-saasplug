@@ -1,57 +1,65 @@
 @startuml
-title saasPlug final deployment diagram
+title saasPlug final deployment model (Docker Compose)
 left to right direction
+skinparam shadowing false
 
-node "Developer machine / softlab server" as Host {
-  node "Docker Compose project\nCOMPOSE_PROJECT_NAME" as Compose {
-    node "nginx-gateway\nnginx:1.27-alpine\nhost ${GATEWAY_HTTP_PORT:-8080} -> container 80" as Gateway
-    node "frontend\nVite dev server\ninternal 5173" as Frontend
-
-    node "FastAPI services\ninternal 8000" as Services {
-      node "auth-service" as Auth
-      node "provider-registry-service" as Registry
-      node "red-provider-service" as RedProvider
-      node "green-provider-service" as GreenProvider
-      node "blue-provider-service" as BlueProvider
-      node "catalog-service" as Catalog
-      node "status-service" as Status
-      node "reservation-service" as Reservation
-      node "analytics-service" as Analytics
-      node "billing-service" as Billing
-      node "scheduler-service" as Scheduler
-    }
-
-    queue "rabbitmq\nAMQP internal 5672\nmanagement host ${RABBITMQ_MANAGEMENT_PORT:-15672}" as RabbitMQ
-
-    database "auth-postgres\ninternal 5432" as AuthDb
-    database "provider-registry-postgres\ninternal 5432" as RegistryDb
-    database "red-provider-postgres\ninternal 5432" as RedDb
-    database "green-provider-postgres\ninternal 5432" as GreenDb
-    database "blue-provider-postgres\ninternal 5432" as BlueDb
-    database "catalog-postgres\ninternal 5432" as CatalogDb
-    database "status-postgres\ninternal 5432" as StatusDb
-    database "reservation-postgres\ninternal 5432" as ReservationDb
-    database "analytics-postgres\ninternal 5432" as AnalyticsDb
-    database "billing-postgres\ninternal 5432" as BillingDb
-    database "scheduler-postgres\ninternal 5432" as SchedulerDb
-  }
+node "Developer / presentation machine" as Host {
+  artifact "Browser\nhttp://localhost:8080" as Browser
 }
 
-cloud "External provider APIs\nredPlug / greenPlug / bluePlug" as ProviderApis
+node "Docker Compose project\nnetwork: saasplug-network" as Compose {
+  node "nginx-gateway\nimage nginx:1.27-alpine\nhost 8080 by default -> container 80" as Gateway
 
-Host --> Gateway : http://localhost:${GATEWAY_HTTP_PORT:-8080}
-Gateway --> Frontend
-Gateway --> Auth
-Gateway --> Registry
-Gateway --> Catalog
-Gateway --> Status
-Gateway --> Reservation
-Gateway --> Analytics
-Gateway --> Billing
-Gateway --> Scheduler
+  node "frontend\napps/frontend Dockerfile\nbuild: Node 20\nruntime: nginx:1.27-alpine\ninternal port 5173" as Frontend
 
-Auth --> AuthDb
-Registry --> RegistryDb
+  node "FastAPI application containers\nPython 3.12 / Uvicorn\ninternal port 8000 each" as Services {
+    component "auth-service" as Auth
+    component "provider-registry-service" as ProviderRegistry
+    component "red-provider-service" as RedProvider
+    component "green-provider-service" as GreenProvider
+    component "blue-provider-service" as BlueProvider
+    component "catalog-service" as Catalog
+    component "status-service" as Status
+    component "reservation-service" as Reservation
+    component "analytics-service" as Analytics
+    component "billing-service" as Billing
+    component "scheduler-service" as Scheduler
+  }
+
+  queue "rabbitmq\nimage rabbitmq:3-management\nAMQP 5672 internal\nmanagement 127.0.0.1:15672 by default\nvolume rabbitmq-data" as Rabbit
+
+  database "auth-postgres\npostgres:16-alpine\n5432 internal\nvolume auth-postgres-data" as AuthDb
+  database "provider-registry-postgres\nvolume provider-registry-postgres-data" as ProviderRegistryDb
+  database "red-provider-postgres\nvolume red-provider-postgres-data" as RedDb
+  database "green-provider-postgres\nvolume green-provider-postgres-data" as GreenDb
+  database "blue-provider-postgres\nvolume blue-provider-postgres-data" as BlueDb
+  database "catalog-postgres\nvolume catalog-postgres-data" as CatalogDb
+  database "status-postgres\nvolume status-postgres-data" as StatusDb
+  database "reservation-postgres\nvolume reservation-postgres-data" as ReservationDb
+  database "analytics-postgres\nvolume analytics-postgres-data" as AnalyticsDb
+  database "billing-postgres\nvolume billing-postgres-data" as BillingDb
+  database "scheduler-postgres\nvolume scheduler-postgres-data" as SchedulerDb
+}
+
+cloud "External provider API hosts" as ProviderApis {
+  component "redPlug" as RedApi
+  component "greenPlug" as GreenApi
+  component "bluePlug" as BlueApi
+}
+
+Browser --> Gateway : HTTP host port\nGATEWAY_HTTP_PORT default 8080
+Gateway --> Frontend : /
+Gateway --> Auth : /api/auth/*
+Gateway --> ProviderRegistry : /api/providers/*\n/api/provider-registry/*
+Gateway --> Catalog : /api/catalog/*
+Gateway --> Status : /api/status/*
+Gateway --> Reservation : /api/reservations/*
+Gateway --> Analytics : /api/analytics/*
+Gateway --> Billing : /api/billing/*
+Gateway --> Scheduler : /api/scheduler/*
+
+Auth --> AuthDb : PostgreSQL 5432 internal
+ProviderRegistry --> ProviderRegistryDb
 RedProvider --> RedDb
 GreenProvider --> GreenDb
 BlueProvider --> BlueDb
@@ -62,26 +70,36 @@ Analytics --> AnalyticsDb
 Billing --> BillingDb
 Scheduler --> SchedulerDb
 
-RedProvider --> ProviderApis
-GreenProvider --> ProviderApis
-BlueProvider --> ProviderApis
-Reservation --> RedProvider
-Reservation --> GreenProvider
-Reservation --> BlueProvider
-Status --> RedProvider
-Status --> GreenProvider
-Status --> BlueProvider
-Catalog --> RedProvider
+Catalog --> RedProvider : Docker DNS\nprovider import
 Catalog --> GreenProvider
 Catalog --> BlueProvider
-Scheduler --> Catalog
-Scheduler --> Analytics
-Scheduler --> Billing
-Scheduler --> Reservation
+Status --> RedProvider : live status
+Status --> GreenProvider
+Status --> BlueProvider
+Reservation --> RedProvider : reservation mutation
+Reservation --> GreenProvider
+Reservation --> BlueProvider
 
-Reservation --> RabbitMQ
-Catalog --> RabbitMQ
-Analytics --> RabbitMQ
-Billing --> RabbitMQ
+Scheduler --> Catalog : internal jobs\nX-Scheduler-Token
+Scheduler --> Reservation : internal outbox job
+Scheduler --> Billing : internal billing jobs
+Scheduler --> Analytics : internal analytics jobs
 
+Catalog --> Rabbit : AMQP 5672 internal
+Status --> Rabbit
+Reservation --> Rabbit
+Billing --> Rabbit
+Rabbit --> Analytics : queue delivery
+Rabbit --> Billing : queue delivery
+
+RedProvider --> RedApi : HTTPS with Bearer provider API key
+GreenProvider --> GreenApi : HTTPS with Bearer provider API key
+BlueProvider --> BlueApi : HTTPS with Bearer provider API key
+
+note bottom of Compose
+No PostgreSQL service is published to the host.
+AMQP is internal to the Docker network.
+RabbitMQ management is bound to localhost only.
+The frontend container serves the built static app through Nginx, not a development server.
+end note
 @enduml

@@ -1,37 +1,55 @@
 @startuml
-title Event propagation to analytics and billing
+title Analytics and billing event propagation sequence
+skinparam shadowing false
 
 participant "catalog-service" as Catalog
 participant "status-service" as Status
 participant "reservation-service" as Reservation
-database "reservation-postgres" as ReservationDb
-queue "RabbitMQ\nsaasplug.events" as RabbitMQ
-participant "analytics-service" as Analytics
-database "analytics-postgres" as AnalyticsDb
+participant "reservation-postgres\nreservation_event_outbox" as ReservationDb
 participant "billing-service" as Billing
-database "billing-postgres" as BillingDb
+participant "billing-postgres\nbilling_events, charges, outbox" as BillingDb
+participant "scheduler-service or operator" as Scheduler
+participant "RabbitMQ\nexchange saasplug.events" as Rabbit
+participant "analytics-service" as Analytics
+participant "analytics-postgres" as AnalyticsDb
 
-Catalog -> RabbitMQ : Publish usage.search_performed or usage.point_viewed
-Catalog -> RabbitMQ : Publish catalog.points.imported after imports
-Status -> RabbitMQ : Publish status.point_checked after status lookups
+Catalog -> Rabbit : Publish usage.search_performed\nusage.point_viewed\ncatalog.points.imported
+Status -> Rabbit : Publish status.point_checked
 
+Reservation -> ReservationDb : Stage reservation.succeeded\nor reservation.failed
+Scheduler -> Reservation : POST /internal/jobs/outbox/publish-pending
 Reservation -> ReservationDb : Read pending reservation_event_outbox rows
-Reservation -> RabbitMQ : Publish reservation.succeeded or reservation.failed
-Reservation -> ReservationDb : Mark outbox row published
+Reservation -> Rabbit : Publish reservation.succeeded / reservation.failed
+Reservation -> ReservationDb : Mark reservation outbox rows published
 
-RabbitMQ -> Analytics : Deliver to analytics.events
-Analytics -> AnalyticsDb : Idempotently insert usage_events by event_id
-Analytics -> AnalyticsDb : Refresh aggregate/cache tables on command
-Analytics --> RabbitMQ : Ack or reject to DLQ
+Rabbit -> Billing : Deliver billing.reservations queue\nreservation.*, usage.point_viewed
+Scheduler -> Billing : POST /internal/jobs/events/drain
+Billing -> Rabbit : Consume bounded billing.reservations batch
+Billing -> BillingDb : Insert billing_events idempotently
+alt Billable event
+  Billing -> BillingDb : Create charge_records
+  Billing -> BillingDb : Stage billing.charge_created\nin billing_event_outbox
+else Not billable by current pricing rule
+  Billing -> BillingDb : Mark event skipped
+end
 
-RabbitMQ -> Billing : Deliver to billing.reservations
-Billing -> BillingDb : Idempotently insert billing_events by event_id
-Billing -> BillingDb : Apply pricing and create charge when chargeable
-Billing -> BillingDb : Stage billing.charge_created outbox event
-Billing --> RabbitMQ : Ack or reject to DLQ
+Scheduler -> Billing : POST /internal/jobs/outbox/publish-pending
+Billing -> BillingDb : Read pending billing_event_outbox rows
+Billing -> Rabbit : Publish billing.charge_created\nbilling.invoice_issued\nbilling.invoice_paid
+Billing -> BillingDb : Mark billing outbox rows published
 
-Billing -> RabbitMQ : Publish billing.invoice_issued / billing.invoice_paid from outbox
-RabbitMQ -> Analytics : Deliver billing projection events
-Analytics -> AnalyticsDb : Update billing summary projections
+Rabbit -> Analytics : Deliver analytics.events queue\nusage.*, status, reservation.*, catalog import, billing.*
+Scheduler -> Analytics : POST /internal/jobs/events/consume
+Analytics -> Rabbit : Consume bounded analytics.events batch
+Analytics -> AnalyticsDb : Insert usage_events,\ncatalog_health_snapshots,\nbilling_summary_snapshots
+Scheduler -> Analytics : POST /internal/jobs/aggregates/refresh
+Analytics -> AnalyticsDb : Refresh provider, point, operator,\nstatus, and EV reservation aggregates
 
+note over Rabbit
+Bindings are declared by packages/events:
+analytics.events receives usage.*, status.point_checked, reservation.*,
+catalog.points.imported, billing.charge_created, and billing.invoice.*.
+billing.reservations receives reservation.succeeded, reservation.failed,
+and usage.point_viewed.
+end note
 @enduml

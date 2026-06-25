@@ -1,27 +1,49 @@
 @startuml
-title Login and current-user lookup
+title Login, refresh, and current-user lookup sequence
+skinparam shadowing false
 
-actor User
-participant "frontend" as Frontend
-participant "nginx-gateway" as Gateway
-participant "auth-service" as Auth
+actor "User\nEV / Provider Admin / Operator" as User
+participant "React frontend\napps/frontend" as Frontend
+participant "nginx-gateway\n:8080 -> :80" as Gateway
+participant "auth-service\nservices/auth-service :8000" as Auth
 database "auth-postgres" as AuthDb
 
 User -> Frontend : Submit email/password
 Frontend -> Gateway : POST /api/auth/auth/login
 Gateway -> Auth : POST /auth/login
-Auth -> AuthDb : Load user by normalized email
-Auth -> Auth : Verify password hash and active flag
-Auth -> AuthDb : Persist hashed refresh token
-Auth --> Gateway : JWT access token, refresh token, user claims
-Gateway --> Frontend : Auth response
-Frontend -> Frontend : Store local session
+Auth -> AuthDb : Select active user by email\nverify password_hash
+Auth -> AuthDb : Insert refresh_tokens row
+Auth --> Gateway : AuthTokenResponse\naccess_token, refresh_token, user
+Gateway --> Frontend : 200 OK
+Frontend --> User : Route by role
 
-User -> Frontend : Open profile/current session
-Frontend -> Gateway : GET /api/auth/auth/me\nAuthorization: Bearer token
+Frontend -> Gateway : GET /api/auth/auth/me\nAuthorization: Bearer access token
 Gateway -> Auth : GET /auth/me
-Auth -> Auth : Validate JWT and role/provider claims
-Auth --> Gateway : Current user
-Gateway --> Frontend : Current user
+Auth -> AuthDb : Load user and roles
+Auth --> Gateway : UserResponse
+Gateway --> Frontend : UserResponse
+
+alt Access token expires
+  Frontend -> Gateway : POST /api/auth/auth/refresh
+  Gateway -> Auth : POST /auth/refresh
+  Auth -> AuthDb : Validate refresh_tokens token_hash
+  Auth --> Gateway : New AuthTokenResponse
+  Gateway --> Frontend : New access token
+end
+
+alt Google OAuth configured
+  User -> Frontend : Choose Google login
+  Frontend -> Gateway : GET /api/auth/auth/google/login
+  Gateway -> Auth : GET /auth/google/login
+  Auth -> AuthDb : Store oauth_states\nstate_hash and PKCE verifier
+  Auth --> Gateway : Google authorization URL
+  Gateway --> Frontend : URL
+  User -> Gateway : GET /api/auth/auth/google/callback?code&state
+  Gateway -> Auth : GET /auth/google/callback
+  Auth -> AuthDb : Consume oauth_states and upsert/load user
+  Auth -> AuthDb : Insert refresh_tokens row
+  Auth --> Gateway : AuthTokenResponse
+  Gateway --> Frontend : Callback completes session
+end
 
 @enduml

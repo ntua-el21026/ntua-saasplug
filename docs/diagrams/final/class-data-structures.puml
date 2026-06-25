@@ -1,0 +1,271 @@
+@startuml
+title saasPlug exchanged data structures and event payload classes
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+package "Auth DTOs" {
+  enum UserRole {
+    EV_USER
+    PROVIDER_ADMIN
+    OPERATOR
+  }
+  class RegisterRequest {
+    email: EmailStr
+    password: string
+    roles: UserRole[]
+    provider_code: string?
+  }
+  class LoginRequest {
+    email: EmailStr
+    password: string
+  }
+  class AuthTokenResponse {
+    access_token: string
+    refresh_token: string
+    token_type: bearer
+    user: UserResponse
+  }
+  class UserResponse {
+    id: UUID
+    email: string
+    roles: UserRole[]
+    provider_code: string?
+    is_active: bool
+  }
+}
+
+package "Provider registry DTOs" {
+  class ProviderCreateRequest {
+    provider_code: string
+    display_name: string
+    api_base_url: AnyUrl
+    api_key_env_var: string
+  }
+  class ProviderUpdateRequest {
+    display_name: string?
+    contact_email: EmailStr?
+    api_base_url: AnyUrl?
+    is_active: bool?
+  }
+  class ProviderResponse {
+    id: UUID
+    provider_code: string
+    display_name: string
+    is_active: bool
+  }
+  class ProviderIntegrationConfigResponse {
+    provider_code: string
+    api_base_url: string
+    api_auth_type: string
+    timeout_seconds: int
+  }
+}
+
+package "Provider adapter DTOs" {
+  class ProviderIdentityResponse {
+    provider_code: string
+    display_name: string
+  }
+  class NormalizedPointResponse {
+    provider_code: string
+    external_point_id: string
+    normalized_point_id: string
+    latitude: decimal
+    longitude: decimal
+    status: string
+    reservation_ends_at: datetime?
+    price_per_kwh_eur: decimal?
+    capacity: decimal?
+    connector: string?
+  }
+  class StatusResponse {
+    provider_code: string
+    external_point_id: string
+    status: string
+    reservation_ends_at: datetime?
+    source: provider_live
+  }
+  class ReservationRequest {
+    duration_minutes: int
+  }
+  class NormalizedReservationResponse {
+    provider_code: string
+    external_point_id: string
+    status: string
+    reservation_ends_at: datetime?
+    raw_payload: object
+  }
+  class SyncSummaryResponse {
+    provider_code: string
+    fetched_count: int
+    upserted_count: int
+    failed_count: int
+    status: string
+  }
+}
+
+package "Catalog and status DTOs" {
+  class CatalogSearchCircleResponse {
+    center_lat: decimal
+    center_lng: decimal
+    radius_km: decimal
+  }
+  class CatalogPointResponse {
+    provider_code: string
+    external_point_id: string
+    display_name: string
+    latitude: decimal
+    longitude: decimal
+    status: string
+    price_per_kwh_eur: decimal?
+    connector: string?
+    is_stale: bool
+  }
+  class CatalogPointListResponse {
+    items: CatalogPointResponse[]
+    limit: int
+    offset: int
+    total: int
+    search_circle: CatalogSearchCircleResponse?
+  }
+  class PointViewRequest {
+    view_source: string
+    status: string?
+  }
+  class StatusBatchLookupRequest {
+    points: StatusBatchLookupItem[]
+    force_refresh: bool
+  }
+  class StatusLookupResponse {
+    provider_code: string
+    external_point_id: string
+    status: string
+    cache_hit: bool
+    provider_called: bool
+    returned_stale: bool
+    source: string
+  }
+  class StatusCachePolicyResponse {
+    ttl_seconds: int
+    stale_ttl_seconds: int
+  }
+}
+
+package "Reservation DTOs" {
+  class ReservationCreateRequest {
+    duration_minutes: int
+    idempotency_key: string?
+  }
+  class ReservationResponse {
+    id: UUID
+    user_id: UUID
+    provider_code: string
+    external_point_id: string
+    status: string
+    reservation_ends_at: datetime?
+    estimated_energy_kwh: decimal?
+    estimated_cost_eur: decimal?
+    reconciliation_required: bool
+  }
+  class ReservationAttemptResponse {
+    id: UUID
+    reservation_id: UUID
+    outcome_status: string
+    provider_status_code: int?
+  }
+  class OutboxPublishResponse {
+    published_count: int
+    failed_count: int
+  }
+}
+
+package "Billing, analytics, scheduler DTOs" {
+  class PricingRuleResponse {
+    provider_code: string
+    reservation_success_fee_eur: decimal
+    point_view_fee_enabled: bool
+    reservation_failure_fee_eur: decimal
+  }
+  class ChargeResponse {
+    id: UUID
+    provider_code: string
+    charge_type: string
+    amount_eur: decimal
+  }
+  class InvoiceResponse {
+    id: UUID
+    provider_code: string
+    invoice_number: string
+    status: string
+    total_eur: decimal
+    lines: InvoiceLineResponse[]
+    payments: PaymentResponse[]
+  }
+  class ProviderSummaryResponse {
+    provider_code: string
+    total_reservations: int
+    revenue_eur: decimal
+    status_distribution: object
+  }
+  class OperatorSummaryResponse {
+    providers_count: int
+    active_points: int
+    revenue_eur: decimal
+  }
+  class ScheduledJobResponse {
+    job_key: string
+    target_service: string
+    target_path: string
+    enabled: bool
+    paused: bool
+  }
+  class JobRunResponse {
+    id: UUID
+    job_key: string
+    status: string
+    target_http_status: int?
+  }
+}
+
+package "Event envelope" {
+  class EventEnvelope {
+    event_id: UUID
+    event_type: EventType
+    event_version: string
+    occurred_at: datetime
+    correlation_id: string
+    producer: string
+    payload: object
+  }
+  enum EventType {
+    PROVIDER_SYNC_REQUESTED
+    PROVIDER_POINTS_SNAPSHOT_READY
+    CATALOG_POINTS_IMPORTED
+    USAGE_SEARCH_PERFORMED
+    USAGE_POINT_VIEWED
+    STATUS_POINT_CHECKED
+    RESERVATION_SUCCEEDED
+    RESERVATION_FAILED
+    BILLING_CHARGE_CREATED
+    BILLING_INVOICE_ISSUED
+    BILLING_INVOICE_PAID
+  }
+}
+
+AuthTokenResponse --> UserResponse
+RegisterRequest --> UserRole
+UserResponse --> UserRole
+CatalogPointListResponse --> CatalogPointResponse
+CatalogPointListResponse --> CatalogSearchCircleResponse
+InvoiceResponse --> ChargeResponse
+EventEnvelope --> EventType
+
+note bottom of EventType
+Exact event routing strings are defined in packages/events/saasplug_events:
+provider.sync.requested, provider.points.snapshot_ready, catalog.points.imported,
+usage.search_performed, usage.point_viewed, status.point_checked,
+reservation.succeeded, reservation.failed, billing.charge_created,
+billing.invoice_issued, billing.invoice_paid.
+end note
+@enduml

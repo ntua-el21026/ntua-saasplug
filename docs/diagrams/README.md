@@ -30,6 +30,12 @@ The authoritative final diagrams must be placed under:
 docs/diagrams/final/
 ```
 
+The grader-facing Markdown entrypoint is:
+
+```text
+docs/diagrams/final/saasplug-final-uml.md
+```
+
 Draft or outdated diagrams must not be treated as final deliverables.
 
 ## Diagram format
