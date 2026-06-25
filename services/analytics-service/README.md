@@ -156,6 +156,11 @@ They answer how many point views happened while points were `available`,
 `reserved`, `charging`, `malfunction`, `offline`, or `unknown`; live
 status-check events and reservation events do not move this chart.
 
+Provider daily/hourly metrics also store status cache hits and live provider
+status refreshes from `status.point_checked` events. The provider dashboard
+uses these fields to show cache hit rate, which answers whether status-service
+lookups are being served from cache or forced through provider refreshes.
+
 EV reservation daily metrics are scoped by `user_id` and include total
 reservations, successful/failed counts, successful reserved duration, distinct
 point keys, estimated-reservation counts, missing-estimate counts, total

@@ -72,6 +72,7 @@ NTUA-saasPlug/
 │   │   │   │   ├── api.ts
 │   │   │   │   ├── formatting.ts
 │   │   │   │   ├── routing.ts
+│   │   │   │   ├── statusLookups.ts
 │   │   │   │   ├── storage.ts
 │   │   │   │   └── types.ts
 │   │   │   ├── styles/
@@ -168,6 +169,8 @@ NTUA-saasPlug/
 │   │   │   ├── 059-map-controls-polish.md
 │   │   │   ├── 060-map-quick-view-point-events.md
 │   │   │   ├── 060-operator-pricing-tabs.md
+│   │   │   ├── 061-provider-points-filters.md
+│   │   │   ├── 062-invoices-and-sync-dedup-polish.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -375,9 +378,6 @@ NTUA-saasPlug/
 │   ├── final-verification.md
 │   ├── README.md
 │   └── submission-checklist.md
-├── output/
-│   └── playwright/
-│       └── map-radius-fixed.png
 ├── packages/
 │   ├── event-contracts/
 │   │   └── README.md
@@ -640,4 +640,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 104, Total files: 537
+Total directories: 102, Total files: 539

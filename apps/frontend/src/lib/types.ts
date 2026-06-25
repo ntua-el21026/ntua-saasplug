@@ -98,6 +98,25 @@ export interface StatusLookupResponse {
   warning: string | null;
 }
 
+export interface StatusBatchLookupItem {
+  provider_code: ProviderCode;
+  external_point_id: string;
+}
+
+export interface StatusBatchLookupError {
+  provider_code: ProviderCode;
+  external_point_id: string;
+  status: "unknown";
+  error_type: string;
+  message: string;
+  external_status_code: number | null;
+}
+
+export interface StatusBatchLookupResponse {
+  items: StatusLookupResponse[];
+  errors: StatusBatchLookupError[];
+}
+
 export interface StatusCacheResponse {
   provider_code: ProviderCode;
   external_point_id: string;
@@ -315,6 +334,9 @@ export interface ProviderSummary {
   total_searches: number;
   total_point_views: number;
   total_status_checks: number;
+  status_cache_hits: number;
+  status_provider_calls: number;
+  status_cache_hit_rate: number | null;
   successful_reservations: number;
   failed_reservations: number;
   reservation_conversion_rate: number | null;

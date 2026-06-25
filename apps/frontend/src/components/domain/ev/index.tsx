@@ -206,6 +206,11 @@ export function MapFilterPanel({
   resultLimitOptions,
   onChange,
   onResultLimitChange,
+  showSearch = true,
+  showProvider = true,
+  showResultLimit = true,
+  summary = "Expand to refine the visible charging points.",
+  expandedSummary,
 }: {
   filters: CatalogFilters;
   providers: ProviderCode[];
@@ -214,15 +219,21 @@ export function MapFilterPanel({
   resultLimitOptions: readonly CatalogResultLimit[];
   onChange: (filters: CatalogFilters) => void;
   onResultLimitChange: (limit: CatalogResultLimit) => void;
+  showSearch?: boolean;
+  showProvider?: boolean;
+  showResultLimit?: boolean;
+  summary?: string;
+  expandedSummary?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const activeExpandedSummary = expandedSummary ?? "Narrow nearby chargers by location, provider, availability, and charger type.";
 
   return (
     <Card className={`map-filter-panel ${expanded ? "is-expanded" : "is-collapsed"}`}>
       <div className="filter-panel-header">
         <div>
           <h2>Filters</h2>
-          <p>{expanded ? "Narrow nearby chargers by location, provider, availability, and charger type." : "Expand to refine the visible charging points."}</p>
+          <p>{expanded ? activeExpandedSummary : summary}</p>
         </div>
         <button
           aria-expanded={expanded}
@@ -236,14 +247,16 @@ export function MapFilterPanel({
       </div>
       {expanded ? (
         <div className="filter-panel-fields">
-          <label className="filter-field filter-field-wide">
-            Search
-            <SearchInput
-              value={filters.q}
-              onChange={(event) => onChange({ ...filters, q: event.target.value })}
-              placeholder="Station, address, connector"
-            />
-          </label>
+          {showSearch ? (
+            <label className="filter-field filter-field-wide">
+              Search
+              <SearchInput
+                value={filters.q}
+                onChange={(event) => onChange({ ...filters, q: event.target.value })}
+                placeholder="Station, address, connector"
+              />
+            </label>
+          ) : null}
           <fieldset className="filter-fieldset">
             <legend>Availability</legend>
             <div className="compact-filter-row">
@@ -260,15 +273,17 @@ export function MapFilterPanel({
             </div>
           </fieldset>
           <div className="filter-grid">
-            <label className="filter-field">
-              Provider
-              <Select value={filters.providerCode} onChange={(event) => onChange({ ...filters, providerCode: event.target.value as CatalogFilters["providerCode"] })}>
-                <option value="">All providers</option>
-                {providers.map((provider) => (
-                  <option key={provider} value={provider}>{providerLabel(provider)}</option>
-                ))}
-              </Select>
-            </label>
+            {showProvider ? (
+              <label className="filter-field">
+                Provider
+                <Select value={filters.providerCode} onChange={(event) => onChange({ ...filters, providerCode: event.target.value as CatalogFilters["providerCode"] })}>
+                  <option value="">All providers</option>
+                  {providers.map((provider) => (
+                    <option key={provider} value={provider}>{providerLabel(provider)}</option>
+                  ))}
+                </Select>
+              </label>
+            ) : null}
             <label className="filter-field">
               Status
               <Select value={filters.status} onChange={(event) => onChange({ ...filters, status: event.target.value as CatalogFilters["status"] })}>
@@ -291,22 +306,24 @@ export function MapFilterPanel({
                 ))}
               </Select>
             </label>
-            <label className="filter-field">
-              Results to show
-              <Select
-                value={String(resultLimit)}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  onResultLimitChange(value === "all" ? "all" : Number(value) as CatalogResultLimit);
-                }}
-              >
-                {resultLimitOptions.map((limit) => (
-                  <option key={String(limit)} value={String(limit)}>
-                    {limit === "all" ? "All results" : `${limit} results`}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            {showResultLimit ? (
+              <label className="filter-field">
+                Results to show
+                <Select
+                  value={String(resultLimit)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    onResultLimitChange(value === "all" ? "all" : Number(value) as CatalogResultLimit);
+                  }}
+                >
+                  {resultLimitOptions.map((limit) => (
+                    <option key={String(limit)} value={String(limit)}>
+                      {limit === "all" ? "All results" : `${limit} results`}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : null}
           </div>
           <div className="filter-footer">
             <label className="checkbox-label">
@@ -347,9 +364,9 @@ export function SelectedFiltersBar({
   return <div className="selected-filters-bar">{chips.length ? chips : <span>No filters selected</span>}</div>;
 }
 
-export function AvailabilityLegend() {
+export function AvailabilityLegend({ className = "availability-legend" }: { className?: string } = {}) {
   return (
-    <div className="availability-legend" aria-label="Provider marker legend">
+    <div className={className} aria-label="Provider marker legend">
       <span><i className="legend-dot legend-redPlug" /> redPlug</span>
       <span><i className="legend-dot legend-greenPlug" /> greenPlug</span>
       <span><i className="legend-dot legend-bluePlug" /> bluePlug</span>

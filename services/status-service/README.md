@@ -26,6 +26,7 @@ Gateway route behavior strips `/api/status/`, so service-local routes are:
 
 ```text
 GET /points/{provider_code}/{external_point_id}/status
+POST /points/statuses
 GET /points/{provider_code}/{external_point_id}
 GET /cache/{provider_code}/{external_point_id}
 GET /cache/policy
@@ -87,6 +88,12 @@ code, normalized point id, external point id, normalized result status, cache
 hit/provider-called flags, `forceRefresh`, stale fallback state, and user id.
 If RabbitMQ publishing fails, the status response behavior is unchanged.
 
+`POST /points/statuses` accepts up to 500 `(provider_code, external_point_id)`
+pairs and returns per-point status lookup results plus per-point errors. It
+uses the same cache, refresh, authorization, logging, and analytics-event
+semantics as the single-point status endpoint. This is the preferred frontend
+path when a page needs current status for multiple already-cataloged points.
+
 Provider-specific status values are normalized to:
 
 ```text
@@ -115,6 +122,7 @@ the shared `JWT_SECRET`.
 | Endpoint | Access |
 |---|---|
 | `GET /points/{provider_code}/{external_point_id}/status` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider |
+| `POST /points/statuses` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider on every requested point |
 | `GET /points/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider |
 | `GET /cache/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider; never calls provider services |
 | `GET /logs` | `OPERATOR` all logs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |

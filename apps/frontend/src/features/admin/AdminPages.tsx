@@ -3,12 +3,14 @@ import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../../components/AppShell";
 import { InvoiceStatusBadge } from "../../components/domain/billing";
+import { MapFilterPanel } from "../../components/domain/ev";
 import { ProviderHealthBadge } from "../../components/domain/provider";
 import { SyncRunStatusBadge } from "../../components/domain/status";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Switch } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import { messageFromUnknownError, requestJson, requestText } from "../../lib/api";
+import { applyStatusLookup, fetchPointStatuses, statusLookupKeyForPoint } from "../../lib/statusLookups";
 import {
   formatDateTime,
   formatMoney,
@@ -17,12 +19,14 @@ import {
   formatReservedUntil,
   providerLabel,
   PROVIDERS,
+  STATUSES,
   statusLabel,
 } from "../../lib/formatting";
 import type {
   AggregateRefreshResponse,
   AnalyticsRefreshResponse,
   BillingOverview,
+  CatalogFilters,
   CatalogImportAllResponse,
   CatalogImportRun,
   CatalogImportSummary,
@@ -49,6 +53,7 @@ import type {
   SchedulerSequenceRun,
   StatusCachePolicy,
   StatusProviderFreshness,
+  StatusLookupResponse,
 } from "../../lib/types";
 import {
   BarList,
@@ -113,11 +118,17 @@ const OPERATOR_CATALOG_PAGE_SIZES = [25, 50, 100, "all"] as const;
 type OperatorCatalogPageSize = (typeof OPERATOR_CATALOG_PAGE_SIZES)[number];
 const PROVIDER_POINT_FETCH_SIZES = [20, 40, 60, 80, 100, "all"] as const;
 type ProviderPointFetchSize = (typeof PROVIDER_POINT_FETCH_SIZES)[number];
+const PROVIDER_POINT_FILTERS: CatalogFilters = {
+  q: "",
+  providerCode: "",
+  status: "",
+  connector: "",
+  includeStale: true,
+};
 
 const SYNC_TABS = [
   { value: "jobs", label: "Scheduled jobs" },
   { value: "history", label: "Run history" },
-  { value: "manual", label: "Manual operations" },
 ] as const;
 type SyncTab = (typeof SYNC_TABS)[number]["value"];
 
@@ -152,6 +163,14 @@ type SyncOperationState = {
 type SchedulerPresetApplication = {
   scheduler: SchedulerIntervalPresetResponse;
   statusCachePolicy: StatusCachePolicy;
+};
+
+type SchedulerRunDurationSummary = {
+  key: string;
+  title: string;
+  runCount: number;
+  averageDurationMs: number;
+  latestFinishedAt: string | null;
 };
 
 const SCHEDULER_JOB_COPY: Record<string, SchedulerJobCopy> = {
@@ -220,6 +239,96 @@ function schedulerJobCopy(job: SchedulerJob | SchedulerRun | string): SchedulerJ
     title: titleFromJobKey(jobKey),
     description: fallbackDescription || "Runs a scheduled maintenance task for the selected service.",
   };
+}
+
+function summarizeSchedulerRunDurations(runs: SchedulerRun[]): SchedulerRunDurationSummary[] {
+  const groups = new Map<string, {
+    key: string;
+    title: string;
+    runCount: number;
+    totalDurationMs: number;
+    measuredRunCount: number;
+    latestFinishedAt: string | null;
+  }>();
+
+  for (const run of runs) {
+    const title = schedulerJobCopy(run).title;
+    const key = title;
+    const current = groups.get(key) ?? {
+      key,
+      title,
+      runCount: 0,
+      totalDurationMs: 0,
+      measuredRunCount: 0,
+      latestFinishedAt: null,
+    };
+    current.runCount += 1;
+    if (run.duration_ms !== null && Number.isFinite(run.duration_ms)) {
+      current.totalDurationMs += run.duration_ms;
+      current.measuredRunCount += 1;
+    }
+    if (isLaterTimestamp(run.finished_at, current.latestFinishedAt)) {
+      current.latestFinishedAt = run.finished_at;
+    }
+    groups.set(key, current);
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      key: group.key,
+      title: group.title,
+      runCount: group.runCount,
+      averageDurationMs: group.measuredRunCount === 0 ? 0 : Math.round(group.totalDurationMs / group.measuredRunCount),
+      latestFinishedAt: group.latestFinishedAt,
+    }))
+    .sort((left, right) => timestampValue(left.latestFinishedAt) - timestampValue(right.latestFinishedAt));
+}
+
+function isLaterTimestamp(candidate: string | null, current: string | null): boolean {
+  return timestampValue(candidate) > timestampValue(current);
+}
+
+function timestampValue(value: string | null): number {
+  if (!value) {
+    return 0;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function SchedulerRunDurationChart({
+  runs,
+  color,
+  valueLabel,
+}: {
+  runs: SchedulerRun[];
+  color: string;
+  valueLabel: string;
+}) {
+  const summaries = summarizeSchedulerRunDurations(runs);
+  return (
+    <div className="scheduler-duration-summary">
+      <p className="chart-note">
+        Repeated executions are grouped into one bar per operation. The bar value is the average duration across the recent runs shown in the table.
+      </p>
+      <ColumnChart
+        rows={summaries}
+        getLabel={(row) => row.title}
+        getValue={(row) => row.averageDurationMs}
+        valueLabel={valueLabel}
+        color={color}
+        formatValue={(value) => `${formatNumber(value)} ms`}
+      />
+      <div className="scheduler-run-summary-list" aria-label="Grouped scheduler run counts">
+        {summaries.map((row) => (
+          <span key={row.key}>
+            <strong>{row.title}</strong>
+            {formatNumber(row.runCount)} {row.runCount === 1 ? "run" : "runs"}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function serviceDisplayName(service: string): string {
@@ -566,6 +675,25 @@ function scopeCatalogToProvider(catalog: CatalogPointListResponse, providerCode:
   return { ...catalog, items, total: alreadyProviderScoped ? catalog.total : items.length };
 }
 
+async function resolveCatalogPointStatuses(
+  accessToken: string,
+  catalog: CatalogPointListResponse,
+  statusFilter: CatalogFilters["status"] = "",
+): Promise<CatalogPointListResponse> {
+  const response = await fetchPointStatuses(catalog.items, accessToken);
+  const lookups: Record<string, StatusLookupResponse> = Object.fromEntries(
+    response.items.map((item) => [statusLookupKeyForPoint(item), item]),
+  );
+  const items = catalog.items
+    .map((point) => applyStatusLookup(point, lookups[statusLookupKeyForPoint(point)]))
+    .filter((point) => !statusFilter || point.status === statusFilter);
+  return {
+    ...catalog,
+    items,
+    total: statusFilter ? items.length : catalog.total,
+  };
+}
+
 async function loadProviderSummary(accessToken: string, providerCode: ProviderCode) {
   const query = `providerCode=${encodeURIComponent(providerCode)}`;
   const [summary, trends, topPoints, invoices, billing, catalog, freshness] = await Promise.all([
@@ -584,24 +712,31 @@ async function loadProviderCatalogPoints(
   accessToken: string,
   providerCode: ProviderCode,
   fetchSize: ProviderPointFetchSize,
-  includeStale: boolean,
   query: string,
+  filters: CatalogFilters,
 ): Promise<CatalogPointListResponse> {
   const requestPage = (limit: number, offset: number) => {
     const params = new URLSearchParams({
       providerCode,
-      includeStale: String(includeStale),
+      includeStale: String(filters.includeStale),
       limit: String(limit),
       offset: String(offset),
     });
     if (query.trim()) {
       params.set("q", query.trim());
     }
+    if (filters.connector.trim()) {
+      params.set("connector", filters.connector.trim());
+    }
     return requestJson<CatalogPointListResponse>(`/api/catalog/points?${params.toString()}`, { accessToken });
   };
 
   if (fetchSize !== "all") {
-    return scopeCatalogToProvider(await requestPage(fetchSize, 0), providerCode);
+    return resolveCatalogPointStatuses(
+      accessToken,
+      scopeCatalogToProvider(await requestPage(fetchSize, 0), providerCode),
+      filters.status,
+    );
   }
 
   const firstPage = await requestPage(500, 0);
@@ -610,14 +745,18 @@ async function loadProviderCatalogPoints(
     offsets.push(offset);
   }
   const remainingPages = await Promise.all(offsets.map((offset) => requestPage(firstPage.limit, offset)));
-  return scopeCatalogToProvider(
-    {
-      ...firstPage,
-      items: [firstPage, ...remainingPages].flatMap((response) => response.items),
-      limit: firstPage.total,
-      offset: 0,
-    },
-    providerCode,
+  return resolveCatalogPointStatuses(
+    accessToken,
+    scopeCatalogToProvider(
+      {
+        ...firstPage,
+        items: [firstPage, ...remainingPages].flatMap((response) => response.items),
+        limit: firstPage.total,
+        offset: 0,
+      },
+      providerCode,
+    ),
+    filters.status,
   );
 }
 
@@ -697,13 +836,13 @@ export function ProviderPointsPage() {
   const accessToken = useAccessToken();
   const providerCode = useProviderCode();
   const [query, setQuery] = useState("");
-  const [includeStale, setIncludeStale] = useState(true);
+  const [filters, setFilters] = useState<CatalogFilters>(PROVIDER_POINT_FILTERS);
   const [fetchSize, setFetchSize] = useState<ProviderPointFetchSize>(20);
   const state = useDashboardLoad(async () => {
     const code = requireProvider(providerCode);
-    const catalog = await loadProviderCatalogPoints(accessToken, code, fetchSize, includeStale, query);
+    const catalog = await loadProviderCatalogPoints(accessToken, code, fetchSize, query, filters);
     return { catalog };
-  }, [accessToken, providerCode, query, includeStale, fetchSize]);
+  }, [accessToken, providerCode, query, filters, fetchSize]);
 
   return (
     <AppShell>
@@ -732,11 +871,21 @@ export function ProviderPointsPage() {
               ))}
             </select>
           </label>
-          <label className="checkbox-label">
-            <input type="checkbox" checked={includeStale} onChange={(event) => setIncludeStale(event.target.checked)} />
-            Include stale points
-          </label>
         </section>
+        <MapFilterPanel
+          filters={filters}
+          providers={[]}
+          statuses={STATUSES}
+          resultLimit="all"
+          resultLimitOptions={[]}
+          onChange={(nextFilters) => setFilters({ ...nextFilters, q: "", providerCode: "" })}
+          onResultLimitChange={() => undefined}
+          showSearch={false}
+          showProvider={false}
+          showResultLimit={false}
+          summary="Expand to refine this provider's charging points."
+          expandedSummary="Narrow this provider's catalog by availability, status, charger type, and freshness."
+        />
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
           <DashboardPanel
@@ -806,7 +955,11 @@ export function ProviderAnalyticsPage() {
           <>
             <MetricGrid>
               <MetricCard label="Searches" value={formatNumber(summary.total_searches)} />
-              <MetricCard label="Status checks" value={formatNumber(summary.total_status_checks)} />
+              <MetricCard
+                label="Cache hit rate"
+                value={formatPercent(summary.status_cache_hit_rate)}
+                hint={`${formatNumber(summary.status_cache_hits)} cached · ${formatNumber(summary.status_provider_calls)} live refreshes`}
+              />
               <MetricCard label="Failed reservations" value={formatNumber(summary.failed_reservations)} />
               <MetricCard label="Tracked revenue" value={formatMoney(summary.observed_amount, currency)} hint="Estimated EV charging payments" />
             </MetricGrid>
@@ -1507,7 +1660,7 @@ async function loadOperatorCatalogPoints(
   };
 
   if (pageSize !== "all") {
-    return requestPage(pageSize, page * pageSize);
+    return resolveCatalogPointStatuses(accessToken, await requestPage(pageSize, page * pageSize));
   }
 
   const firstPage = await requestPage(500, 0);
@@ -1516,12 +1669,12 @@ async function loadOperatorCatalogPoints(
     offsets.push(offset);
   }
   const remainingPages = await Promise.all(offsets.map((offset) => requestPage(firstPage.limit, offset)));
-  return {
+  return resolveCatalogPointStatuses(accessToken, {
     ...firstPage,
     items: [firstPage, ...remainingPages].flatMap((response) => response.items),
     limit: firstPage.total,
     offset: 0,
-  };
+  });
 }
 
 function PointStatusGuide() {
@@ -1727,19 +1880,13 @@ export function OperatorCatalogPage() {
 
 export function OperatorInvoicesPage() {
   const accessToken = useAccessToken();
-  const [providerCode, setProviderCode] = useState<"" | ProviderCode>("");
   const state = useDashboardLoad(async () => {
-    const params = new URLSearchParams();
-    if (providerCode) {
-      params.set("providerCode", providerCode);
-    }
-    const suffix = params.toString() ? `?${params.toString()}` : "";
     const [invoices, overview] = await Promise.all([
-      requestJson<Invoice[]>(`/api/billing/invoices${suffix}`, { accessToken }),
+      requestJson<Invoice[]>("/api/billing/invoices", { accessToken }),
       requestJson<BillingOverview>("/api/billing/overview", { accessToken }),
     ]);
     return { invoices, overview };
-  }, [accessToken, providerCode]);
+  }, [accessToken]);
   const currency = effectiveCurrency(state.data?.overview ?? null);
 
   return (
@@ -1748,17 +1895,8 @@ export function OperatorInvoicesPage() {
         title="Operator invoices"
         description="Monitor issued invoices and provider billing exposure."
       >
-        <section className="admin-toolbar">
-          <label>
-            Provider
-            <select value={providerCode} onChange={(event) => setProviderCode(event.target.value as "" | ProviderCode)}>
-              <option value="">All providers</option>
-              {PROVIDERS.map((provider) => (
-                <option key={provider} value={provider}>{providerLabel(provider)}</option>
-              ))}
-            </select>
-          </label>
-          <Link className="button-primary button-link" to="/operator/invoices/new">Issue invoice</Link>
+        <section className="invoice-action-row" aria-label="Invoice actions">
+          <Link className="button-primary button-link invoice-issue-button" to="/operator/invoices/new">Issue invoice</Link>
         </section>
         <LoadState loading={state.loading} error={state.error} />
         {state.data ? (
@@ -2266,11 +2404,9 @@ export function OperatorSyncPage() {
               <LoadState loading={schedulerState.loading} error={schedulerState.error} />
               {schedulerState.data ? (
                 <>
-                  <ColumnChart
-                    rows={schedulerState.data.runs.slice().reverse()}
-                    getLabel={(row) => schedulerJobCopy(row).title}
-                    getValue={(row) => row.duration_ms ?? 0}
-                    valueLabel="Run duration (ms)"
+                  <SchedulerRunDurationChart
+                    runs={schedulerState.data.runs}
+                    valueLabel="Average run duration (ms)"
                     color="#0ea5e9"
                   />
                   <DataTable
@@ -2290,85 +2426,6 @@ export function OperatorSyncPage() {
                 </>
               ) : null}
             </DashboardPanel>
-          ) : null}
-          {activeTab === "manual" ? (
-            <DashboardGrid className="manual-operations-grid">
-              <DashboardPanel title="Catalog sync" description="Refresh provider charging-point data.">
-                <div className="button-row manual-operation-actions">
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("all provider catalog import", () => requestJson<CatalogImportAllResponse>("/api/catalog/imports/all", { method: "POST", accessToken }))}
-                  >
-                    Import all providers
-                  </button>
-                  <button
-                    className="button-primary"
-                    type="button"
-                    disabled={!providerCode || operationRunning}
-                    onClick={() => runAction(
-                      `${providerCode ? providerLabel(providerCode) : "selected provider"} catalog import`,
-                      () => requestJson<CatalogImportSummary>(`/api/catalog/imports/providers/${providerCode}`, { method: "POST", accessToken }),
-                    )}
-                  >
-                    Import selected provider
-                  </button>
-                </div>
-              </DashboardPanel>
-              <DashboardPanel title="Analytics refresh" description="Process recent analytics activity and update provider, operator, point, status, and EV summaries.">
-                <div className="button-row manual-operation-actions">
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("analytics queue drain", () => requestJson<QueueDrainResponse>("/api/analytics/events/consume?limit=100", { method: "POST", accessToken }))}
-                  >
-                    Drain analytics queue
-                  </button>
-                  <button
-                    className="button-primary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("analytics summary refresh", () => requestJson<AggregateRefreshResponse>("/api/analytics/aggregates/refresh", { method: "POST", accessToken }))}
-                  >
-                    Refresh analytics summaries
-                  </button>
-                </div>
-              </DashboardPanel>
-              <DashboardPanel title="Billing refresh" description="Process recent billing activity and publish pending billing updates.">
-                <div className="button-row manual-operation-actions">
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("billing queue drain", () => requestJson<QueueDrainResponse>("/api/billing/events/drain?limit=100", { method: "POST", accessToken }))}
-                  >
-                    Drain billing queue
-                  </button>
-                  <button
-                    className="button-primary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("billing update publish", () => requestJson("/api/billing/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}
-                  >
-                    Publish billing outbox
-                  </button>
-                </div>
-              </DashboardPanel>
-              <DashboardPanel title="Reservation updates" description="Publish pending reservation updates after completed reservation attempts.">
-                <div className="button-row manual-operation-actions">
-                  <button
-                    className="button-primary"
-                    type="button"
-                    disabled={operationRunning}
-                    onClick={() => runAction("reservation update publish", () => requestJson("/api/reservations/events/outbox/publish-pending?limit=100", { method: "POST", accessToken }))}
-                  >
-                    Publish reservation outbox
-                  </button>
-                </div>
-              </DashboardPanel>
-            </DashboardGrid>
           ) : null}
         </DashboardTabs>
         <InlineResult message={message} tone={message?.includes("updated") ? "success" : "warning"} />
@@ -2447,32 +2504,46 @@ export function OperatorSystemPage() {
                   <MetricCard label="Running" value={formatNumber(state.data.schedulerHealth.running_job_count)} />
                   <MetricCard label="Last status" value={state.data.schedulerHealth.last_run_status ?? "None"} />
                 </MetricGrid>
-                <ColumnChart
-                  rows={state.data.schedulerRuns.slice().reverse()}
-                  getLabel={(row) => row.job_key.replace(/\./g, " ")}
-                  getValue={(row) => row.duration_ms ?? 0}
-                  valueLabel="Run duration milliseconds"
+                <SchedulerRunDurationChart
+                  runs={state.data.schedulerRuns}
+                  valueLabel="Average run duration milliseconds"
                   color="#7c3aed"
                 />
               </DashboardPanel>
             ) : null}
             {activeTab === "freshness" ? (
               <DashboardPanel title="Data freshness" description="Catalog and availability freshness across providers.">
+                <p className="chart-note">
+                  This view combines two different freshness checks. Provider labels repeat because the left chart checks catalog records, while the right chart checks cached live-status entries.
+                </p>
                 <div className="analytics-split-charts">
-                  <ColumnChart
-                    rows={state.data.catalogFreshness}
-                    getLabel={(row) => providerLabel(row.provider_code)}
-                    getValue={(row) => row.stale_count}
-                    valueLabel="Stale catalog points"
-                    color="#f59e0b"
-                  />
-                  <ColumnChart
-                    rows={state.data.statusFreshness}
-                    getLabel={(row) => providerLabel(row.provider_code)}
-                    getValue={(row) => row.expired_cache_count}
-                    valueLabel="Expired status entries"
-                    color="#ef4444"
-                  />
+                  <article className="freshness-chart-card">
+                    <div className="freshness-chart-heading">
+                      <strong>Catalog freshness</strong>
+                      <span>Stale catalog points are local charging-point records that need a provider catalog import.</span>
+                    </div>
+                    <ColumnChart
+                      rows={state.data.catalogFreshness}
+                      getLabel={(row) => providerLabel(row.provider_code)}
+                      getValue={(row) => row.stale_count}
+                      valueLabel="Stale catalog points"
+                      color="#f59e0b"
+                    />
+                  </article>
+                  <div className="freshness-chart-divider" aria-hidden="true" />
+                  <article className="freshness-chart-card">
+                    <div className="freshness-chart-heading">
+                      <strong>Status cache freshness</strong>
+                      <span>Expired status entries are cached availability lookups whose TTL has elapsed and should be refreshed before trusting them.</span>
+                    </div>
+                    <ColumnChart
+                      rows={state.data.statusFreshness}
+                      getLabel={(row) => providerLabel(row.provider_code)}
+                      getValue={(row) => row.expired_cache_count}
+                      valueLabel="Expired status entries"
+                      color="#ef4444"
+                    />
+                  </article>
                 </div>
               </DashboardPanel>
             ) : null}

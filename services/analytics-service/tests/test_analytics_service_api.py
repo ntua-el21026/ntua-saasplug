@@ -128,7 +128,7 @@ def seed_analytics_events(client: TestClient) -> None:
     events = [
         envelope("usage.search_performed", payload={"search_term": "fast charger"}),
         envelope("usage.point_viewed", payload={"status": "available"}),
-        envelope("status.point_checked", payload={"status": "available"}),
+        envelope("status.point_checked", payload={"status": "available", "cache_hit": True, "provider_called": False}),
         envelope(
             "reservation.succeeded",
             payload={"reservation_id": "reservation-1", "status": "succeeded"},
@@ -367,9 +367,44 @@ def test_aggregate_refresh_computes_provider_totals_and_reservation_metrics(test
     assert payload["total_searches"] == 1
     assert payload["total_point_views"] == 1
     assert payload["total_status_checks"] == 1
+    assert payload["status_cache_hits"] == 1
+    assert payload["status_provider_calls"] == 0
+    assert payload["status_cache_hit_rate"] == 1.0
     assert payload["successful_reservations"] == 1
     assert payload["failed_reservations"] == 0
     assert payload["reservation_conversion_rate"] == 1.0
+
+
+def test_aggregate_refresh_counts_general_catalog_searches_for_matched_providers(test_context) -> None:
+    search_event = envelope(
+        "usage.search_performed",
+        payload={
+            "provider_code": None,
+            "external_point_id": None,
+            "normalized_point_id": None,
+            "point_name": None,
+            "matched_provider_codes": ["redPlug", "greenPlug", "redPlug", "", 123],
+            "total": 24,
+            "result_count": 24,
+        },
+    )
+
+    assert ingest(test_context, search_event).status_code == 200
+    assert refresh(test_context).status_code == 200
+
+    red_response = test_context.get("/provider/summary?providerCode=redPlug", headers=operator_headers())
+    green_response = test_context.get("/provider/summary?providerCode=greenPlug", headers=operator_headers())
+    blue_response = test_context.get("/provider/summary?providerCode=bluePlug", headers=operator_headers())
+    operator_response = test_context.get("/operator/summary", headers=operator_headers())
+
+    assert red_response.status_code == 200
+    assert red_response.json()["total_searches"] == 1
+    assert green_response.status_code == 200
+    assert green_response.json()["total_searches"] == 1
+    assert blue_response.status_code == 200
+    assert blue_response.json()["total_searches"] == 0
+    assert operator_response.status_code == 200
+    assert operator_response.json()["total_searches"] == 1
 
 
 def test_provider_date_range_filters_dashboard_aggregates(test_context) -> None:

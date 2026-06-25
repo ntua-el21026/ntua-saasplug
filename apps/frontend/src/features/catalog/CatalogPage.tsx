@@ -24,7 +24,8 @@ import {
   sameCatalogSearchCircle,
   type CatalogResultLimit,
 } from "../../lib/routing";
-import type { Bounds, CatalogFilters, CatalogPoint, CatalogPointListResponse } from "../../lib/types";
+import { applyStatusLookup, fetchPointStatuses, statusLookupKeyForPoint } from "../../lib/statusLookups";
+import type { Bounds, CatalogFilters, CatalogPoint, CatalogPointListResponse, StatusLookupResponse } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
 const DEFAULT_FILTERS: CatalogFilters = {
@@ -46,6 +47,10 @@ export function CatalogPage() {
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusLookups, setStatusLookups] = useState<Record<string, StatusLookupResponse>>({});
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusRefreshNonce, setStatusRefreshNonce] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const latestRequestIdRef = useRef(0);
 
@@ -114,6 +119,66 @@ export function CatalogPage() {
     };
   }, [catalogRequest, mapCircleReady, session?.accessToken]);
 
+  const catalogItems = useMemo(() => catalog?.items ?? [], [catalog]);
+
+  useEffect(() => {
+    if (!catalogItems.length || !session?.accessToken) {
+      setStatusLookups({});
+      setStatusLoading(false);
+      setStatusError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setStatusLoading(true);
+    setStatusError(null);
+    fetchPointStatuses(catalogItems, session.accessToken, abortController.signal)
+      .then((response) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+        setStatusLookups(Object.fromEntries(
+          response.items.map((item) => [statusLookupKeyForPoint(item), item]),
+        ));
+        setStatusError(response.errors.length ? `${response.errors.length} status lookup${response.errors.length === 1 ? "" : "s"} could not be refreshed.` : null);
+      })
+      .catch((caught) => {
+        if (!abortController.signal.aborted) {
+          setStatusLookups({});
+          setStatusError(messageFromUnknownError(caught));
+        }
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setStatusLoading(false);
+        }
+      });
+
+    return () => abortController.abort();
+  }, [catalogItems, session?.accessToken, statusRefreshNonce]);
+
+  useEffect(() => {
+    const expiresAt = Object.values(statusLookups)
+      .map((lookup) => Date.parse(lookup.expires_at))
+      .filter((value) => Number.isFinite(value));
+    if (!expiresAt.length) {
+      return undefined;
+    }
+    const delayMs = Math.max(1000, Math.min(...expiresAt) - Date.now() + 250);
+    const timerId = window.setTimeout(() => {
+      setStatusRefreshNonce((current) => current + 1);
+    }, delayMs);
+    return () => window.clearTimeout(timerId);
+  }, [statusLookups]);
+
+  const catalogItemsWithStatus = useMemo(
+    () => catalogItems.map((point) => applyStatusLookup(point, statusLookups[statusLookupKeyForPoint(point)])),
+    [catalogItems, statusLookups],
+  );
+  const statusFilteredItems = useMemo(
+    () => (filters.status ? catalogItemsWithStatus.filter((point) => point.status === filters.status) : catalogItemsWithStatus),
+    [catalogItemsWithStatus, filters.status],
+  );
   const catalogSearchBounds = useMemo(
     () => (catalog?.search_circle ? boundsFromCatalogSearchCircle(catalog.search_circle, bounds.zoom) : null),
     [bounds, catalog?.search_circle],
@@ -122,8 +187,8 @@ export function CatalogPage() {
     ? catalogSearchBounds !== null && sameCatalogSearchCircle(catalogSearchBounds, bounds)
     : true;
   const catalogItemsForCircle = useMemo(
-    () => (catalogMatchesCurrentCircle ? catalog?.items ?? [] : []),
-    [catalog, catalogMatchesCurrentCircle],
+    () => (catalogMatchesCurrentCircle ? statusFilteredItems : []),
+    [catalogMatchesCurrentCircle, statusFilteredItems],
   );
   const displayedCatalog = catalogMatchesCurrentCircle ? catalog : null;
   const searchBounds = catalogMatchesCurrentCircle && catalogSearchBounds ? catalogSearchBounds : bounds;
@@ -140,7 +205,11 @@ export function CatalogPage() {
       {
         method: "POST",
         accessToken: session?.accessToken,
-        bodyJson: { view_source: "map_quick_view" },
+        bodyJson: {
+          view_source: "map_quick_view",
+          status: point.status,
+          reservation_ends_at: point.reservation_ends_at,
+        },
       },
     ).catch(() => undefined);
   }, [session?.accessToken]);
@@ -190,9 +259,15 @@ export function CatalogPage() {
               </span>
             </div>
             {loading ? <LoadingBlock label="Loading catalog" /> : null}
+            {statusLoading ? <LoadingBlock label="Checking point statuses" /> : null}
             {error ? (
               <Alert tone="danger" title="Catalog unavailable">
                 {error}
+              </Alert>
+            ) : null}
+            {statusError ? (
+              <Alert tone="warning" title="Status lookup incomplete">
+                {statusError}
               </Alert>
             ) : null}
             {!loading && !error && displayedCatalog && currentItems.length === 0 ? (
@@ -261,8 +336,9 @@ async function loadCatalogPoints(
 ): Promise<CatalogPointListResponse> {
   const fetchLimit = resultLimit === "all" ? CATALOG_POINTS_PAGE_LIMIT : Math.min(CATALOG_POINTS_PAGE_LIMIT, resultLimit);
   const requestCircle = catalogSearchCircle(bounds);
+  const catalogFilters = { ...filters, status: "" as CatalogFilters["status"] };
   const firstPage = await requestJson<CatalogPointListResponse>(
-    buildCatalogPointsPath(bounds, filters, fetchLimit, 0),
+    buildCatalogPointsPath(bounds, catalogFilters, fetchLimit, 0),
     { signal, accessToken },
   );
 
@@ -276,7 +352,7 @@ async function loadCatalogPoints(
 
   const pages = await Promise.all(
     offsets.map((offset) => requestJson<CatalogPointListResponse>(
-      buildCatalogPointsPath(bounds, filters, pageLimit, offset),
+      buildCatalogPointsPath(bounds, catalogFilters, pageLimit, offset),
       { signal, accessToken },
     )),
   );

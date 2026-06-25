@@ -56,13 +56,13 @@ Implemented frontend routes:
 | `/login/google/callback` | Google OAuth browser callback that completes the backend code exchange and stores the session |
 | `/register` | Local EV account registration |
 | `/logout` | Session revocation and local session cleanup |
-| `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, bounds-based catalog queries, and point-view tracking when a marker or list item opens quick details |
+| `/map` | EV map/list search using MapLibre, OpenFreeMap tiles, bounds-based catalog queries, status-service current status, and point-view tracking when a marker or list item opens quick details |
 | `/dashboard` | Alias to the EV map/list experience |
-| `/points/:providerCode/:externalPointId` | Cached catalog point details and live status lookup; reservation controls are EV-only |
+| `/points/:providerCode/:externalPointId` | Cached catalog point metadata with status-service current status lookup; reservation controls are EV-only |
 | `/reservations` | Current user's reservation history, EV reservation summary metrics, cost/kWh, and estimated cost display |
 | `/profile` | User-facing account overview, role-specific workspace links, and local-password changes |
 | `/provider/dashboard` | Provider-admin command center with analytics, billing, and catalog posture |
-| `/provider/points` | Provider-scoped catalog points with provider-selected fetch-size presets |
+| `/provider/points` | Provider-scoped catalog points with provider-selected fetch-size presets and EV-map-style eligible filters |
 | `/provider/analytics` | Provider analytics aggregates, top points, point views by status, trends, and date-range filtering |
 | `/provider/invoices` | Provider invoice list and billing exposure |
 | `/provider/invoices/:invoiceId` | Invoice detail and mock full-invoice payment |
@@ -200,21 +200,20 @@ only when the backend has all required inputs: cost/kWh, charger capacity in
 kW, and requested duration. Missing, negative, or non-finite inputs render as
 unavailable rather than `0` or a malformed currency value.
 
-Reserved points show reservation timing wherever the frontend has that data:
-map/list point cards and point detail/status panels show the reserved-until
-time, while reservation history and successful reservation dialogs show the
-created-to-end reservation window.
+Current point status displayed in the UI comes from `status-service`, not from
+catalog snapshot rows. Map/list cards, marker quick details, point details, and
+provider/operator point tables resolve status through the status cache and use
+the operator-configured TTL for refresh behavior. Reserved points show
+reservation timing wherever `status-service` has the reserved-until timestamp;
+reservation history and successful reservation dialogs show the created-to-end
+reservation window.
 
 Opening a marker or list card quick-detail popup is treated as a point view.
 The map calls `POST /api/catalog/points/{providerCode}/{externalPointId}/views`
 best-effort so billing and analytics receive the same `usage.point_viewed`
-event stream used by the full point-detail page.
-
-When the local catalog reports `reserved` but a non-live status cache response
-still reports `available`, the point page keeps the reservation visible and
-requests one backend-mediated forced status refresh. A confirmed live provider
-response may then replace the catalog status. This prevents an older cache row
-from contradicting a completed reservation in the point UI.
+event stream used by the full point-detail page. The quick-view event includes
+the status-service status that the user saw, so point-view status analytics are
+based on the same current-status source as the UI.
 
 The top summary metrics prioritize average estimated cost per point. That
 metric is backed by analytics-service aggregates and uses only points with at

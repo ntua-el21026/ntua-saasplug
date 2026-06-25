@@ -317,7 +317,10 @@ def track_point_view(
     publish_point_view_event(
         settings,
         principal,
-        response,
+        response.model_copy(update={
+            "status": body.status,
+            "reservation_ends_at": body.reservation_ends_at,
+        }) if body and body.status else response,
         view_source=body.view_source if body else "map_quick_view",
     )
     return response

@@ -57,6 +57,17 @@ describe("catalog map UI", () => {
     expect(screen.queryByRole("button", { name: "Show Outside Hub 99 on map" })).not.toBeInTheDocument();
     expect(screen.queryByText("Outside Hub 99")).not.toBeInTheDocument();
     expect(await screen.findByLabelText("Current catalog radius", undefined, ASYNC_WAIT)).toHaveTextContent(/km radius/);
+    const legendToggle = screen.getByRole("button", { name: "Show provider marker legend" });
+    expect(legendToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Provider marker legend")).not.toBeInTheDocument();
+    await userEvent.click(legendToggle);
+    const providerLegend = screen.getByLabelText("Provider marker legend");
+    expect(within(providerLegend).getByText("redPlug")).toBeInTheDocument();
+    expect(within(providerLegend).getByText("greenPlug")).toBeInTheDocument();
+    expect(within(providerLegend).getByText("bluePlug")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide provider marker legend" })).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Hide provider marker legend" }));
+    expect(screen.queryByLabelText("Provider marker legend")).not.toBeInTheDocument();
     const pointCall = fetchMock.mock.calls.find(([input]) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       return new URL(raw, "http://app.test").pathname === "/api/catalog/points";
@@ -95,7 +106,11 @@ describe("catalog map UI", () => {
     expect(pointViewCalls).toHaveLength(1);
     expect(pointViewCalls[0].url.pathname).toBe("/api/catalog/points/redPlug/r-1/views");
     expect(pointViewCalls[0].init?.method).toBe("POST");
-    expect(JSON.parse(String(pointViewCalls[0].init?.body))).toEqual({ view_source: "map_quick_view" });
+    expect(JSON.parse(String(pointViewCalls[0].init?.body))).toEqual({
+      view_source: "map_quick_view",
+      status: "available",
+      reservation_ends_at: null,
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Show filters" }));
     const chargerTypeSelect = screen.getByLabelText("Charger type");
@@ -184,7 +199,7 @@ describe("catalog map UI", () => {
     const staleResponse = deferred<Response>();
     const shiftedPoint = point("green-shifted", "greenPlug", "Shifted Hub", "g-shifted", 37.985, 23.79);
     const catalogCalls: URL[] = [];
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const url = new URL(raw, "http://app.test");
 
@@ -210,6 +225,10 @@ describe("catalog map UI", () => {
           missing_coordinates_count: 0,
           search_circle: searchCircleFromUrl(url),
         });
+      }
+
+      if (url.pathname === "/api/status/points/statuses") {
+        return json(statusBatchResponse(init));
       }
 
       return json({});
@@ -315,6 +334,10 @@ function mockGateway() {
       });
     }
 
+    if (url.pathname === "/api/status/points/statuses") {
+      return json(statusBatchResponse(init));
+    }
+
     const pointViewMatch = url.pathname.match(/^\/api\/catalog\/points\/([^/]+)\/([^/]+)\/views$/);
     if (pointViewMatch) {
       const [, providerCode, externalPointId] = pointViewMatch;
@@ -329,6 +352,36 @@ function mockGateway() {
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function statusBatchResponse(init?: RequestInit) {
+  const body = typeof init?.body === "string"
+    ? JSON.parse(init.body) as { points?: Array<{ provider_code: CatalogPoint["provider_code"]; external_point_id: string }> }
+    : {};
+  const requestedPoints = body.points ?? [];
+  return {
+    items: requestedPoints.map((requestedPoint) => {
+      const catalogPoint = points.find((item) => (
+        item.provider_code === requestedPoint.provider_code
+        && item.external_point_id === requestedPoint.external_point_id
+      ));
+      return {
+        provider_code: requestedPoint.provider_code,
+        external_point_id: requestedPoint.external_point_id,
+        normalized_point_id: `${requestedPoint.provider_code}:${requestedPoint.external_point_id}`,
+        status: catalogPoint?.status ?? "unknown",
+        reservation_ends_at: catalogPoint?.reservation_ends_at ?? null,
+        checked_at: "2026-06-13T00:00:00Z",
+        expires_at: new Date(Date.now() + 60_000).toISOString(),
+        cache_hit: true,
+        provider_called: false,
+        returned_stale: false,
+        source: "cache",
+        warning: null,
+      };
+    }),
+    errors: [],
+  };
 }
 
 function searchCircleFromUrl(url: URL): CatalogSearchCircleResponse {

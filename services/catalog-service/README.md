@@ -101,6 +101,7 @@ with the shared `JWT_SECRET`.
 |---|---|
 | `GET /points` | Public read of active, non-stale catalog rows by default; authenticated `PROVIDER_ADMIN` requests are scoped to the admin's own provider |
 | `GET /points/{provider_code}/{external_point_id}` | Public cached detail read for active, non-stale rows |
+| `POST /points/{provider_code}/{external_point_id}/views` | Best-effort point-view tracking for marker/list quick views; optional request status should come from `status-service` |
 | `POST /imports/providers/{provider_code}` | `OPERATOR` only |
 | `POST /imports/all` | `OPERATOR` only |
 | `GET /imports/runs` | `OPERATOR` all runs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |
@@ -113,6 +114,12 @@ Map search must use viewport/bounds-based loading:
 ```text
 GET /api/catalog/points?minLat=37.9&maxLat=38.1&minLng=23.6&maxLng=23.9
 ```
+
+Catalog rows include the last imported provider snapshot status, but frontend
+current-status displays must resolve status through `status-service`. When the
+frontend tracks a marker/list quick view, it may include the status-service
+status in the `POST /points/{provider_code}/{external_point_id}/views` body so
+analytics and billing observe the same status the user saw.
 
 Supported query parameters:
 
