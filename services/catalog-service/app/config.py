@@ -63,9 +63,11 @@ class Settings:
             "BLUE_PROVIDER_SERVICE_URL",
             "http://blue-provider-service:8000",
         ).rstrip("/")
+        self.status_service_url = os.getenv("STATUS_SERVICE_URL", "http://status-service:8000").rstrip("/")
         self.provider_http_timeout_seconds = float(
             os.getenv("CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS", "10"),
         )
+        self.status_seed_timeout_seconds = float(os.getenv("CATALOG_STATUS_SEED_TIMEOUT_SECONDS", "5"))
         self.import_on_startup = _get_bool_env("CATALOG_IMPORT_ON_STARTUP", False)
         self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")

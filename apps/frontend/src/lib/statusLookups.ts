@@ -42,6 +42,36 @@ export async function fetchPointStatuses(
   });
 }
 
+export async function fetchCachedPointStatuses(
+  points: Array<Pick<CatalogPoint, "provider_code" | "external_point_id">>,
+  accessToken: string | null | undefined,
+  signal?: AbortSignal,
+): Promise<StatusBatchLookupResponse> {
+  const uniquePoints = uniqueStatusLookupItems(points);
+  if (!uniquePoints.length) {
+    return { items: [], errors: [] };
+  }
+
+  return requestJson<StatusBatchLookupResponse>("/api/status/cache/statuses", {
+    method: "POST",
+    accessToken,
+    signal,
+    bodyJson: { points: uniquePoints },
+  });
+}
+
+export async function fetchPointStatus(
+  point: Pick<CatalogPoint, "provider_code" | "external_point_id">,
+  accessToken: string | null | undefined,
+  signal?: AbortSignal,
+  forceRefresh = false,
+): Promise<StatusLookupResponse> {
+  return requestJson<StatusLookupResponse>(
+    `/api/status/points/${encodeURIComponent(point.provider_code)}/${encodeURIComponent(point.external_point_id)}/status?forceRefresh=${forceRefresh ? "true" : "false"}`,
+    { accessToken, signal },
+  );
+}
+
 function uniqueStatusLookupItems(
   points: Array<Pick<CatalogPoint, "provider_code" | "external_point_id">>,
 ): StatusBatchLookupItem[] {

@@ -76,7 +76,7 @@ function responseFor(url: URL, role: Role, options?: RequestInit): unknown {
   if (pathname === "/api/catalog/points/redPlug/1515489") {
     return catalogPointDetail();
   }
-  if (pathname === "/api/status/points/statuses") {
+  if (pathname === "/api/status/cache/statuses") {
     return statusBatchLookup(options);
   }
   if (pathname === "/api/status/points/redPlug/1515489/status") {
@@ -1256,6 +1256,7 @@ describe("admin role routing", () => {
     expect(await screen.findByRole("img", { name: /successful reservations bar chart/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /provider conversion/i }));
     expect(await screen.findByRole("img", { name: /conversion percent bar chart/i })).toBeInTheDocument();
+    expect(await screen.findAllByText("33%")).not.toHaveLength(0);
     await userEvent.click(screen.getByRole("tab", { name: /comparison table/i }));
     expect(await screen.findByRole("heading", { name: /provider comparison/i })).toBeInTheDocument();
   });
@@ -1283,6 +1284,8 @@ describe("admin role routing", () => {
     });
     await userEvent.click(screen.getByRole("tab", { name: /coverage health/i }));
     expect(await screen.findByRole("heading", { name: /catalog coverage health/i })).toBeInTheDocument();
+    expect(screen.getByText(/active catalog records/i)).toBeInTheDocument();
+    expect(screen.getByText(/stale catalog records/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /import runs/i }));
     expect(await screen.findByRole("heading", { name: /import runs/i })).toBeInTheDocument();
     const completedBadges = screen

@@ -61,6 +61,23 @@ class StatusBatchLookupResponse(BaseModel):
     errors: list[StatusBatchLookupError]
 
 
+class StatusCacheSeedItem(BaseModel):
+    provider_code: str
+    external_point_id: str
+    status: str | None = None
+    reservation_ends_at: str | None = None
+    checked_at: str | None = None
+    raw_payload: dict | None = None
+
+
+class StatusCacheSeedRequest(BaseModel):
+    points: list[StatusCacheSeedItem] = Field(min_length=1, max_length=1000)
+
+
+class StatusCacheSeedResponse(BaseModel):
+    upserted_count: int
+
+
 class StatusCacheResponse(BaseModel):
     provider_code: str
     external_point_id: str

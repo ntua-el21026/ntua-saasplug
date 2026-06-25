@@ -10,7 +10,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { Switch } from "../../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import { messageFromUnknownError, requestJson, requestText } from "../../lib/api";
-import { applyStatusLookup, fetchPointStatuses, statusLookupKeyForPoint } from "../../lib/statusLookups";
+import { applyStatusLookup, fetchCachedPointStatuses, statusLookupKeyForPoint } from "../../lib/statusLookups";
 import {
   formatDateTime,
   formatMoney,
@@ -148,6 +148,10 @@ const STATUS_COLORS: Record<string, string> = {
   offline: "#64748b",
   unknown: "#94a3b8",
 };
+
+function formatPercentPoints(value: number): string {
+  return `${formatNumber(value)}%`;
+}
 
 type SchedulerJobCopy = {
   title: string;
@@ -680,7 +684,7 @@ async function resolveCatalogPointStatuses(
   catalog: CatalogPointListResponse,
   statusFilter: CatalogFilters["status"] = "",
 ): Promise<CatalogPointListResponse> {
-  const response = await fetchPointStatuses(catalog.items, accessToken);
+  const response = await fetchCachedPointStatuses(catalog.items, accessToken);
   const lookups: Record<string, StatusLookupResponse> = Object.fromEntries(
     response.items.map((item) => [statusLookupKeyForPoint(item), item]),
   );
@@ -1025,7 +1029,12 @@ export function ProviderAnalyticsPage() {
                     rows={state.data?.trends ?? []}
                     getLabel={(row) => new Date(row.day_bucket).toLocaleDateString("en", { month: "short", day: "numeric" })}
                     series={[
-                      { label: "Conversion %", color: "#7c3aed", getValue: (row) => (row.reservation_conversion_rate ?? 0) * 100 },
+                      {
+                        label: "Conversion %",
+                        color: "#7c3aed",
+                        getValue: (row) => (row.reservation_conversion_rate ?? 0) * 100,
+                        formatValue: formatPercentPoints,
+                      },
                     ]}
                     label="Reservation conversion"
                   />
@@ -1394,7 +1403,8 @@ export function OperatorDashboardPage() {
                   <BarList
                     rows={data.summary.provider_comparison}
                     getLabel={(row) => providerLabel(row.provider_code)}
-                    getValue={(row) => row.successful_reservations}
+                    getValue={(row) => (row.reservation_conversion_rate ?? 0) * 100}
+                    formatValue={formatPercentPoints}
                   />
                 </DashboardPanel>
               ) : null}
@@ -1603,6 +1613,7 @@ export function OperatorAnalyticsPage() {
                     getValue={(row) => (row.reservation_conversion_rate ?? 0) * 100}
                     valueLabel="Conversion percent"
                     color="#7c3aed"
+                    formatValue={formatPercentPoints}
                   />
                 </DashboardPanel>
               ) : null}
@@ -1849,20 +1860,33 @@ export function OperatorCatalogPage() {
             {activeTab === "coverage" ? (
               <DashboardPanel title="Catalog coverage health" description="Active and stale charging-point records by provider." className="catalog-stable-panel">
                 <div className="analytics-split-charts">
-                  <ColumnChart
-                    rows={state.data.freshness}
-                    getLabel={(row) => providerLabel(row.provider_code)}
-                    getValue={(row) => row.active_count}
-                    valueLabel="Active points"
-                    color="#10b981"
-                  />
-                  <ColumnChart
-                    rows={state.data.freshness}
-                    getLabel={(row) => providerLabel(row.provider_code)}
-                    getValue={(row) => row.stale_count}
-                    valueLabel="Stale points"
-                    color="#f59e0b"
-                  />
+                  <article className="freshness-chart-card">
+                    <div className="freshness-chart-heading">
+                      <strong>Active catalog records</strong>
+                      <span>Charging-point records currently available in the aggregated catalog.</span>
+                    </div>
+                    <ColumnChart
+                      rows={state.data.freshness}
+                      getLabel={(row) => providerLabel(row.provider_code)}
+                      getValue={(row) => row.active_count}
+                      valueLabel="Active points"
+                      color="#10b981"
+                    />
+                  </article>
+                  <div className="freshness-chart-divider" aria-hidden="true" />
+                  <article className="freshness-chart-card">
+                    <div className="freshness-chart-heading">
+                      <strong>Stale catalog records</strong>
+                      <span>Charging-point records that need a successful provider catalog import.</span>
+                    </div>
+                    <ColumnChart
+                      rows={state.data.freshness}
+                      getLabel={(row) => providerLabel(row.provider_code)}
+                      getValue={(row) => row.stale_count}
+                      valueLabel="Stale points"
+                      color="#f59e0b"
+                    />
+                  </article>
                 </div>
               </DashboardPanel>
             ) : null}

@@ -55,6 +55,7 @@ class Settings:
         self.rabbitmq_event_exchange = os.getenv("RABBITMQ_EVENT_EXCHANGE", "saasplug.events")
         self.rabbitmq_publish_timeout_seconds = float(os.getenv("RABBITMQ_PUBLISH_TIMEOUT_SECONDS", "5"))
         self.rabbitmq_event_publish_enabled = _get_bool_env("STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED", False)
+        self.scheduler_internal_token = os.getenv("SCHEDULER_INTERNAL_TOKEN", "change-me-scheduler-token")
         self.red_provider_service_url = os.getenv(
             "RED_PROVIDER_SERVICE_URL",
             "http://red-provider-service:8000",
@@ -69,6 +70,7 @@ class Settings:
         ).rstrip("/")
         if strict_secret_validation_enabled():
             validate_required_secret("JWT_SECRET", self.jwt_secret)
+            validate_required_secret("SCHEDULER_INTERNAL_TOKEN", self.scheduler_internal_token)
             validate_rabbitmq_url(self.rabbitmq_url)
 
     def provider_service_url(self, provider_code: str) -> str:

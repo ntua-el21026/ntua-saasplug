@@ -24,7 +24,7 @@ import {
   sameCatalogSearchCircle,
   type CatalogResultLimit,
 } from "../../lib/routing";
-import { applyStatusLookup, fetchPointStatuses, statusLookupKeyForPoint } from "../../lib/statusLookups";
+import { applyStatusLookup, fetchCachedPointStatuses, fetchPointStatus, statusLookupKeyForPoint } from "../../lib/statusLookups";
 import type { Bounds, CatalogFilters, CatalogPoint, CatalogPointListResponse, StatusLookupResponse } from "../../lib/types";
 import { CatalogMap } from "./CatalogMap";
 
@@ -50,7 +50,6 @@ export function CatalogPage() {
   const [statusLookups, setStatusLookups] = useState<Record<string, StatusLookupResponse>>({});
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [statusRefreshNonce, setStatusRefreshNonce] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const latestRequestIdRef = useRef(0);
 
@@ -132,7 +131,7 @@ export function CatalogPage() {
     const abortController = new AbortController();
     setStatusLoading(true);
     setStatusError(null);
-    fetchPointStatuses(catalogItems, session.accessToken, abortController.signal)
+    fetchCachedPointStatuses(catalogItems, session.accessToken, abortController.signal)
       .then((response) => {
         if (abortController.signal.aborted) {
           return;
@@ -140,7 +139,6 @@ export function CatalogPage() {
         setStatusLookups(Object.fromEntries(
           response.items.map((item) => [statusLookupKeyForPoint(item), item]),
         ));
-        setStatusError(response.errors.length ? `${response.errors.length} status lookup${response.errors.length === 1 ? "" : "s"} could not be refreshed.` : null);
       })
       .catch((caught) => {
         if (!abortController.signal.aborted) {
@@ -155,21 +153,7 @@ export function CatalogPage() {
       });
 
     return () => abortController.abort();
-  }, [catalogItems, session?.accessToken, statusRefreshNonce]);
-
-  useEffect(() => {
-    const expiresAt = Object.values(statusLookups)
-      .map((lookup) => Date.parse(lookup.expires_at))
-      .filter((value) => Number.isFinite(value));
-    if (!expiresAt.length) {
-      return undefined;
-    }
-    const delayMs = Math.max(1000, Math.min(...expiresAt) - Date.now() + 250);
-    const timerId = window.setTimeout(() => {
-      setStatusRefreshNonce((current) => current + 1);
-    }, delayMs);
-    return () => window.clearTimeout(timerId);
-  }, [statusLookups]);
+  }, [catalogItems, session?.accessToken]);
 
   const catalogItemsWithStatus = useMemo(
     () => catalogItems.map((point) => applyStatusLookup(point, statusLookups[statusLookupKeyForPoint(point)])),
@@ -214,13 +198,26 @@ export function CatalogPage() {
     ).catch(() => undefined);
   }, [session?.accessToken]);
 
+  const refreshPointStatus = useCallback(async (point: CatalogPoint): Promise<CatalogPoint> => {
+    try {
+      const lookup = await fetchPointStatus(point, session?.accessToken);
+      setStatusLookups((current) => ({
+        ...current,
+        [statusLookupKeyForPoint(point)]: lookup,
+      }));
+      return applyStatusLookup(point, lookup);
+    } catch {
+      return point;
+    }
+  }, [session?.accessToken]);
+
   const handlePointSelect = useCallback((pointId: string) => {
     setSelectedPointId(pointId);
     const point = currentItems.find((item) => item.id === pointId);
     if (point) {
-      trackPointView(point);
+      void refreshPointStatus(point).then(trackPointView);
     }
-  }, [currentItems, trackPointView]);
+  }, [currentItems, refreshPointStatus, trackPointView]);
 
   const handleBoundsChange = useCallback((nextBounds: Bounds) => {
     setMapCircleReady(true);

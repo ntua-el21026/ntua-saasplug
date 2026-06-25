@@ -38,6 +38,16 @@ def ensure_aware_utc(value: datetime) -> datetime:
     return value
 
 
+def parse_datetime(value: str | None) -> datetime:
+    if not value:
+        return utcnow()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return utcnow()
+    return ensure_aware_utc(parsed)
+
+
 def get_cache(db: Session, provider_code: str, external_point_id: str) -> StatusCache | None:
     return db.scalar(
         select(StatusCache).where(
@@ -174,6 +184,46 @@ def upsert_cache(
     cache.last_error_type = None
     cache.last_error_message = None
     return cache
+
+
+def upsert_cache_seed(
+    db: Session,
+    *,
+    provider_code: str,
+    external_point_id: str,
+    status: str | None,
+    reservation_ends_at: str | None,
+    checked_at: str | None,
+    raw_payload: dict[str, Any] | None,
+    settings: Settings,
+) -> bool:
+    validate_provider_code(provider_code)
+    checked = parse_datetime(checked_at)
+    policy = ensure_cache_policy(db, settings.cache_ttl_seconds)
+    cache = get_cache(db, provider_code, external_point_id)
+    if cache is not None and ensure_aware_utc(cache.last_checked_at) > checked:
+        return False
+    expires_at = checked + timedelta(seconds=policy.ttl_seconds)
+    if cache is None:
+        cache = StatusCache(
+            provider_code=provider_code,
+            external_point_id=external_point_id,
+            normalized_point_id=normalized_point_id(provider_code, external_point_id),
+            expires_at=expires_at,
+            raw_provider_payload={},
+        )
+        db.add(cache)
+        db.flush()
+    cache.normalized_point_id = normalized_point_id(provider_code, external_point_id)
+    cache.status = normalize_status(status)
+    cache.reservation_ends_at = reservation_ends_at
+    cache.last_checked_at = checked
+    cache.expires_at = expires_at
+    cache.source = "catalog_import"
+    cache.raw_provider_payload = raw_payload or {"source": "catalog_import"}
+    cache.last_error_type = None
+    cache.last_error_message = None
+    return True
 
 
 def lookup_status(

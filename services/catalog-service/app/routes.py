@@ -24,6 +24,7 @@ from app.schemas import (
     ProviderFreshnessResponse,
 )
 from app.security import ensure_import_run_reader, ensure_operator, get_current_principal, get_optional_principal
+from app.status_client import StatusServiceClient
 from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["catalog"])
@@ -70,6 +71,23 @@ def point_response(point: CatalogPoint) -> CatalogPointResponse:
         last_provider_seen_at=point.last_provider_seen_at.isoformat(),
         last_catalog_sync_at=point.last_catalog_sync_at.isoformat(),
     )
+
+
+def seed_imported_status_cache(db: Session, settings: Settings, provider_code: str) -> None:
+    points = db.scalars(
+        select(CatalogPoint).where(
+            CatalogPoint.provider_code == provider_code,
+            CatalogPoint.is_active.is_(True),
+            CatalogPoint.is_stale.is_(False),
+        ),
+    ).all()
+    status_client = StatusServiceClient(settings)
+    try:
+        status_client.seed_cache(points)
+    except Exception:
+        return
+    finally:
+        status_client.close()
 
 
 def point_detail_response(point: CatalogPoint) -> CatalogPointDetailResponse:
@@ -361,6 +379,7 @@ def import_provider(
                 "message": "Catalog import failed for provider service",
             },
         )
+    seed_imported_status_cache(db, settings, provider_code)
     publish_import_event(settings, summary)
     return summary
 
@@ -379,6 +398,7 @@ def import_all_providers(
             summary = import_provider_catalog(db, provider_code, principal.email, provider_client)
             summaries.append(summary)
             if summary.status == "completed":
+                seed_imported_status_cache(db, settings, provider_code)
                 publish_import_event(settings, summary)
     finally:
         provider_client.close()
@@ -421,6 +441,7 @@ def import_provider_from_scheduler(
                 "message": "Catalog import failed for provider service",
             },
         )
+    seed_imported_status_cache(db, settings, provider_code)
     publish_import_event(settings, summary)
     return summary
 
@@ -447,6 +468,7 @@ def import_all_providers_from_scheduler(
             summary = import_provider_catalog(db, provider_code, "scheduler-service", provider_client)
             summaries.append(summary)
             if summary.status == "completed":
+                seed_imported_status_cache(db, settings, provider_code)
                 publish_import_event(settings, summary)
     finally:
         provider_client.close()

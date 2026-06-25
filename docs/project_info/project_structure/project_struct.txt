@@ -504,7 +504,8 @@ NTUA-saasPlug/
 │   │   │   ├── provider_client.py
 │   │   │   ├── routes.py
 │   │   │   ├── schemas.py
-│   │   │   └── security.py
+│   │   │   ├── security.py
+│   │   │   └── status_client.py
 │   │   ├── tests/
 │   │   │   └── test_catalog_service_api.py
 │   │   ├── .dockerignore
@@ -640,4 +641,4 @@ NTUA-saasPlug/
 ├── openapi.json
 └── README.md
 
-Total directories: 102, Total files: 539
+Total directories: 102, Total files: 540

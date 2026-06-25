@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,8 @@ from app.schemas import (
     StatusBatchLookupRequest,
     StatusBatchLookupResponse,
     StatusBatchLookupError,
+    StatusCacheSeedRequest,
+    StatusCacheSeedResponse,
     StatusCacheResponse,
     StatusCachePolicyResponse,
     StatusCachePolicyUpdateRequest,
@@ -22,7 +24,17 @@ from app.schemas import (
     StatusLookupResponse,
 )
 from app.security import ensure_can_query_point_status, ensure_log_reader, ensure_operator, get_current_principal
-from app.status_logic import ensure_cache_policy, get_cache, lookup_status, update_cache_policy, validate_provider_code
+from app.status_logic import (
+    ensure_cache_policy,
+    ensure_aware_utc,
+    get_cache,
+    lookup_status,
+    normalized_point_id,
+    status_response,
+    update_cache_policy,
+    upsert_cache_seed,
+    validate_provider_code,
+)
 from saasplug_events.routing import EventType
 
 router = APIRouter(tags=["status"])
@@ -96,6 +108,90 @@ def log_response_for_principal(log: StatusCheckLog, principal: CurrentPrincipal)
     if "PROVIDER_ADMIN" in principal.roles and "OPERATOR" not in principal.roles:
         return provider_admin_log_response(log)
     return operator_log_response(log)
+
+
+def require_internal_token(
+    x_scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not x_scheduler_token or x_scheduler_token != settings.scheduler_internal_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
+
+
+@router.post("/cache/statuses", response_model=StatusBatchLookupResponse)
+def read_cached_point_statuses(
+    body: StatusBatchLookupRequest,
+    db: Session = Depends(get_db),
+    principal: CurrentPrincipal = Depends(get_current_principal),
+) -> StatusBatchLookupResponse:
+    now = utcnow()
+    items: list[StatusLookupResponse] = []
+    seen: set[tuple[str, str]] = set()
+    for point in body.points:
+        provider_code = point.provider_code
+        external_point_id = point.external_point_id
+        try:
+            validate_provider_code(provider_code)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        ensure_can_query_point_status(principal, provider_code)
+        key = (provider_code, external_point_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        cache = get_cache(db, provider_code, external_point_id)
+        if cache is None:
+            items.append(
+                StatusLookupResponse(
+                    provider_code=provider_code,
+                    external_point_id=external_point_id,
+                    normalized_point_id=normalized_point_id(provider_code, external_point_id),
+                    status="unknown",
+                    reservation_ends_at=None,
+                    checked_at=now.isoformat(),
+                    expires_at=now.isoformat(),
+                    cache_hit=False,
+                    provider_called=False,
+                    returned_stale=False,
+                    source="cache_missing",
+                ),
+            )
+            continue
+        expired = ensure_aware_utc(cache.expires_at) <= now
+        items.append(
+            status_response(
+                cache,
+                cache_hit=not expired,
+                provider_called=False,
+                returned_stale=expired,
+                source="cache_expired" if expired else "cache",
+            ),
+        )
+    return StatusBatchLookupResponse(items=items, errors=[])
+
+
+@router.post("/internal/cache/seed", response_model=StatusCacheSeedResponse)
+def seed_status_cache(
+    body: StatusCacheSeedRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: None = Depends(require_internal_token),
+) -> StatusCacheSeedResponse:
+    upserted_count = 0
+    for point in body.points:
+        if upsert_cache_seed(
+            db,
+            provider_code=point.provider_code,
+            external_point_id=point.external_point_id,
+            status=point.status,
+            reservation_ends_at=point.reservation_ends_at,
+            checked_at=point.checked_at,
+            raw_payload=point.raw_payload,
+            settings=settings,
+        ):
+            upserted_count += 1
+    db.commit()
+    return StatusCacheSeedResponse(upserted_count=upserted_count)
 
 
 @router.post("/points/statuses", response_model=StatusBatchLookupResponse)
