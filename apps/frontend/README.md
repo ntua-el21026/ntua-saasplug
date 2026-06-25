@@ -101,12 +101,12 @@ operators; reservation creation remains EV-only. Provider administrators are
 scoped to their own provider. Operators can access global management and
 control pages.
 
-The demo password is not read from frontend environment variables, embedded in
-the bundle, rendered, or prefilled by the app. It comes from the server-side
-`DEMO_USER_PASSWORD` used by auth-service seed data and must be provided
-out-of-band by the presenter. The role shortcut buttons fill the email and keep
-the current password input value, so a presenter can type the shared demo
-password once without exposing it through browser-delivered configuration.
+By default the demo password is not embedded in the browser bundle. For
+coursework/demo builds, Compose can pass `DEMO_USER_PASSWORD` into the frontend
+build as `VITE_DEMO_LOGIN_PASSWORD`, which pre-fills the login password input
+for faster role switching. This is intentionally demo-only because `VITE_*`
+values are browser-delivered configuration. The role shortcut buttons fill the
+email and keep the current password input value.
 
 Google sign-in is available only for EV accounts. In local demo mode, where
 Google credentials are placeholders, the login page uses

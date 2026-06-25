@@ -17,7 +17,7 @@ export function GoogleCallbackPage() {
     let cancelled = false;
 
     async function finishGoogleSignIn() {
-      let fragmentPayload: AuthTokenResponse | null = null;
+      let fragmentPayload: AuthTokenResponse | null;
       try {
         fragmentPayload = readGoogleRedirectPayload();
       } catch {

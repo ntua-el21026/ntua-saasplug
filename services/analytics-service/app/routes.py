@@ -14,7 +14,6 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.ingestion import IngestResult, ingest_events
 from app.models import (
-    BillingSummarySnapshot,
     CatalogHealthSnapshot,
     EvReservationDailyMetric,
     ExportJob,

@@ -26,8 +26,8 @@ requests to responsible backend service containers.
 deploy/nginx/default.conf
 ```
 
-The gateway listens on container port `80` and is exposed by Compose on host
-port `8080`.
+The gateway listens on container port `80` and is exposed by Compose on the
+host port configured by `GATEWAY_HTTP_PORT`, defaulting to `8080`.
 
 The Nginx configuration resolves Docker service names at request time through
 Docker DNS (`127.0.0.11`) instead of using static upstream blocks. This prevents

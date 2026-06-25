@@ -1,0 +1,16 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [
+  "apps/frontend/node_modules",
+  "apps/frontend/dist",
+  "docs/assignment",
+  "docs/lectures",
+  "reports",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["saasplug_events"]
