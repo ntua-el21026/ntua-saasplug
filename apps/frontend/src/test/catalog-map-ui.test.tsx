@@ -227,7 +227,7 @@ describe("catalog map UI", () => {
         });
       }
 
-      if (url.pathname === "/api/status/points/statuses") {
+      if (url.pathname === "/api/status/cache/statuses") {
         return json(statusBatchResponse(init));
       }
 
@@ -334,8 +334,23 @@ function mockGateway() {
       });
     }
 
-    if (url.pathname === "/api/status/points/statuses") {
+    if (url.pathname === "/api/status/cache/statuses") {
       return json(statusBatchResponse(init));
+    }
+
+    const statusLookupMatch = url.pathname.match(/^\/api\/status\/points\/([^/]+)\/([^/]+)\/status$/);
+    if (statusLookupMatch) {
+      const [, providerCode, externalPointId] = statusLookupMatch;
+      const requestedPoint = points.find((item) => (
+        item.provider_code === decodeURIComponent(providerCode)
+        && item.external_point_id === decodeURIComponent(externalPointId)
+      ));
+      return json(statusLookupResponse(
+        decodeURIComponent(providerCode) as CatalogPoint["provider_code"],
+        decodeURIComponent(externalPointId),
+        requestedPoint,
+        "provider_live",
+      ));
     }
 
     const pointViewMatch = url.pathname.match(/^\/api\/catalog\/points\/([^/]+)\/([^/]+)\/views$/);
@@ -365,22 +380,31 @@ function statusBatchResponse(init?: RequestInit) {
         item.provider_code === requestedPoint.provider_code
         && item.external_point_id === requestedPoint.external_point_id
       ));
-      return {
-        provider_code: requestedPoint.provider_code,
-        external_point_id: requestedPoint.external_point_id,
-        normalized_point_id: `${requestedPoint.provider_code}:${requestedPoint.external_point_id}`,
-        status: catalogPoint?.status ?? "unknown",
-        reservation_ends_at: catalogPoint?.reservation_ends_at ?? null,
-        checked_at: "2026-06-13T00:00:00Z",
-        expires_at: new Date(Date.now() + 60_000).toISOString(),
-        cache_hit: true,
-        provider_called: false,
-        returned_stale: false,
-        source: "cache",
-        warning: null,
-      };
+      return statusLookupResponse(requestedPoint.provider_code, requestedPoint.external_point_id, catalogPoint, "cache");
     }),
     errors: [],
+  };
+}
+
+function statusLookupResponse(
+  providerCode: CatalogPoint["provider_code"],
+  externalPointId: string,
+  catalogPoint: CatalogPoint | undefined,
+  source: "cache" | "provider_live",
+) {
+  return {
+    provider_code: providerCode,
+    external_point_id: externalPointId,
+    normalized_point_id: `${providerCode}:${externalPointId}`,
+    status: catalogPoint?.status ?? "unknown",
+    reservation_ends_at: catalogPoint?.reservation_ends_at ?? null,
+    checked_at: "2026-06-13T00:00:00Z",
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    cache_hit: source === "cache",
+    provider_called: source === "provider_live",
+    returned_stale: false,
+    source,
+    warning: null,
   };
 }
 

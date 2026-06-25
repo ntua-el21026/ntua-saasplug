@@ -482,11 +482,16 @@ Provider-specific unknown or missing status maps to `unknown`.
 Every frontend current-status display must use `status-service`, including map
 quick views, list cards, point details, and provider/operator point tables.
 `catalog-service` status is an import snapshot for catalog persistence and
-background context, not the current-status source of truth for UI rendering.
-When a cache row is expired, `status-service` refreshes it through the relevant
-provider service. Reservations do not trust the cache; `reservation-service`
-calls the provider service synchronously and lets the provider accept or reject
-the reservation against current provider state.
+background context, not the direct current-status source for UI rendering.
+After a successful catalog import, `catalog-service` seeds `status-service`
+cache with the imported provider snapshot statuses. Map/list and provider point
+tables read status cache without refreshing every visible point. When a user
+taps/opens a specific point, the frontend performs a normal status lookup for
+that point; if its cache row is expired or missing, `status-service` refreshes
+that single point through the relevant provider service. Reservations do not
+trust the cache; `reservation-service` calls the provider service synchronously
+and lets the provider accept or reject the reservation against current provider
+state.
 
 ## SPEC-2.10 Reservation strategy
 

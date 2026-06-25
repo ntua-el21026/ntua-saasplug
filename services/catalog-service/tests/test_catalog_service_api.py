@@ -70,6 +70,7 @@ class FakeProviderServiceClient:
         self.sync_failures: dict[str, ProviderServiceError] = {}
         self.sync_calls: list[str] = []
         self.list_calls: list[str] = []
+        self.status_seed_calls: list[list[dict]] = []
 
     def close(self) -> None:
         return None
@@ -93,6 +94,19 @@ class FakeProviderServiceClient:
 
     def get_provider(self, provider_code: str) -> dict:
         return {"provider_code": provider_code}
+
+    def seed_cache(self, points: list[CatalogPoint]) -> int:
+        payload = [
+            {
+                "provider_code": point.provider_code,
+                "external_point_id": point.external_point_id,
+                "status": point.status,
+                "reservation_ends_at": point.reservation_ends_at,
+            }
+            for point in points
+        ]
+        self.status_seed_calls.append(payload)
+        return len(payload)
 
 
 def access_token(roles: list[str], email: str, provider_code: str | None = None) -> str:
@@ -128,6 +142,7 @@ def test_context(tmp_path, monkeypatch):
     reset_database_for_tests(database_url)
     fake_client = FakeProviderServiceClient()
     monkeypatch.setattr(routes, "ProviderServiceClient", lambda settings: fake_client)
+    monkeypatch.setattr(routes, "StatusServiceClient", lambda settings: fake_client)
     with TestClient(app) as test_client:
         yield test_client, fake_client
     get_settings.cache_clear()
@@ -283,6 +298,26 @@ def test_successful_import_publishes_catalog_imported_event(test_context, monkey
     assert envelope.producer == "catalog-service"
     assert envelope.payload["provider_code"] == "redPlug"
     assert envelope.payload["catalog_upserted_count"] == 2
+
+
+def test_successful_import_seeds_status_cache_from_provider_snapshot(test_context) -> None:
+    client, fake_client = test_context
+
+    response = client.post(
+        "/imports/providers/redPlug",
+        headers=auth_headers(["OPERATOR"], "operator@saasplug.local"),
+    )
+
+    assert response.status_code == 200
+    assert len(fake_client.status_seed_calls) == 1
+    seeded = {
+        (item["provider_code"], item["external_point_id"]): item["status"]
+        for item in fake_client.status_seed_calls[0]
+    }
+    assert seeded == {
+        ("redPlug", "101"): "available",
+        ("redPlug", "102"): "charging",
+    }
 
 
 def test_scheduler_internal_import_requires_scheduler_token(test_context) -> None:

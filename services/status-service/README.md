@@ -29,10 +29,12 @@ GET /points/{provider_code}/{external_point_id}/status
 POST /points/statuses
 GET /points/{provider_code}/{external_point_id}
 GET /cache/{provider_code}/{external_point_id}
+POST /cache/statuses
 GET /cache/policy
 PATCH /cache/policy
 GET /logs
 GET /freshness
+POST /internal/cache/seed
 ```
 
 ## Belongs here
@@ -91,8 +93,17 @@ If RabbitMQ publishing fails, the status response behavior is unchanged.
 `POST /points/statuses` accepts up to 500 `(provider_code, external_point_id)`
 pairs and returns per-point status lookup results plus per-point errors. It
 uses the same cache, refresh, authorization, logging, and analytics-event
-semantics as the single-point status endpoint. This is the preferred frontend
-path when a page needs current status for multiple already-cataloged points.
+semantics as the single-point status endpoint.
+
+`POST /cache/statuses` is cache-only. It returns the current cached value for
+each requested point, including expired cache rows, and never calls provider
+services or emits status-check analytics. Map/list and provider point tables
+use this path so revisiting a page does not refresh every visible point.
+
+`POST /internal/cache/seed` is a Docker-network internal endpoint used by
+`catalog-service` after successful imports. It seeds the status cache with the
+statuses already present in provider catalog snapshots so a cold start can show
+imported statuses before any live point-specific status lookup happens.
 
 Provider-specific status values are normalized to:
 
@@ -125,6 +136,8 @@ the shared `JWT_SECRET`.
 | `POST /points/statuses` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider on every requested point |
 | `GET /points/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider |
 | `GET /cache/{provider_code}/{external_point_id}` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider; never calls provider services |
+| `POST /cache/statuses` | `EV_USER` and `OPERATOR` for any provider; `PROVIDER_ADMIN` only for own provider on every requested point; never calls provider services |
+| `POST /internal/cache/seed` | Internal Docker-network call with `X-Scheduler-Token`; blocked at the gateway |
 | `GET /logs` | `OPERATOR` all logs; `PROVIDER_ADMIN` own provider only; `EV_USER` forbidden |
 | `GET /freshness` | Public non-sensitive provider-level metadata |
 | `GET /cache/policy` | `OPERATOR` only; active/default/minimum TTL policy |
@@ -144,6 +157,7 @@ DATABASE_URL=postgresql://saasplug:saasplug@status-postgres:5432/status
 JWT_SECRET=change-me-in-local-env
 STATUS_CACHE_TTL_SECONDS=300
 STATUS_PROVIDER_TIMEOUT_SECONDS=10
+SCHEDULER_INTERNAL_TOKEN=change-me-scheduler-token
 RED_PROVIDER_SERVICE_URL=http://red-provider-service:8000
 GREEN_PROVIDER_SERVICE_URL=http://green-provider-service:8000
 BLUE_PROVIDER_SERVICE_URL=http://blue-provider-service:8000

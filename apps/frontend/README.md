@@ -201,12 +201,13 @@ kW, and requested duration. Missing, negative, or non-finite inputs render as
 unavailable rather than `0` or a malformed currency value.
 
 Current point status displayed in the UI comes from `status-service`, not from
-catalog snapshot rows. Map/list cards, marker quick details, point details, and
-provider/operator point tables resolve status through the status cache and use
-the operator-configured TTL for refresh behavior. Reserved points show
-reservation timing wherever `status-service` has the reserved-until timestamp;
-reservation history and successful reservation dialogs show the created-to-end
-reservation window.
+catalog snapshot rows. Map/list cards and provider/operator point tables read
+the status cache without refreshing every visible point. Opening a marker or a
+point detail performs a normal status lookup for that specific point; if its
+cache row is expired or missing, `status-service` refreshes that one point
+through the provider service. Reserved points show reservation timing wherever
+`status-service` has the reserved-until timestamp; reservation history and
+successful reservation dialogs show the created-to-end reservation window.
 
 Opening a marker or list card quick-detail popup is treated as a point view.
 The map calls `POST /api/catalog/points/{providerCode}/{externalPointId}/views`

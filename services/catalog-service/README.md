@@ -66,6 +66,11 @@ catalog-service -> blue-provider-service  GET  /internal/points
 
 `catalog-service` consumes the normalized provider-service DTOs. It does not
 read provider databases and does not call external provider APIs directly.
+After a successful import, it also seeds `status-service` through the
+Docker-internal `POST /internal/cache/seed` endpoint with the statuses included
+in the imported provider snapshot. This keeps cold-start map/list views from
+showing `unknown` before the user opens a specific point for a live status
+lookup.
 
 Each import:
 
@@ -177,6 +182,8 @@ RED_PROVIDER_SERVICE_URL=http://red-provider-service:8000
 GREEN_PROVIDER_SERVICE_URL=http://green-provider-service:8000
 BLUE_PROVIDER_SERVICE_URL=http://blue-provider-service:8000
 CATALOG_PROVIDER_HTTP_TIMEOUT_SECONDS=10
+STATUS_SERVICE_URL=http://status-service:8000
+CATALOG_STATUS_SEED_TIMEOUT_SECONDS=5
 CATALOG_IMPORT_ON_STARTUP=false
 JWT_SECRET=change-me-in-local-env
 SCHEDULER_INTERNAL_TOKEN=change-me-scheduler-token

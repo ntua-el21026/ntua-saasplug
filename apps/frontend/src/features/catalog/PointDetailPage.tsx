@@ -169,20 +169,6 @@ export function PointDetailPage() {
     }
   }, [isOwnProviderPoint, lookupStatus, session?.accessToken]);
 
-  useEffect(() => {
-    if (!session?.accessToken || !isOwnProviderPoint || !status?.expires_at) {
-      return undefined;
-    }
-    const expiresAt = Date.parse(status.expires_at);
-    if (!Number.isFinite(expiresAt)) {
-      return undefined;
-    }
-    const timerId = window.setTimeout(() => {
-      void lookupStatus(false);
-    }, Math.max(1000, expiresAt - Date.now() + 250));
-    return () => window.clearTimeout(timerId);
-  }, [isOwnProviderPoint, lookupStatus, session?.accessToken, status?.expires_at]);
-
   async function reserve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isEvUser || reservationInFlightRef.current) {

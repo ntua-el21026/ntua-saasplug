@@ -146,11 +146,13 @@ export function BarList<T>({
   rows,
   getLabel,
   getValue,
+  formatValue = formatNumber,
   emptyLabel = "No chart data available",
 }: {
   rows: T[];
   getLabel: (row: T) => string;
   getValue: (row: T) => number;
+  formatValue?: (value: number) => string;
   emptyLabel?: string;
 }) {
   if (rows.length === 0) {
@@ -170,7 +172,7 @@ export function BarList<T>({
             <div className="bar-track" aria-hidden="true">
               <i style={{ width: `${width}%` }} />
             </div>
-            <strong>{formatNumber(value)}</strong>
+            <strong>{formatValue(value)}</strong>
           </div>
         );
       })}
@@ -182,6 +184,7 @@ export type ChartSeries<T> = {
   label: string;
   color: string;
   getValue: (row: T) => number;
+  formatValue?: (value: number) => string;
 };
 
 export function TrendChart<T>({
@@ -395,12 +398,13 @@ export function GroupedColumnChart<T>({
                 {series.map((item) => {
                   const rawValue = item.getValue(row);
                   const value = Number.isFinite(rawValue) ? rawValue : 0;
+                  const formattedValue = item.formatValue ? item.formatValue(value) : formatNumber(value);
                   return (
                     <span className="analytics-grouped-bar-slot" key={item.label}>
-                      <strong>{formatNumber(value)}</strong>
+                      <strong>{formattedValue}</strong>
                       <i
                         style={{ height: `${Math.max(5, (value / max) * 100)}%`, background: item.color }}
-                        title={`${item.label}: ${formatNumber(value)} on ${rowLabel}`}
+                        title={`${item.label}: ${formattedValue} on ${rowLabel}`}
                       />
                     </span>
                   );

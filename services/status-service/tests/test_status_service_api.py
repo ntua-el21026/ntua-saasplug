@@ -100,6 +100,7 @@ def test_context(tmp_path, monkeypatch):
     monkeypatch.setenv("STATUS_CACHE_TTL_SECONDS", "300")
     monkeypatch.setenv("STATUS_PROVIDER_TIMEOUT_SECONDS", "2")
     monkeypatch.setenv("STATUS_RABBITMQ_EVENT_PUBLISH_ENABLED", "false")
+    monkeypatch.setenv("SCHEDULER_INTERNAL_TOKEN", "scheduler-test-token")
     get_settings.cache_clear()
     reset_database_for_tests(database_url)
     fake_client = FakeProviderServiceClient()
@@ -119,6 +120,10 @@ def ev_headers() -> dict[str, str]:
 
 def red_admin_headers() -> dict[str, str]:
     return auth_headers(["PROVIDER_ADMIN"], "red-admin@saasplug.local", "redPlug")
+
+
+def scheduler_headers() -> dict[str, str]:
+    return {"X-Scheduler-Token": "scheduler-test-token"}
 
 
 def enable_fake_event_publisher(monkeypatch) -> FakeEventPublisher:
@@ -154,6 +159,70 @@ def test_first_lookup_calls_provider_and_stores_cache(test_context) -> None:
         assert db.query(StatusCheckLog).count() == 1
     finally:
         db.close()
+
+
+def test_internal_seed_stores_imported_status_as_cache_without_provider_call(test_context) -> None:
+    client, fake_client = test_context
+
+    denied = client.post(
+        "/internal/cache/seed",
+        json={"points": [{"provider_code": "redPlug", "external_point_id": "101", "status": "reserved"}]},
+    )
+    response = client.post(
+        "/internal/cache/seed",
+        headers=scheduler_headers(),
+        json={
+            "points": [{
+                "provider_code": "redPlug",
+                "external_point_id": "101",
+                "status": "reserved",
+                "reservation_ends_at": "2026-06-13T00:35:00Z",
+            }],
+        },
+    )
+    cache_response = client.get("/cache/redPlug/101", headers=operator_headers())
+    lookup_response = client.get("/points/redPlug/101/status", headers=ev_headers())
+
+    assert denied.status_code == 401
+    assert response.status_code == 200
+    assert response.json()["upserted_count"] == 1
+    assert cache_response.status_code == 200
+    assert cache_response.json()["status"] == "reserved"
+    assert cache_response.json()["source"] == "catalog_import"
+    assert lookup_response.status_code == 200
+    assert lookup_response.json()["cache_hit"] is True
+    assert lookup_response.json()["provider_called"] is False
+    assert fake_client.calls == []
+
+
+def test_cache_batch_read_returns_expired_cache_without_provider_refresh(test_context) -> None:
+    client, fake_client = test_context
+    assert client.post(
+        "/internal/cache/seed",
+        headers=scheduler_headers(),
+        json={"points": [{"provider_code": "redPlug", "external_point_id": "101", "status": "reserved"}]},
+    ).status_code == 200
+    db = get_session_factory()()
+    try:
+        cache = db.query(StatusCache).filter_by(provider_code="redPlug", external_point_id="101").one()
+        cache.expires_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/cache/statuses",
+        headers=ev_headers(),
+        json={"points": [{"provider_code": "redPlug", "external_point_id": "101"}]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["errors"] == []
+    assert payload["items"][0]["status"] == "reserved"
+    assert payload["items"][0]["source"] == "cache_expired"
+    assert payload["items"][0]["provider_called"] is False
+    assert fake_client.calls == []
 
 
 def test_status_lookup_scopes_provider_admins_but_allows_ev_and_operator(test_context) -> None:
