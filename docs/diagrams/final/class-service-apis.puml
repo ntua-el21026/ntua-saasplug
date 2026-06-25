@@ -1,0 +1,196 @@
+@startuml
+title saasPlug service API class model (public and internal APIs)
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+interface "AuthPublicApi" as AuthApi {
+  +register()
+  +login()
+  +refresh()
+  +logout()
+  +change_password()
+  +me()
+  +google_login()
+  +google_callback()
+}
+
+interface "ProviderRegistryApi" as RegistryApi {
+  +list_providers()
+  +get_provider()
+  +create_provider()
+  +patch_provider()
+  +patch_status()
+  +get_integration_config()
+  +list_audit_logs()
+}
+
+interface "ProviderAdapterInternalApi" as ProviderAdapterApi {
+  +identity()
+  +list_points()
+  +sync()
+  +get_point()
+  +get_status()
+  +reserve()
+  +list_sync_runs()
+}
+
+interface "CatalogApi" as CatalogApi {
+  +list_points()
+  +get_point()
+  +record_point_view()
+  +import_provider()
+  +import_all()
+  +list_import_runs()
+  +freshness()
+}
+
+interface "StatusApi" as StatusApi {
+  +cache_batch()
+  +live_batch()
+  +get_point_status()
+  +get_cache_entry()
+  +get_cache_policy()
+  +patch_cache_policy()
+  +list_logs()
+  +freshness()
+}
+
+interface "ReservationApi" as ReservationApi {
+  +create_reservation()
+  +my_reservations()
+  +admin_list_reservations()
+  +get_reservation()
+  +list_attempts()
+  +list_outbox()
+  +publish_outbox()
+}
+
+interface "AnalyticsApi" as AnalyticsApi {
+  +ingest_event()
+  +consume_events()
+  +refresh_aggregates()
+  +provider_summary()
+  +provider_trends()
+  +provider_top_points()
+  +operator_summary()
+  +operator_catalog_health()
+  +ev_reservation_summary()
+  +export_usage_csv()
+}
+
+interface "BillingApi" as BillingApi {
+  +ingest_event()
+  +drain_events()
+  +publish_outbox()
+  +list_pricing_rules()
+  +patch_pricing_rule()
+  +effective_pricing()
+  +list_charges()
+  +issue_invoice()
+  +list_invoices()
+  +get_invoice()
+  +pay_invoice()
+  +overview()
+}
+
+interface "SchedulerApi" as SchedulerApi {
+  +list_jobs()
+  +get_job()
+  +patch_job()
+  +manual_run()
+  +pause_job()
+  +resume_job()
+  +apply_minimum_intervals()
+  +reset_default_intervals()
+  +run_maintenance()
+  +list_runs()
+  +health()
+}
+
+interface "InternalJobApi" as InternalJobApi {
+  +catalog_import_all()
+  +catalog_import_provider()
+  +reservation_publish_outbox()
+  +analytics_consume_events()
+  +analytics_refresh_aggregates()
+  +billing_drain_events()
+  +billing_publish_outbox()
+  +billing_prepare_invoices()
+}
+
+AuthApi ..> RegistryApi : provider-scoped roles
+CatalogApi ..> ProviderAdapterApi : sync and read normalized snapshots
+CatalogApi ..> StatusApi : seed cache after imports
+StatusApi ..> ProviderAdapterApi : live status lookup
+ReservationApi ..> CatalogApi : resolve point
+ReservationApi ..> ProviderAdapterApi : reserve point
+ReservationApi ..> StatusApi : seed reserved cache
+SchedulerApi ..> InternalJobApi : Docker-internal calls
+InternalJobApi ..> CatalogApi
+InternalJobApi ..> ReservationApi
+InternalJobApi ..> BillingApi
+InternalJobApi ..> AnalyticsApi
+
+note right of AuthApi
+Gateway external paths:
+/api/auth/auth/register
+/api/auth/auth/login
+/api/auth/auth/refresh
+/api/auth/auth/logout
+/api/auth/auth/password
+/api/auth/auth/me
+/api/auth/auth/google/login
+/api/auth/auth/google/callback
+end note
+
+note right of CatalogApi
+Public gateway prefix: /api/catalog
+Important routes:
+GET /points with centerLat, centerLng, radiusKm
+GET /points/{provider_code}/{external_point_id}
+POST /points/{provider_code}/{external_point_id}/views
+POST /imports/all
+POST /imports/providers/{provider_code}
+Internal scheduler routes under /internal/jobs/catalog/*
+end note
+
+note right of StatusApi
+Public gateway prefix: /api/status
+Cache-only batch: POST /cache/statuses
+Live batch: POST /points/statuses
+Single live lookup:
+GET /points/{provider_code}/{external_point_id}/status
+Internal cache seed: POST /internal/cache/seed
+end note
+
+note right of ProviderAdapterApi
+Provider adapters are not exposed by nginx-gateway.
+Internal prefix: /internal
+GET /points
+POST /sync
+GET /points/{external_point_id}
+GET /points/{external_point_id}/status
+POST /points/{external_point_id}/reservations
+end note
+
+note right of ReservationApi
+Public gateway prefix: /api/reservations
+EV create route:
+POST /points/{provider_code}/{external_point_id}/reservations
+Outbox publishing is operator-only or scheduler-internal.
+end note
+
+note right of BillingApi
+Public gateway prefix: /api/billing
+Invoices: POST /invoices/issue, GET /invoices,
+GET /invoices/{invoice_id}, POST /invoices/{invoice_id}/pay.
+Event drain and outbox routes are service-owned jobs.
+end note
+
+note right of SchedulerApi
+Public gateway prefix: /api/scheduler
+Scheduler stores job metadata in scheduler-postgres
+and calls internal job endpoints with X-Scheduler-Token.
+end note
+@enduml

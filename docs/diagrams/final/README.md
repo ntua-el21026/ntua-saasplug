@@ -1,27 +1,30 @@
 # Final UML Diagrams
 
 This directory contains the final PlantUML diagram sources for the saasPlug
-course submission. These files are the authoritative final diagrams; older
-drafts and intermediate diagrams elsewhere in the repository are historical
-only.
+course submission. These files are code-derived and supersede intermediate or
+draft diagrams elsewhere in the repository.
 
 ## Diagram Index
 
 | File | Purpose |
 |---|---|
-| `use-case.puml` | Actor goals and MVP use cases |
-| `component.puml` | Repository components, gateway, services, databases, RabbitMQ, and provider APIs |
-| `deployment.puml` | Docker Compose containers, public ports, internal ports, and persistence |
-| `data-model.puml` | Service-owned persistence model and logical relationships |
-| `activity-search-reservation.puml` | EV search, status, and reservation activity |
-| `activity-provider-sync.puml` | Provider sync, snapshot, catalog import, and analytics propagation activity |
+| `use-case.puml` | Actor goals and implemented use cases |
+| `activity-search-reservation.puml` | EV map search, status lookup, and reservation activity |
+| `activity-provider-sync.puml` | Provider adapter sync and catalog import activity |
 | `activity-invoice-payment.puml` | Billing charge, invoice issuance, and mock payment activity |
-| `sequence-login.puml` | Login and current-user lookup sequence |
-| `sequence-search-map.puml` | Bounds-based catalog map search sequence |
-| `sequence-status-lookup.puml` | Status cache hit/miss/fallback sequence |
-| `sequence-reservation.puml` | Synchronous reservation provider-call sequence |
-| `sequence-provider-sync-catalog-import.puml` | Provider snapshot and catalog import sequence |
-| `sequence-analytics-billing-events.puml` | Reservation event propagation to analytics and billing |
+| `component.puml` | Repository components, gateway, services, databases, RabbitMQ, and provider APIs |
+| `deployment.puml` | Docker Compose containers, ports, internal network, volumes, and provider API hosts |
+| `data-model.puml` | Service-owned persistence model and logical data-flow relationships |
+| `class-data-structures.puml` | Exchanged DTOs, event envelope, and event type classes |
+| `class-service-apis.puml` | Public and internal service API class model |
+| `sequence-login.puml` | Local and Google login, refresh, and current-user lookup |
+| `sequence-search-map.puml` | Viewport-radius catalog map search sequence |
+| `sequence-status-lookup.puml` | Status cache hit, live refresh, and stale fallback sequence |
+| `sequence-reservation.puml` | Reservation idempotency, provider mutation, status seed, and outbox sequence |
+| `sequence-provider-sync-catalog-import.puml` | Provider adapter sync and catalog import sequence |
+| `sequence-analytics-billing-events.puml` | Event routing to analytics and billing |
+| `saasplug-final-uml.md` | Self-contained Markdown file embedding all final PlantUML diagrams |
+| `diagram-audit.md` | Final diagram audit, code inventory, naming dictionary, and corrections |
 
 ## Naming Rules
 
@@ -45,25 +48,29 @@ scheduler-service
 Provider codes are `redPlug`, `greenPlug`, and `bluePlug`. Roles are
 `EV_USER`, `PROVIDER_ADMIN`, and `OPERATOR`.
 
-## Traceability
+## Code-Derived Corrections
 
-Component and deployment diagrams include repository paths or container names
-where practical, for example:
-
-```plantuml
-component "catalog-service\nservices/catalog-service" as CatalogService
-database "catalog-postgres" as CatalogPostgres
-```
+- Frontend catalog search is modeled as viewport-derived radius search using
+  `centerLat`, `centerLng`, and `radiusKm`.
+- Provider adapters are internal HTTP adapter services. They call external
+  provider APIs and persist local snapshots, but they do not publish RabbitMQ
+  events in the implemented runtime.
+- Reservation and billing domain events are staged in service-owned outbox
+  tables and published by operator or scheduler outbox drains.
+- The frontend container is modeled as a static React/Vite build served by
+  Nginx on internal port `5173`.
 
 ## Rendering
 
-Render with any PlantUML-compatible tool. Example:
+Render the individual PlantUML sources with:
 
 ```bash
 plantuml docs/diagrams/final/*.puml
 ```
 
+Generated PNG/SVG outputs are build artifacts and should not be committed.
+
 ## Update Policy
 
 Update these final diagrams whenever implementation, public routes, container
-topology, persistence ownership, or accepted specifications change.
+topology, persistence ownership, DTO/API contracts, or event topology change.

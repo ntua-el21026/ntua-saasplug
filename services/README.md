@@ -1,104 +1,76 @@
 # Services
 
-This folder contains the Python FastAPI microservices for saasPlug.
+`services/` contains the FastAPI backend services used by the local Docker
+Compose runtime.
 
-## Purpose
+## Inventory
 
-Each service owns a bounded responsibility and, when stateful, exactly one
-PostgreSQL container. Services communicate through REST/JSON internal APIs for
-live flows and RabbitMQ events for asynchronous propagation.
+| Directory | Compose service | Purpose | Database | Event role |
+|---|---|---|---|---|
+| `auth-service/` | `auth-service` | Users, local auth, Google OAuth, JWT/refresh tokens | `auth-postgres` | none |
+| `provider-registry-service/` | `provider-registry-service` | Provider metadata and audit logs | `provider-registry-postgres` | none |
+| `red-provider-service/` | `red-provider-service` | redPlug adapter, raw payloads, snapshots | `red-provider-postgres` | none |
+| `green-provider-service/` | `green-provider-service` | greenPlug adapter, raw payloads, snapshots | `green-provider-postgres` | none |
+| `blue-provider-service/` | `blue-provider-service` | bluePlug adapter, raw payloads, snapshots | `blue-provider-postgres` | none |
+| `catalog-service/` | `catalog-service` | Catalog search, imports, point views | `catalog-postgres` | publishes catalog/usage events |
+| `status-service/` | `status-service` | Status cache, live lookup, fallback logs | `status-postgres` | publishes status events |
+| `reservation-service/` | `reservation-service` | Reservation creation, locks, attempts, outbox | `reservation-postgres` | outbox publishes reservation events |
+| `analytics-service/` | `analytics-service` | Event ingestion, aggregates, dashboards, CSV export | `analytics-postgres` | consumes `analytics.events` |
+| `billing-service/` | `billing-service` | Pricing, charges, invoices, mock payments, outbox | `billing-postgres` | consumes `billing.reservations`, outbox publishes billing events |
+| `scheduler-service/` | `scheduler-service` | Job metadata, manual runs, ordered maintenance | `scheduler-postgres` | calls internal job endpoints |
 
-## Canonical Services
+## Conventions
 
-```text
-auth-service
-provider-registry-service
-red-provider-service
-green-provider-service
-blue-provider-service
-catalog-service
-status-service
-reservation-service
-analytics-service
-billing-service
-scheduler-service
-```
+- Services are Python FastAPI apps with `app/main.py`, `app/routes.py`,
+  Pydantic schemas, and SQLAlchemy models where stateful.
+- HTTP health routes are `/health`; most services also expose `/ready`.
+- Public traffic goes through `nginx-gateway`; backend containers expose port
+  `8000` only on the Docker network.
+- Provider adapter routes use `/internal/*` and are not exposed by the gateway.
+- Scheduler job routes use `/internal/jobs/*` with `X-Scheduler-Token`.
+- Each stateful service owns its own database. There are no cross-service SQL
+  joins or shared mutable tables.
 
-## Responsibilities
+## Gateway Prefixes
 
-| Service | Responsibility | Owned database |
-|---|---|---|
-| `auth-service` | Users, password login, JWT access tokens, refresh tokens, role/provider claims | `auth-postgres` |
-| `provider-registry-service` | Provider metadata, integration config metadata, provider config audit logs | `provider-registry-postgres` |
-| `red-provider-service` | `redPlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `red-provider-postgres` |
-| `green-provider-service` | `greenPlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `green-provider-postgres` |
-| `blue-provider-service` | `bluePlug` API mapping, normalized snapshots, raw payloads, sync runs, provider-local reservations/status | `blue-provider-postgres` |
-| `catalog-service` | Aggregated normalized catalog, point imports, bounds queries, cached point details | `catalog-postgres` |
-| `status-service` | 5-minute status cache, status lookup logs, fallback to last known cached status | `status-postgres` |
-| `reservation-service` | Reservation truth, reservation attempts, reservation event outbox | `reservation-postgres` |
-| `analytics-service` | Raw usage events, aggregate/cache tables, provider/operator analytics, CSV exports | `analytics-postgres` |
-| `billing-service` | Pricing, charges, invoices, invoice lines, mock payments, billing outbox | `billing-postgres` |
-| `scheduler-service` | Background-job control plane, job definitions, run history, internal job dispatch | `scheduler-postgres` |
+| Prefix | Service |
+|---|---|
+| `/api/auth/*` | `auth-service` |
+| `/api/providers/*`, `/api/provider-registry/*` | `provider-registry-service` |
+| `/api/catalog/*` | `catalog-service` |
+| `/api/status/*` | `status-service` |
+| `/api/reservations/*` | `reservation-service` |
+| `/api/analytics/*` | `analytics-service` |
+| `/api/billing/*` | `billing-service` |
+| `/api/scheduler/*` | `scheduler-service` |
 
-## Gateway Exposure
+## Service READMEs
 
-Backend services are not exposed directly to the host. Public access goes
-through `nginx-gateway`:
+Each service directory has a README with its runtime, API surface, persistence,
+messaging, dependencies, and test command:
 
-```text
-/api/auth/...         -> auth-service
-/api/providers/...    -> provider-registry-service
-/api/catalog/...      -> catalog-service
-/api/status/...       -> status-service
-/api/reservations/... -> reservation-service
-/api/analytics/...    -> analytics-service
-/api/billing/...      -> billing-service
-/api/scheduler/...    -> scheduler-service
-```
-
-Provider services remain internal and are used by catalog, status, and
-reservation flows through Docker-internal URLs only.
-Service-owned `/internal/jobs/...` endpoints are also internal-only and are not
-routed through `nginx-gateway`.
-
-## Shared Rules
-
-- No service writes to another service's database.
-- No cross-service SQL joins.
-- No shared mutable database tables.
-- Use logical IDs and event/projection data where duplication is needed.
-- Use canonical roles: `EV_USER`, `PROVIDER_ADMIN`, `OPERATOR`.
-- Use canonical provider codes: `redPlug`, `greenPlug`, `bluePlug`.
-- Do not commit real secrets or `.env`.
+- `auth-service/README.md`
+- `provider-registry-service/README.md`
+- `red-provider-service/README.md`
+- `green-provider-service/README.md`
+- `blue-provider-service/README.md`
+- `catalog-service/README.md`
+- `status-service/README.md`
+- `reservation-service/README.md`
+- `analytics-service/README.md`
+- `billing-service/README.md`
+- `scheduler-service/README.md`
 
 ## Commands
 
-Run the full stack from the repository root:
-
-```bash
-docker compose up -d --build
-docker compose ps
-```
-
-Service tests are service-local. Examples:
+Run a service test suite through its Compose image:
 
 ```bash
 docker compose run --build --rm --no-deps auth-service pytest -q
-docker compose run --build --rm --no-deps catalog-service pytest -q
-docker compose run --build --rm --no-deps billing-service pytest -q
-docker compose run --build --rm --no-deps scheduler-service pytest -q
 ```
 
-Stop and remove local volumes:
+Validate the Compose topology without printing interpolated secrets:
 
 ```bash
-docker compose down -v
+docker compose config --quiet
 ```
-
-## References
-
-- `AGENTS.md`
-- `docs/specs/SPECIFICATIONS.md`
-- `docs/architecture-summary.md`
-- `docs/diagrams/final/component.puml`
-- `docs/diagrams/final/data-model.puml`

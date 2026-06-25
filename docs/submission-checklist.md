@@ -66,6 +66,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Final verification report | Done | `docs/final-verification.md` |
 | Submission checklist | Done | `docs/submission-checklist.md` |
 | Final diagram README | Done | `docs/diagrams/final/README.md` |
+| Final UML single Markdown organizer | Done | `docs/diagrams/final/saasplug-final-uml.md` |
+| Final UML diagram audit | Done | `docs/diagrams/final/diagram-audit.md` |
 | AI prompt log updated | Done | `docs/ai/prompt-log.md` |
 | README documentation polish | Done | `docs/ai/codex-runs/023-readme-documentation-polish.md` |
 
@@ -77,6 +79,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Component | Done | `docs/diagrams/final/component.puml` |
 | Deployment | Done | `docs/diagrams/final/deployment.puml` |
 | Data model | Done | `docs/diagrams/final/data-model.puml` |
+| Exchanged data structures class model | Done | `docs/diagrams/final/class-data-structures.puml` |
+| Service APIs class model | Done | `docs/diagrams/final/class-service-apis.puml` |
 | Search/reservation activity | Done | `docs/diagrams/final/activity-search-reservation.puml` |
 | Provider sync activity | Done | `docs/diagrams/final/activity-provider-sync.puml` |
 | Invoice/payment activity | Done | `docs/diagrams/final/activity-invoice-payment.puml` |
@@ -86,6 +90,8 @@ Use this checklist before packaging or presenting the final course submission.
 | Reservation sequence | Done | `docs/diagrams/final/sequence-reservation.puml` |
 | Provider sync/catalog import sequence | Done | `docs/diagrams/final/sequence-provider-sync-catalog-import.puml` |
 | Analytics/billing events sequence | Done | `docs/diagrams/final/sequence-analytics-billing-events.puml` |
+| Single final UML Markdown organizer | Done | `docs/diagrams/final/saasplug-final-uml.md` |
+| Final diagram audit and naming dictionary | Done | `docs/diagrams/final/diagram-audit.md` |
 
 ## Verification
 

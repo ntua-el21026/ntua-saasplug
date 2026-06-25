@@ -1,38 +1,48 @@
 @startuml
-title Status lookup with 5-minute cache and fallback
+title Status lookup cache hit, live refresh, and fallback sequence
+skinparam shadowing false
 
-actor "EV_USER" as EvUser
-participant "frontend" as Frontend
+actor "EV User or frontend view" as User
+participant "React frontend" as Frontend
 participant "nginx-gateway" as Gateway
 participant "status-service" as Status
 database "status-postgres" as StatusDb
-participant "provider service\nred/green/blue" as ProviderService
+participant "provider adapter service\nred, green, blue" as ProviderAdapter
+participant "provider database\nmatching provider DB" as ProviderDb
+participant "External provider API" as ExternalApi
+participant "RabbitMQ\nsaasplug.events" as Rabbit
 
-EvUser -> Frontend : Request point status
-Frontend -> Gateway : GET /api/status/points/{provider_code}/{external_point_id}/status
-Gateway -> Status : GET /points/{provider_code}/{external_point_id}/status
-Status -> StatusDb : Read status_cache
+User -> Frontend : Request current point status
+Frontend -> Gateway : GET /api/status/points/{provider}/{externalId}/status?forceRefresh=false
+Gateway -> Status : GET /points/{provider}/{externalId}/status
+Status -> StatusDb : Read status_cache and status_cache_policy
 
-alt cache hit and not expired
-  Status -> StatusDb : Write status_check_logs hit
-  Status --> Gateway : Cached normalized status
-else cache miss or expired
-  Status -> ProviderService : GET /internal/points/{external_point_id}/status
-  alt provider success
-    ProviderService --> Status : Provider-specific status
-    Status -> Status : Normalize to accepted status value
-    Status -> StatusDb : Upsert status_cache and log success
-    Status --> Gateway : Refreshed normalized status
-  else timeout or provider error with last known cache
-    Status -> StatusDb : Log fallback
-    Status --> Gateway : Last known cached status with warning
-  else timeout or provider error without cache
-    Status -> StatusDb : Log failure
-    Status --> Gateway : Non-sensitive normalized error
-  end
+alt Fresh cache and no force refresh
+  Status -> StatusDb : Append status_check_logs
+  Status -> Rabbit : Best-effort publish status.point_checked\ncache_hit=true
+  Status --> Gateway : StatusLookupResponse source=cache
+else Cache miss, expired, or force refresh
+  Status -> Status : Acquire per-point in-process lock\nand recheck cache
+  Status -> ProviderAdapter : GET /internal/points/{externalId}/status
+  ProviderAdapter -> ExternalApi : Provider-specific detail/status call
+  ExternalApi --> ProviderAdapter : Provider JSON payload
+  ProviderAdapter -> ProviderDb : Store raw payload and upsert snapshot
+  ProviderAdapter --> Status : ProviderStatusDTO
+  Status -> StatusDb : Upsert status_cache\nappend status_check_logs
+  Status -> Rabbit : Best-effort publish status.point_checked\nsource=provider_live
+  Status --> Gateway : StatusLookupResponse source=provider_live
+else Provider error with stale cache
+  ProviderAdapter --> Status : Error/timeout
+  Status -> StatusDb : Record provider error and append log
+  Status -> Rabbit : Best-effort publish status.point_checked\nsource=cache_fallback
+  Status --> Gateway : Stale StatusLookupResponse with warning
+else Provider error and no cache
+  ProviderAdapter --> Status : Error/timeout
+  Status -> StatusDb : Append failed status_check_logs
+  Status -> Rabbit : Best-effort publish status.point_checked\nerror metadata
+  Status --> Gateway : 502/504 lookup error
 end
 
-Gateway --> Frontend : Status response
-Frontend --> EvUser : Display status/freshness
-
+Gateway --> Frontend : Status or error
+Frontend --> User : Display status, warning, or retry option
 @enduml

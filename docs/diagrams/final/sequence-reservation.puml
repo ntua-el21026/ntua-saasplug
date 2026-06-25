@@ -1,42 +1,69 @@
 @startuml
-title Synchronous reservation flow
+title Reservation creation, idempotency, provider mutation, and event outbox
+skinparam shadowing false
 
-actor "EV_USER" as EvUser
-participant "frontend" as Frontend
+actor "EV User" as EV
+participant "React frontend" as Frontend
 participant "nginx-gateway" as Gateway
 participant "reservation-service" as Reservation
+participant "reservation-postgres" as ReservationDb
 participant "catalog-service" as Catalog
-participant "provider service\nred/green/blue" as ProviderService
-database "reservation-postgres" as ReservationDb
-queue "RabbitMQ\nsaasplug.events" as RabbitMQ
+participant "catalog-postgres" as CatalogDb
+participant "provider adapter service" as ProviderAdapter
+participant "External provider API" as ExternalApi
+participant "status-service" as Status
+participant "status-postgres" as StatusDb
+participant "scheduler-service or operator" as Scheduler
+participant "RabbitMQ\nsaasplug.events" as Rabbit
 
-EvUser -> Frontend : Submit reservation request
-Frontend -> Gateway : POST /api/reservations/points/{provider_code}/{external_point_id}/reservations
-Gateway -> Reservation : POST /points/{provider_code}/{external_point_id}/reservations
-Reservation -> Reservation : Validate EV_USER JWT
-Reservation -> Catalog : GET cached point detail
-Catalog --> Reservation : Point snapshot or not found
+EV -> Frontend : Reserve selected point for duration
+Frontend -> Gateway : POST /api/reservations/points/{provider}/{externalId}/reservations\nIdempotency-Key, duration_minutes
+Gateway -> Reservation : POST /points/{provider}/{externalId}/reservations
+Reservation -> ReservationDb : Read/create reservation_idempotency_records
 
-alt point exists
-  Reservation -> ProviderService : POST /internal/points/{external_point_id}/reservations
-  alt provider reservation succeeds
-    ProviderService --> Reservation : Provider reservation id
-    Reservation -> ReservationDb : Store reservation and successful attempt
-    Reservation -> ReservationDb : Stage reservation.succeeded outbox
-    Reservation --> Gateway : Created reservation
-  else provider failure or timeout
-    ProviderService --> Reservation : Error or timeout
-    Reservation -> ReservationDb : Store failed or unknown attempt
-    Reservation -> ReservationDb : Stage reservation.failed outbox
-    Reservation --> Gateway : Failed or unknown reservation result
+alt Duplicate completed idempotency key
+  Reservation -> ReservationDb : Load stored reservation/result
+  Reservation --> Gateway : Previous ReservationResponse
+else New or in-progress key
+  Reservation -> Catalog : GET /points/{provider}/{externalId}
+  Catalog -> CatalogDb : Read catalog_points
+  Catalog --> Reservation : CatalogPointDTO
+  Reservation -> ReservationDb : Acquire reservation_point_locks\ncheck active succeeded reservations
+  alt Local conflict
+    Reservation -> ReservationDb : Store rejected attempt/result
+    Reservation --> Gateway : 409 conflict
+  else No local conflict
+    Reservation -> ProviderAdapter : POST /internal/points/{externalId}/reservations\n{duration_minutes}
+    ProviderAdapter -> ExternalApi : Provider-specific reserve/hold call
+    ExternalApi --> ProviderAdapter : Reservation response or error
+    ProviderAdapter --> Reservation : NormalizedReservationResponse or error
+
+    alt Future reservation end returned
+      Reservation -> ReservationDb : Insert succeeded reservations\nand reservation_attempts
+      Reservation -> ReservationDb : Stage reservation.succeeded\nin reservation_event_outbox
+      Reservation -> Status : POST /internal/cache/seed\nreserved status
+      Status -> StatusDb : Upsert status_cache
+      Reservation --> Gateway : 201 ReservationResponse succeeded
+    else Provider success but missing/past expiry
+      Reservation -> ReservationDb : Insert unknown reservation\nwith reconciliation_required=true
+      Reservation --> Gateway : Unknown outcome response/error
+    else Provider failure or timeout
+      Reservation -> ReservationDb : Insert failed or unknown reservation\nand reservation_attempts
+      Reservation -> ReservationDb : Stage reservation.failed when applicable
+      Reservation --> Gateway : Failure/unknown outcome
+    end
   end
-else point missing or inactive
-  Reservation --> Gateway : Reject without provider call
 end
 
-Gateway --> Frontend : Reservation response
-Frontend --> EvUser : Show result
+Gateway --> Frontend : Reservation outcome
+Frontend --> EV : Show success, failure, or reconciliation message
 
-Reservation -> RabbitMQ : Operator-triggered outbox publish
-
+Scheduler -> Gateway : POST /api/reservations/internal/jobs/outbox/publish-pending\nblocked at gateway
+note right of Scheduler
+Scheduler uses Docker-internal service URL instead of gateway for this job.
+end note
+Scheduler -> Reservation : POST /internal/jobs/outbox/publish-pending\nX-Scheduler-Token
+Reservation -> ReservationDb : Select pending reservation_event_outbox rows
+Reservation -> Rabbit : Publish reservation.succeeded / reservation.failed
+Reservation -> ReservationDb : Mark outbox rows published or failed
 @enduml

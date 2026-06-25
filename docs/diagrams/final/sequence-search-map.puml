@@ -1,26 +1,41 @@
 @startuml
-title Bounds-based catalog map search
+title Viewport-radius catalog map search sequence
+skinparam shadowing false
 
-actor "EV_USER" as EvUser
-participant "frontend" as Frontend
+actor "EV User" as EV
+participant "React map UI" as Frontend
 participant "nginx-gateway" as Gateway
 participant "catalog-service" as Catalog
 database "catalog-postgres" as CatalogDb
+participant "status-service" as Status
+database "status-postgres" as StatusDb
+queue "RabbitMQ\nsaasplug.events" as Rabbit
 
-EvUser -> Frontend : Move map or change filters
-Frontend -> Frontend : Build viewport bounds query
-Frontend -> Gateway : GET /api/catalog/points?minLat=...&maxLat=...&minLng=...&maxLng=...&zoom=...
-Gateway -> Catalog : GET /points with bounds
-Catalog -> CatalogDb : Query active catalog_points in bounds
-Catalog --> Gateway : Normalized point list and freshness metadata
-Gateway --> Frontend : Point list
-Frontend --> EvUser : Render map/list without provider API calls
+EV -> Frontend : Open /map, pan/zoom, apply filters
+Frontend -> Frontend : Derive centerLat, centerLng,\nradiusKm from viewport bounds
+Frontend -> Gateway : GET /api/catalog/points?centerLat&centerLng&radiusKm&limit&offset&filters
+Gateway -> Catalog : GET /points with same query
+Catalog -> CatalogDb : Query catalog_points with filters\nand radius <= 10 km
+Catalog -> Rabbit : Best-effort publish usage.search_performed
+Catalog --> Gateway : CatalogPointListResponse\nitems, search_circle, bounds_applied
+Gateway --> Frontend : Catalog points
+Frontend -> Gateway : POST /api/status/cache/statuses\nvisible point keys
+Gateway -> Status : POST /cache/statuses
+Status -> StatusDb : Read status_cache only
+Status --> Gateway : StatusBatchLookupResponse\ncached values and misses
+Gateway --> Frontend : Cached status overlay
+Frontend --> EV : Render map markers and list
 
-EvUser -> Frontend : Select point
-Frontend -> Gateway : GET /api/catalog/points/{provider_code}/{external_point_id}
-Gateway -> Catalog : GET cached point detail
-Catalog -> CatalogDb : Load catalog point projection
-Catalog --> Gateway : Cached point detail
-Gateway --> Frontend : Cached point detail
+alt User opens quick view or detail
+  Frontend -> Gateway : POST /api/catalog/points/{provider}/{externalId}/views
+  Gateway -> Catalog : POST /points/{provider}/{externalId}/views
+  Catalog -> CatalogDb : Increment/read point view context
+  Catalog -> Rabbit : Best-effort publish usage.point_viewed
+  Catalog --> Frontend : CatalogPointDetailResponse or 204
+end
 
+note right of Frontend
+The frontend never calls provider adapters directly.
+All browser API traffic starts with /api/ and passes through nginx-gateway.
+end note
 @enduml

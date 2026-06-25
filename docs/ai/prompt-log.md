@@ -90,6 +90,9 @@ The official AI logging subsystem is considered unavailable for this project. Th
 | 060 | 2026-06-25 | Direct operator pricing UI prompt | N/A | Operator pricing page tabs and pricing policy sentence removal | `completed` | `docs/ai/codex-runs/060-operator-pricing-tabs.md` |
 | 061 | 2026-06-25 | Direct provider points filter prompt | N/A | Provider charging-points filter card and analytics metric explanation | `completed` | `docs/ai/codex-runs/061-provider-points-filters.md` |
 | 062 | 2026-06-25 | Direct invoices and sync UI prompt | N/A | Remove duplicate invoice provider filter and sync manual-operations tab | `completed` | `docs/ai/codex-runs/062-invoices-and-sync-dedup-polish.md` |
+| 063 | 2026-06-25 | Direct attached final UML audit prompt | N/A | Final UML diagram audit and code-derived correction | `completed` | `docs/ai/codex-runs/063-final-diagram-audit-and-correction.md` |
+| 064 | 2026-06-25 | Direct attached README audit prompt | N/A | Final README audit, concise updates, and missing scripts/postman README | `completed` | `docs/ai/codex-runs/064-readme-audit-and-update.md` |
+| 065 | 2026-06-25 | Direct Markdown lint setup prompt | N/A | Project Markdown lint configuration and runner | `completed` | `docs/ai/codex-runs/065-markdown-lint-configuration.md` |
 
 ---
 

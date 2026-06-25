@@ -173,6 +173,9 @@ NTUA-saasPlug/
 │   │   │   ├── 060-operator-pricing-tabs.md
 │   │   │   ├── 061-provider-points-filters.md
 │   │   │   ├── 062-invoices-and-sync-dedup-polish.md
+│   │   │   ├── 063-final-diagram-audit-and-correction.md
+│   │   │   ├── 064-readme-audit-and-update.md
+│   │   │   ├── 065-markdown-lint-configuration.md
 │   │   │   ├── _template.md
 │   │   │   └── README.md
 │   │   ├── prompts/
@@ -270,10 +273,14 @@ NTUA-saasPlug/
 │   │   │   ├── activity-invoice-payment.puml
 │   │   │   ├── activity-provider-sync.puml
 │   │   │   ├── activity-search-reservation.puml
+│   │   │   ├── class-data-structures.puml
+│   │   │   ├── class-service-apis.puml
 │   │   │   ├── component.puml
 │   │   │   ├── data-model.puml
 │   │   │   ├── deployment.puml
+│   │   │   ├── diagram-audit.md
 │   │   │   ├── README.md
+│   │   │   ├── saasplug-final-uml.md
 │   │   │   ├── sequence-analytics-billing-events.puml
 │   │   │   ├── sequence-login.puml
 │   │   │   ├── sequence-provider-sync-catalog-import.puml
@@ -409,10 +416,12 @@ NTUA-saasPlug/
 ├── scripts/
 │   ├── lint/
 │   │   ├── run-all.sh
+│   │   ├── run-markdown.sh
 │   │   └── run-python.sh
 │   ├── postman/
 │   │   ├── lib/
 │   │   │   └── env.sh
+│   │   ├── README.md
 │   │   ├── run-all-local.sh
 │   │   ├── run-mutation.sh
 │   │   ├── run-regression.sh
@@ -641,6 +650,7 @@ NTUA-saasPlug/
 ├── .env.example.correct
 ├── .gitattributes
 ├── .gitignore
+├── .markdownlint-cli2.jsonc
 ├── AGENTS.md
 ├── docker-compose.yml
 ├── LICENSE
@@ -649,4 +659,4 @@ NTUA-saasPlug/
 ├── README.md
 └── requirements-dev.txt
 
-Total directories: 103, Total files: 547
+Total directories: 103, Total files: 557

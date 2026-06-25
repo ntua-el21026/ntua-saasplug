@@ -1,42 +1,79 @@
 @startuml
-title Billing charge, invoice, and mock payment activity
+title Billing charge, invoice issuance, and payment activity
+skinparam shadowing false
 
 start
-:billing-service receives reservation or usage event;
-if (event already processed?) then (yes)
-  :Record duplicate/idempotent outcome;
-  stop
-else (no)
-  :Resolve effective pricing rule;
-  if (chargeable event?) then (yes)
-    :Create unbilled charge record;
-    :Stage billing.charge_created outbox event;
-  else (no)
-    :Record skipped billing event;
+
+partition "RabbitMQ billing.reservations queue" {
+  :Hold reservation.succeeded,\nreservation.failed, and usage.point_viewed events;
+}
+
+partition "scheduler-service or operator" {
+  :Trigger billing-service event drain;
+}
+
+partition "billing-service" {
+  :Consume bounded batch from billing.reservations;
+  :Persist billing_events idempotently;
+  if (Event is reservation.succeeded?) then (yes)
+    :Create reservation_success charge;
+  elseif (Event is usage.point_viewed and fee enabled?) then (yes)
+    :Create point_view charge;
+  elseif (Event is reservation.failed and failure fee > 0?) then (yes)
+    :Create reservation_failure charge;
+  else (no billable charge)
+    :Record event as skipped;
   endif
-endif
+  :Stage billing.charge_created in billing_event_outbox\nwhen a charge is created;
+}
 
-:OPERATOR opens invoice issuance;
-:Select provider and billing period;
-:billing-service selects unbilled charges;
-if (charges exist?) then (yes)
-  :Create invoice and invoice lines;
-  :Mark charges invoiced;
-  :Stage billing.invoice_issued outbox event;
-else (no)
-  :Return no-charge invoice issue result;
-  stop
-endif
+partition "Operator frontend" {
+  :Open invoices page;
+  :POST /api/billing/invoices/issue\nwith provider, period, due date;
+}
 
-:PROVIDER_ADMIN views own issued invoice;
-if (provider scope matches invoice?) then (yes)
-  :Submit mock full-invoice payment;
-  :Create payment record;
-  :Mark invoice and charges paid;
-  :Stage billing.invoice_paid outbox event;
-else (no)
-  :Reject with authorization error;
-endif
+partition "billing-service" {
+  :Select unbilled charge_records for provider/period;
+  if (Unbilled charges exist?) then (yes)
+    :Create invoices and invoice_lines;
+    :Mark charge_records invoiced;
+    :Stage billing.invoice_issued in billing_event_outbox;
+    :Return InvoiceResponse;
+  else (no)
+    :Return 409 no_unbilled_charges;
+  endif
+}
+
+partition "Provider admin or operator frontend" {
+  :Open invoice detail;
+  :POST /api/billing/invoices/{invoice_id}/pay\nwith mock full payment;
+}
+
+partition "billing-service" {
+  if (Invoice already paid?) then (yes)
+    :Reject duplicate payment;
+  else (no)
+    :Create payments row;
+    :Mark invoice paid and charge_records paid;
+    :Stage billing.invoice_paid in billing_event_outbox;
+    :Return paid invoice;
+  endif
+}
+
+partition "scheduler-service or operator" {
+  :Trigger billing outbox publisher;
+}
+
+partition "RabbitMQ saasplug.events" {
+  :Publish billing.charge_created,\nbilling.invoice_issued,\nbilling.invoice_paid;
+  :Route billing events to analytics.events;
+}
+
+partition "analytics-service" {
+  :Consume analytics.events;
+  :Persist billing summary snapshots;
+  :Refresh provider/operator billing metrics;
+}
 
 stop
 @enduml
