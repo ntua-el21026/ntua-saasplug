@@ -339,6 +339,7 @@ export function ColumnChart<T>({
   getValue,
   valueLabel,
   color = "#2563eb",
+  getColor,
   formatValue = formatNumber,
 }: {
   rows: T[];
@@ -346,6 +347,7 @@ export function ColumnChart<T>({
   getValue: (row: T) => number;
   valueLabel: string;
   color?: string;
+  getColor?: (row: T) => string;
   formatValue?: (value: number) => string;
 }) {
   if (rows.length === 0) {
@@ -356,11 +358,12 @@ export function ColumnChart<T>({
     <div className="analytics-column-chart" role="img" aria-label={`${valueLabel} bar chart`}>
       {rows.map((row) => {
         const value = getValue(row);
+        const barColor = getColor ? getColor(row) : color;
         return (
           <div className="analytics-column-item" key={getLabel(row)}>
             <strong>{formatValue(value)}</strong>
             <span className="analytics-column-track">
-              <i style={{ height: `${Math.max(5, (value / max) * 100)}%`, background: color }} />
+              <i style={{ height: `${Math.max(5, (value / max) * 100)}%`, background: barColor }} />
             </span>
             <small title={getLabel(row)}>{getLabel(row)}</small>
           </div>

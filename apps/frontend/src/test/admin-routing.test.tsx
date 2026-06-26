@@ -565,6 +565,12 @@ function catalogFreshnessRows() {
   ];
 }
 
+function expectProviderBarColors(chart: HTMLElement) {
+  const bars = chart.querySelectorAll(".analytics-column-track i");
+  expect(bars[0]).toHaveStyle({ background: "#ef4444" });
+  expect(bars[1]).toHaveStyle({ background: "#10b981" });
+}
+
 function billingOverview() {
   return {
     provider_code: "redPlug",
@@ -1247,16 +1253,19 @@ describe("admin role routing", () => {
     window.history.pushState({}, "", "/operator/analytics");
 
     render(<App />);
+    await vi.dynamicImportSettled();
 
     expect(await screen.findByRole("heading", { name: /operator analytics/i })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: /refresh stats/i }));
     expect(await screen.findByText(/2 analytics events processed/i)).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /platform activity bar chart/i })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("tab", { name: /provider reservations/i }));
-    expect(await screen.findByRole("img", { name: /successful reservations bar chart/i })).toBeInTheDocument();
+    expectProviderBarColors(await screen.findByRole("img", { name: /successful reservations bar chart/i }));
     await userEvent.click(screen.getByRole("tab", { name: /provider conversion/i }));
-    expect(await screen.findByRole("img", { name: /conversion percent bar chart/i })).toBeInTheDocument();
+    expectProviderBarColors(await screen.findByRole("img", { name: /conversion percent bar chart/i }));
     expect(await screen.findAllByText("33%")).not.toHaveLength(0);
+    await userEvent.click(screen.getByRole("tab", { name: /tracked revenue/i }));
+    expectProviderBarColors(await screen.findByRole("img", { name: /tracked revenue bar chart/i }));
     await userEvent.click(screen.getByRole("tab", { name: /comparison table/i }));
     expect(await screen.findByRole("heading", { name: /provider comparison/i })).toBeInTheDocument();
   });
