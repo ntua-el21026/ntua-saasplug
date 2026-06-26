@@ -147,6 +147,12 @@ const STATUS_COLORS: Record<string, string> = {
   unknown: "#94a3b8",
 };
 
+const PROVIDER_CHART_COLORS: Record<ProviderCode, string> = {
+  redPlug: "#ef4444",
+  greenPlug: "#10b981",
+  bluePlug: "#2563eb",
+};
+
 function formatPercentPoints(value: number): string {
   return `${formatNumber(value)}%`;
 }
@@ -245,6 +251,10 @@ function schedulerJobCopy(job: SchedulerJob | SchedulerRun | string): SchedulerJ
     title: titleFromJobKey(jobKey),
     description: fallbackDescription || "Runs a scheduled maintenance task for the selected service.",
   };
+}
+
+function providerChartColor(providerCode: ProviderCode): string {
+  return PROVIDER_CHART_COLORS[providerCode];
 }
 
 function summarizeSchedulerRunDurations(runs: SchedulerRun[]): SchedulerRunDurationSummary[] {
@@ -1666,7 +1676,7 @@ export function OperatorAnalyticsPage() {
                     getLabel={(row) => providerLabel(row.provider_code)}
                     getValue={(row) => row.successful_reservations}
                     valueLabel="Successful reservations"
-                    color="#10b981"
+                    getColor={(row) => providerChartColor(row.provider_code)}
                   />
                 </DashboardPanel>
               ) : null}
@@ -1677,7 +1687,7 @@ export function OperatorAnalyticsPage() {
                     getLabel={(row) => providerLabel(row.provider_code)}
                     getValue={(row) => (row.reservation_conversion_rate ?? 0) * 100}
                     valueLabel="Conversion percent"
-                    color="#7c3aed"
+                    getColor={(row) => providerChartColor(row.provider_code)}
                     formatValue={formatPercentPoints}
                   />
                 </DashboardPanel>
@@ -1689,7 +1699,7 @@ export function OperatorAnalyticsPage() {
                     getLabel={(row) => providerLabel(row.provider_code)}
                     getValue={(row) => row.observed_amount}
                     valueLabel="Tracked revenue"
-                    color="#f59e0b"
+                    getColor={(row) => providerChartColor(row.provider_code)}
                     formatValue={(value) => formatMoney(value, "EUR")}
                   />
                 </DashboardPanel>
