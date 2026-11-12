@@ -113,3 +113,18 @@ The official AI logging subsystem is considered unavailable for this project. Th
 - Planning decisions are consolidated in `docs/specs/SPECIFICATIONS.md`.
 - Implementation prompts are stored in `docs/ai/prompts/`.
 - Run reports are stored in `docs/ai/codex-runs/`.
+
+
+## 2026-11-12 – Local portfolio preparation
+
+Invocation excerpts supplied by the parent task: “Make the necessary local
+corrections, including targeted code changes where justified. Do not undertake
+unrelated refactoring or redesign working systems.” and “At this stage, I
+authorize local preparation and validation only.” Follow-up: “Continue and finish
+your work”. No canonical prompt file. Scope: private template cleanup, local
+network/activity defaults, focused regressions, setup/attribution documentation,
+and offline validation; no remote or publication actions.
+
+[Run report](codex-runs/20261112-local-portfolio-preparation.md) records the scoped
+authorization, changes, actual test outcomes, Python 3.14 dependency failure,
+Python 3.12 auth validation, Docker limitation, and owner rotation follow-up.

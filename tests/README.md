@@ -1,17 +1,22 @@
-# Root Integration Tests
+# Repository checks and gateway integration tests
 
-This directory contains repository-level tests that exercise cross-service or
-gateway behavior. Keep service-owned business logic tests inside each
-`services/*/tests/` directory.
-
-The current root tests expect the Docker Compose stack to be running and use
-only public gateway URLs. They do not read `.env` values.
-
-Run from the repository root after `docker compose up -d --build`:
+`test_local_configuration.py` runs offline and checks that both environment
+templates use placeholder auth secrets, the gateway binds to loopback, and
+background provider activity requires explicit configuration.
 
 ```bash
-python3 -m unittest discover tests -v
+python3 -m unittest discover -s tests -v
 ```
 
-Set `SAASPLUG_GATEWAY_BASE_URL` only when the gateway is not available at the
-default `http://localhost:8080`.
+`test_gateway_contract.py` needs an already running, isolated Compose stack.
+Those three tests are skipped by default; opt in deliberately:
+
+```bash
+SAASPLUG_RUN_GATEWAY_TESTS=1 python3 -m unittest discover -s tests -v
+```
+
+Set `SAASPLUG_GATEWAY_BASE_URL` only for a gateway you control. Integration tests
+use gateway URLs and do not read `.env`. They must not target production/provider
+systems. Service business-logic tests stay in `services/*/tests/`; frontend tests
+are under `apps/frontend/src/test/`. A passed source/config check does not establish
+container, PostgreSQL, RabbitMQ, provider, or deployment correctness.
