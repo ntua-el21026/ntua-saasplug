@@ -18,6 +18,7 @@ def gateway_status(path: str, method: str = "GET") -> int:
         raise AssertionError(f"Gateway is not reachable at {GATEWAY_BASE_URL}") from exc
 
 
+@unittest.skipUnless(os.getenv("SAASPLUG_RUN_GATEWAY_TESTS") == "1", "Requires explicit opt-in and an isolated local Compose stack")
 class GatewayContractTests(unittest.TestCase):
     def test_public_health_paths_are_available(self) -> None:
         expected_ok = [
