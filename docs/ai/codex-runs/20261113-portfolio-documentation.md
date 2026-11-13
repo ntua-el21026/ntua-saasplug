@@ -59,3 +59,38 @@ Provider-connected demonstrations still need authorized course network access,
 keys, and an intentionally configured local stack. Payments remain mocks. No
 essential first-party file needed external retrieval; source, specifications,
 diagrams and local assets were already committed.
+
+## Cross-portfolio PlantUML path follow-up
+
+The independent reference review found a machine-specific JAR path in the
+maintained PlantUML README. This exact delegated follow-up authorized its
+correction; no new canonical repository prompt file was used:
+
+```text
+Both active path leftovers are in scope to correct. Please fix saasplug's maintained PlantUML README (not raw professor .puml materials): use canonical sibling clone linkage and portable JAR path/config, clearly specify working directory; preserve attribution/notices. Update this task's existing docs/ai prompt/run logs per AGENTS, validate actual sibling JAR path and all changed docs, commit focused followup only, DO NOT PUSH or write campaign-progress. Root handles Trading212 owner-procedure path and re-delivery. Finish cross-portfolio-final-review.json with findings classified as corrected (include final local SHA after correction) plus intentional historical URLs. No need permission pause; current task explicitly authorizes supporting documentation/path corrections.
+```
+
+Changed `docs/assignment/plantUML_diagrams/README.md` to link the canonical
+`PlantUML-VP` sibling clone, define the application repository root as the working
+directory, and configure `PLANTUML_JAR` explicitly. The examples select the four
+`saasPlug_*.puml` UML exports while retaining the separate JSON metadata export.
+The companion plugin's Natalia Bourdi attribution and separate bundled JAR
+notices are linked; no binary, model, raw professor material, source,
+dependency, CI, credential, or provider configuration was changed.
+
+Executed from the application root:
+
+- `test -f ../PlantUML-VP/lib/plantuml.jar`: passed. ZIP inspection confirmed
+  `Implementation-Version: 1.2024.7`, size 22,073,496 bytes, and retained
+  `META-INF/COPYING` / `META-INF/LICENSE` entries.
+- `PLANTUML_JAR=../PlantUML-VP/lib/plantuml.jar` followed by
+  `java -jar "$PLANTUML_JAR" -checkonly docs/assignment/plantUML_diagrams/saasPlug_*.puml`:
+  exit 0 for the four local UML sources; no rendering or provider request.
+- Workspace shared Markdown checker on the three changed documents: local
+  links/anchors and code fences passed; no sensitive-pattern additions.
+- `git diff --check`: passed; changed-file review confirmed documentation only.
+
+PNG rendering, Graphviz layout, Visual Paradigm installation/round trips and
+application services were not executed. The original `.puml` exports and `.vpp`
+project remain unchanged. Git delivery is left to the parent campaign; no push
+or workflow dispatch occurred in this follow-up.
