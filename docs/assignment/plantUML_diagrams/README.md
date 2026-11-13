@@ -15,24 +15,50 @@ assignment project.
 - `project_semantics_semantics.puml` - exported JSON metadata for model element
   descriptions. This is not a rendered UML diagram.
 
-## Validation
+## Validation and rendering
 
-The `.puml` files can be syntax-checked with the PlantUML jar bundled in the
-Visual Paradigm plugin:
+Run the following commands from the **`ntua-saasplug` repository root**.
+They use the PlantUML JAR from the canonical sibling
+[PlantUML-VP reference repository](https://github.com/ntua-el21026/PlantUML-VP),
+with this checkout layout:
 
-```bash
-java -jar /home/peppasmich/PlantUML-VP/lib/plantuml.jar -checkonly *.puml
+```text
+workspace/
+  ntua-saasplug/
+  PlantUML-VP/
+    lib/plantuml.jar
 ```
 
-To render PNG images:
+The companion copy preserves Natalia Bourdi's plugin attribution. Its bundled
+PlantUML JAR retains separate third-party notices; see the companion
+[validation and terms](https://github.com/ntua-el21026/PlantUML-VP#validation-and-terms)
+before redistributing binaries. No JAR is copied into this repository.
+
+With a Java runtime available, configure the JAR location and check the four
+UML exports:
 
 ```bash
-java -jar /home/peppasmich/PlantUML-VP/lib/plantuml.jar -tpng *.puml
+PLANTUML_JAR=../PlantUML-VP/lib/plantuml.jar
+test -f "$PLANTUML_JAR"
+java -jar "$PLANTUML_JAR" -checkonly docs/assignment/plantUML_diagrams/saasPlug_*.puml
 ```
 
-Rendering component and use case diagrams requires Graphviz `dot` to be
-available on the system path. If PlantUML reports that `dot` is missing, install
-Graphviz and rerun the render command.
+If your JAR is installed elsewhere, set `PLANTUML_JAR` to that path instead.
+The relative example assumes the working directory remains the application
+repository root. The `saasPlug_*.puml` pattern selects the four UML exports;
+`project_semantics_semantics.puml` remains the separate exported JSON metadata.
+
+To render PNG previews from the same working directory and shell:
+
+```bash
+java -jar "$PLANTUML_JAR" -tpng docs/assignment/plantUML_diagrams/saasPlug_*.puml
+```
+
+Rendering component and use-case diagrams also requires Graphviz `dot` on the
+system path. PNGs are generated beside the selected `.puml` inputs; keep the
+original exports and Visual Paradigm project unchanged when reviewing them.
+The documentation correction validates the local JAR path and syntax-check
+command; it does not establish Visual Paradigm round-trip fidelity.
 
 ## Export Limitations
 

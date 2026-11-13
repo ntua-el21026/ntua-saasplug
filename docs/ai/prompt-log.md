@@ -143,3 +143,18 @@ and covers 35 repositories. [Run report](codex-runs/20261113-portfolio-documenta
 records source inspection, documentation-only changes, three passed offline
 configuration checks, three skipped live gateway cases, static validation,
 service/access limitations, and parent-controlled delivery.
+
+### 2026-11-13 – Portable PlantUML path follow-up
+
+Exact delegated invocation:
+
+```text
+Both active path leftovers are in scope to correct. Please fix saasplug's maintained PlantUML README (not raw professor .puml materials): use canonical sibling clone linkage and portable JAR path/config, clearly specify working directory; preserve attribution/notices. Update this task's existing docs/ai prompt/run logs per AGENTS, validate actual sibling JAR path and all changed docs, commit focused followup only, DO NOT PUSH or write campaign-progress. Root handles Trading212 owner-procedure path and re-delivery. Finish cross-portfolio-final-review.json with findings classified as corrected (include final local SHA after correction) plus intentional historical URLs. No need permission pause; current task explicitly authorizes supporting documentation/path corrections.
+```
+
+No canonical repository prompt file was used. The existing
+[run report](codex-runs/20261113-portfolio-documentation.md#cross-portfolio-plantuml-path-follow-up)
+records the maintained README path correction, canonical companion attribution,
+verified JAR path/notices, four successful local PlantUML syntax checks, Markdown
+validation and unchanged raw assignment/source materials. No provider calls,
+push, rendering or Visual Paradigm round trip was performed.
