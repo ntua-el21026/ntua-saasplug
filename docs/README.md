@@ -12,8 +12,8 @@ records, Postman collections, assignment materials, and Codex logs.
 | `diagrams/final/saasplug-final-uml.md` | Self-contained final UML model |
 | `diagrams/final/diagram-audit.md` | Code-derived diagram audit and correction notes |
 | `diagrams/intermediate/` | Historical draft UML sources |
-| `assignment/` | Reference provenance, authorized course-access pointers, and retained student lecture notes |
-| `lectures/` | Separately licensed retained publications; see `material-rights.md` |
+| `assignment/` | Assignment statement, SRS, provider API material, diagrams and student notes |
+| `lectures/` | Course lectures, architecture references and bibliography |
 | `postman/` | Local app Postman/Newman suites, data, and environment template |
 | `final-verification.md` | Verification history and latest checks |
 | `submission-checklist.md` | Packaging/grading checklist |

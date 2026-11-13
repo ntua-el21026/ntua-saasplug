@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "redPlug API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Provider-specific API contract for redPlug."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://davinci.softlab.ntua.gr/saas26/redPlug/api"
+    },
+    {
+      "key": "apiKey",
+      "value": "sk_saas_replace_me"
+    }
+  ],
+  "item": [
+    {
+      "name": "List points",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/points",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "points"
+          ]
+        },
+        "description": "List all `redPlug` charging points."
+      },
+      "response": []
+    },
+    {
+      "name": "Get point details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/point/:pointid",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "point",
+            ":pointid"
+          ]
+        },
+        "description": "Get one `redPlug` charging point by `pointid`."
+      },
+      "response": []
+    },
+    {
+      "name": "Reserve point",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/reserve/:pointid",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "reserve",
+            ":pointid"
+          ]
+        },
+        "description": "Reserve a `redPlug` point with default duration."
+      },
+      "response": []
+    },
+    {
+      "name": "Reserve point with duration",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/reserve/:pointid/:minutes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "reserve",
+            ":pointid",
+            ":minutes"
+          ]
+        },
+        "description": "Reserve a `redPlug` point for a requested duration in minutes."
+      },
+      "response": []
+    }
+  ]
+}

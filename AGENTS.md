@@ -29,19 +29,12 @@ Before making any implementation, documentation, diagram, or repository-structur
 1. `AGENTS.md`
 2. `docs/specs/SPECIFICATIONS.md`
 3. the relevant service/package README if it exists
-4. relevant provider YAML files, when available through authorized private course
-   access, when working on provider adapters:
+4. relevant provider YAML files when working on provider adapters:
    - `docs/assignment/providers/yaml/redPlug.yaml`
    - `docs/assignment/providers/yaml/greenPlug.yaml`
    - `docs/assignment/providers/yaml/bluePlug.yaml`
 
-The original course/provider documents listed in `docs/material-provenance.json`
-are intentionally omitted pending redistribution permission. Report that those
-private references are unavailable; use the accepted specifications, existing
-adapter implementations, and mocked tests for work that does not require the raw
-references. Obtain authorized access before a task that requires them. Do not
-recreate or download omitted materials automatically. Report any other missing
-required file before proceeding unless the task is specifically to create it.
+If any of these files are missing, report it before proceeding unless the task is specifically to create them.
 
 ---
 

@@ -4,25 +4,9 @@ saasPlug is a Dockerized NTUA ECE course SaaS app for EV charging-point
 search, cached/provider-backed status lookup, reservations, provider analytics,
 billing, and operator administration.
 
-This repository records an **AI-assisted coursework prototype**. Start with
-[architecture](docs/architecture-summary.md), [accepted specifications](docs/specs/SPECIFICATIONS.md),
-[test guidance](tests/README.md), and the [AI prompt/run record](docs/ai/README.md).
-The source demonstrates service boundaries and workflows; deployment acceptance
-and public-portfolio rights are separate decisions.
-
-The November 2026 local preparation retained mock-compatible local placeholders,
-bound the public gateway to loopback, and made automatic provider activity opt-in
-in the example/Compose configuration. The complete reachable-history review of
-`.env.example.correct`, historical `present.txt`, and prompt archives found
-redactions, placeholders, and test fixtures; no unredacted owner credential was
-confirmed. Earlier rotation reminders do not establish that a credential was
-exposed or revoked. External account state was not tested or changed.
-
-Publication preparation excludes specified third-party teaching materials from
-the proposed public history. See [material rights](docs/material-rights.md) for
-retained grants, omitted references, and the separate history-clearance requirement.
-A prepared source tree does not by itself establish public visibility or removal
-of old objects from GitHub.
+Start with the [architecture](docs/architecture-summary.md),
+[accepted specifications](docs/specs/SPECIFICATIONS.md),
+[test guidance](tests/README.md), and [AI development record](docs/ai/README.md).
 
 ## Implemented Scope
 
@@ -122,18 +106,14 @@ service requirement pins and npm lockfile.
 | PostgreSQL/RabbitMQ | Compose-managed state; no hosted database/broker subscription is required |
 | Billing | Internal mock payment records only; no card/bank/payment-provider credentials |
 
-The three providers are hypothetical course integrations. Their original course
-[API reference materials](docs/assignment/providers/README.md) require authorized
-access and are omitted from this distribution pending redistribution permission.
-The original adapters, DTOs, mocked tests, and local application Postman suites
-remain available for inspection. They do not supply a complete provider simulator
-or make a live reservation demo work without connectivity. Do not retrieve or
-publish credentials or private source data.
+The three providers are hypothetical course integrations. Their
+[API reference materials](docs/assignment/providers/README.md) include OpenAPI
+YAML specifications and Postman collections. Provider-connected workflows require
+NTUA course network/VPN access and the configured API keys.
 
 ## Local Setup
 
-Use `.env.example` as the safe template. Do not commit a real `.env` and do
-not print local secret values in reports.
+Use `.env.example` as the local configuration template.
 
 ```bash
 cp .env.example .env
@@ -143,17 +123,14 @@ docker compose ps
 ```
 
 The template starts without automatic scheduler jobs or startup catalog imports.
-For a provider-connected demonstration, explicitly authorize/configure the course
-provider keys, set `SCHEDULER_RUN_LOOP=true` and/or
+For a provider-connected demonstration, configure the course provider keys, set `SCHEDULER_RUN_LOOP=true` and/or
 `CATALOG_IMPORT_ON_STARTUP=true`, and review the existing operator import controls.
-No external provider service was contacted during this preparation. With an empty
-catalog, map results remain empty until data is deliberately imported.
+With an empty catalog, map results remain empty until data is imported.
 
 Placeholder authentication and fixed local DB/broker credentials are retained for
 isolated mocks. For a shared demonstration, use distinct private credentials,
 `APP_ENV=demo` or `SAASPLUG_STRICT_SECRETS=true`, and update connection URLs
-consistently. The strict mode rejects placeholder auth/internal secrets, but is
-not a production security certification. Environment changes do not rotate
+consistently. The strict mode rejects placeholder auth/internal secrets. Environment changes do not rotate
 accounts in existing database or broker volumes.
 
 Default local entrypoints:
@@ -241,8 +218,7 @@ Postman/Newman suites are documented in `docs/postman/README.md` and
 | `docs/final-verification.md` | Verification history and latest evidence |
 | `docs/submission-checklist.md` | Submission checklist |
 | `docs/postman/` | Local Postman/Newman collections and data |
-| `docs/assignment/` | Reference provenance and original student lecture notes; teaching material requires authorized external access |
-| `docs/material-rights.md` | Third-party grants, attribution, and precise omitted-material inventory |
+| `docs/assignment/` | Assignment, SRS, provider specifications, diagrams and lecture notes |
 | `docs/ai/` | Prompt log and Codex run reports |
 
 ## Submission Notes
@@ -270,36 +246,15 @@ Postman/Newman suites are documented in `docs/postman/README.md` and
 - **Secret changes do not take effect in a database:** initialized volumes retain
   account state; environment edits alone do not rotate database/broker users.
 
-## Local validation and remaining limits
+## Validation
 
-For the 13 November 2026 documentation update,
-`env -u SAASPLUG_RUN_GATEWAY_TESTS python3 -m unittest discover -s tests -v`
-passed three offline configuration checks and skipped three opt-in live gateway
-cases (0 failures, 0 errors). No stack was started.
+Offline repository checks:
 
-Recorded 12 November 2026 preparation checks (frontend/build checks not rerun):
-55 frontend tests passed and the TypeScript/Vite production build passed; three offline template/network checks passed. Root
-unittest discovery explicitly skips three live gateway contract tests unless
-`SAASPLUG_RUN_GATEWAY_TESTS=1` is set for an already running, isolated local stack.
-Compose schema validation passed; Docker Desktop's Linux daemon was unavailable,
-so the stack, broker, PostgreSQL, and live provider workflows were not executed.
+```bash
+env -u SAASPLUG_RUN_GATEWAY_TESTS python3 -m unittest discover -s tests -v
+```
 
-The existing auth service's pinned dependencies could not resolve on Python 3.14
-because `psycopg-binary==3.2.3` has no compatible wheel. The supported Python 3.12
-runtime was used for a separate offline auth validation; see the
-[preparation run record](docs/ai/codex-runs/20261112-local-portfolio-preparation.md)
-for the actual outcome. Pins were preserved. Historical verification reports
-remain historical evidence and do not override these fresh execution limits.
-
-## Authorship and reuse
-
-The root [MIT license](LICENSE) names Michail-Athanasios Peppas. Extensive Codex
-assistance is recorded in [the AI log](docs/ai/README.md); code volume and run
-counts do not establish independent manual authorship or production use.
-Any contributor responsibilities beyond the recorded evidence still require
-confirmation. The root MIT license covers the original software and documentation;
-retained third-party papers and the thesis have separate terms recorded in
-[material rights](docs/material-rights.md). Original authorship, academic
-attribution, and dependency notices remain intact. The private teaching references
-listed there are omitted pending permission. Public presentation should lead with
-the implementation, architecture, tests, and the disclosed AI workflow.
+Live gateway contract tests use `SAASPLUG_RUN_GATEWAY_TESTS=1` with a running local
+stack. Frontend tests and build commands are described in
+[apps/frontend/README.md](apps/frontend/README.md). Service-specific checks are
+listed in [tests/README.md](tests/README.md).

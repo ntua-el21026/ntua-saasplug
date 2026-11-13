@@ -1,22 +1,57 @@
-# Provider API reference provenance
+# Provider API Artifacts
 
-The hypothetical `redPlug`, `greenPlug`, and `bluePlug` APIs originate from the
-NTUA Software-as-a-Service Technologies course. Supplied OpenAPI YAML, provider
-Postman collections, and the course API-description PDF are omitted pending an
-applicable redistribution grant. Original copies remain in private evidence.
+This directory contains supporting API material for the hypothetical charging
+point providers used by the saasPlug assignment.
 
-Authorized course users can consult the original
-[Swagger reference](swagger_apis_hypothetical_providers.md); access requires the
-NTUA course network/VPN and authorized credentials.
+## Contents
 
-The public application retains its original provider adapters under
-`services/red-provider-service/`, `services/green-provider-service/`, and
-`services/blue-provider-service/`, including their DTOs and mocked tests.
-The separate local application collections under `docs/postman/` are retained.
-They target saasPlug itself and do not replace the omitted provider references.
-No adapter imports the omitted YAML/Postman/PDF files at runtime.
+- `swagger_apis_hypothetical_providers.md` - link to the hosted Swagger UI for
+  the provider APIs.
+- `yaml/` - OpenAPI 3.1 YAML specifications for each provider.
+- `postman_collections/` - Postman collections generated for manual API calls
+  and exploratory testing.
 
-See [material rights](../../material-rights.md) and
-[material provenance](../../material-provenance.json) for the scope and remaining
-history-clearance requirement. No provider was contacted or modified during
-publication preparation.
+## Providers
+
+The assignment uses three provider-specific API contracts:
+
+- `redPlug`
+  - OpenAPI: `yaml/redPlug.yaml`
+  - Postman: `postman_collections/redPlug.postman_collection.json`
+  - Main endpoints: list points, get point details, reserve with default
+    duration, reserve with explicit duration.
+- `greenPlug`
+  - OpenAPI: `yaml/greenPlug.yaml`
+  - Postman: `postman_collections/greenPlug.postman_collection.json`
+  - Main endpoints: list charging points, get one charging point, create a
+    reservation with a JSON request body.
+- `bluePlug`
+  - OpenAPI: `yaml/bluePlug.yaml`
+  - Postman: `postman_collections/bluePlug.postman_collection.json`
+  - Main endpoints: list locations, get location status, hold a charger using a
+    query parameter for duration.
+
+## Hosted Swagger
+
+The hosted Swagger UI is documented in
+`swagger_apis_hypothetical_providers.md`:
+
+```text
+https://davinci.softlab.ntua.gr/saas26/swagger
+```
+
+The link requires NTUA VPN access.
+
+## Usage Notes
+
+These provider APIs are intentionally different. They represent the external
+contracts that the saasPlug charging-points interface must normalize:
+
+- Provider-specific base URLs are declared in each OpenAPI file.
+- Equivalent business operations use different path names and response field
+  names across providers.
+- Reservation duration is passed differently by provider: path parameter,
+  request body, or query parameter.
+
+Use the YAML files as the source of truth for endpoint contracts. Use the
+Postman collections for quick manual calls or for checking request examples.

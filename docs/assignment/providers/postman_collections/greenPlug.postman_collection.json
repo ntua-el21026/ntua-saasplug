@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "greenPlug API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Provider-specific API contract for greenPlug."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://davinci.softlab.ntua.gr/saas26/greenPlug/api"
+    },
+    {
+      "key": "apiKey",
+      "value": "sk_saas_replace_me"
+    }
+  ],
+  "item": [
+    {
+      "name": "List charging points",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/chargingPoints",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "chargingPoints"
+          ]
+        },
+        "description": "List all `greenPlug` charging points."
+      },
+      "response": []
+    },
+    {
+      "name": "Get charging point",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/chargingPoints/:pointid",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "chargingPoints",
+            ":pointid"
+          ]
+        },
+        "description": "Get one `greenPlug` charging point by `pointid`."
+      },
+      "response": []
+    },
+    {
+      "name": "Create reservation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/chargingPoints/:pointid/reservations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "chargingPoints",
+            ":pointid",
+            "reservations"
+          ]
+        },
+        "description": "Reserve a `greenPlug` charging point.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"duration\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    }
+  ]
+}

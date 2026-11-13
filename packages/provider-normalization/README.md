@@ -27,7 +27,6 @@ Application logic is not implemented in this scaffold.
 
 - `AGENTS.md`
 - `docs/specs/SPECIFICATIONS.md`
-- `docs/assignment/providers/README.md` records authorized access to the original
-  provider API references, which are omitted pending redistribution permission.
-- Original provider adapters and mocked tests under `services/` retain the
-  implemented contracts without loading the omitted reference files.
+- `docs/assignment/providers/yaml/redPlug.yaml`
+- `docs/assignment/providers/yaml/greenPlug.yaml`
+- `docs/assignment/providers/yaml/bluePlug.yaml`
