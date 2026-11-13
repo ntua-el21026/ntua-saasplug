@@ -128,3 +128,18 @@ and offline validation; no remote or publication actions.
 [Run report](codex-runs/20261112-local-portfolio-preparation.md) records the scoped
 authorization, changes, actual test outcomes, Python 3.14 dependency failure,
 Python 3.12 auth validation, Docker limitation, and owner rotation follow-up.
+
+## 2026-11-13 – Portfolio documentation refinement
+
+Delegated campaign invocation (exact):
+
+```text
+Implement batch 2 portfolio documentation in fresh clones ONLY under /home/peppasmich/projects/portfolio-docs-20261113-2P6YZN. Read task-specification.txt there fully and repository-inventory.json. Assigned ntua-pulse-university, ntua-connectune, ntua-toll-busters, ntua-clearsky, ntua-saasplug. Clone git --depth 1 --filter=blob:none --single-branch HTTPS GIT_LFS_SKIP_SMUDGE=1. Inspect instructions AGENTS, README/docs representative source/config/scripts/tests before edits. Improve English README/docs, grounded in actual implementation; team contributions, practical setup/config and paths, implemented vs prototype/mock status, service requirements. Preserve attribution, license and evidence; don't modify source/dependencies/CI. User specifically asks SQL/data/CLI/admin for Pulse; Flutter HCI workflows for connectune; Express/MySQL API CLI frontend and invalid-date pooled connection issue report for toll-busters; actual microservices, grade/stats/review for clearsky, existing postGrades behavior out of scope; EV reservations provider analytics microservices mock billing for saasplug. Inspect external links/assets for self-containment and stale repo URLs. Validate static links/images/anchors/commands/env names/diff --check; no app services/major dependency installs. DO NOT PUSH or remote branch; root checks integrations/delivery. May commit coherent docs commit per repo after review. Record detailed workspace/batch2-result.json listing initial/local SHA, changed files, summary, external resources/retrieval/blockers, exact validations outcomes, representative source inspected, authorship/license preserved. Do not edit other repositories or shared progress JSON. Continue all five automatically.
+```
+
+No canonical repository prompt file was used. The full user campaign task was
+provided externally as `task-specification.txt` (SHA-256 `8ff35ff04d5891db007611d1f9a10476b0558674fd6ab07eda2300a6d31a18b8`)
+and covers 35 repositories. [Run report](codex-runs/20261113-portfolio-documentation.md)
+records source inspection, documentation-only changes, three passed offline
+configuration checks, three skipped live gateway cases, static validation,
+service/access limitations, and parent-controlled delivery.
