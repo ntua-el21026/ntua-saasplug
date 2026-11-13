@@ -158,3 +158,19 @@ records the maintained README path correction, canonical companion attribution,
 verified JAR path/notices, four successful local PlantUML syntax checks, Markdown
 validation and unchanged raw assignment/source materials. No provider calls,
 push, rendering or Visual Paradigm round trip was performed.
+
+## 2026-11-13 – Publication remediation candidate
+
+Direct one-off campaign invocation: “GitHub Portfolio — Final Publication
+Remediation”, supplied as `task-specification.txt`; no canonical repository prompt
+file was used. The exact invocation is retained in
+[run 066](codex-runs/066-publication-remediation.md#2-invocation-prompt).
+
+The campaign root prepared a local history candidate excluding the precise
+third-party material set and added rights/provenance documentation. Original
+application code, scripts, Compose, student notes/designs and permitted
+publications remain unchanged. Run 066 records independent all-history object
+and byte-preservation checks, private-reference handling, credential assessment,
+and remaining owner/server-clearance requirements. Status:
+`local_candidate_prepared_publication_blocked`; no remote rewrite, provider
+change, rotation or visibility change is asserted.
