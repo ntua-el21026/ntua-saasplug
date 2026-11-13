@@ -72,7 +72,7 @@ Compose build currently passes:
 Current Compose maps `DEMO_USER_PASSWORD` into `VITE_DEMO_LOGIN_PASSWORD` at build
 time. The resulting demo prefill is visible in delivered browser assets. Use a
 disposable demonstration password; a backend environment value passed this way
-is not confidential. No source/runtime change was made for this documentation.
+is not confidential.
 
 Do not place real provider, JWT, database, RabbitMQ, or OAuth secrets in
 frontend code or `VITE_*` variables.
