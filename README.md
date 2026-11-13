@@ -1,8 +1,8 @@
 # saasPlug
 
 saasPlug is a Dockerized NTUA ECE course SaaS app for EV charging-point
-search, live status lookup, reservation, provider analytics, billing, and
-operator administration.
+search, cached/provider-backed status lookup, reservations, provider analytics,
+billing, and operator administration.
 
 This repository records an **AI-assisted coursework prototype**. Start with
 [architecture](docs/architecture-summary.md), [accepted specifications](docs/specs/SPECIFICATIONS.md),
@@ -27,6 +27,26 @@ follow-up**. Local edits do not remove Git history or verify revocation.
   jobs, event drains, and system health.
 - `redPlug`, `greenPlug`, and `bluePlug` are integrated through internal
   provider-adapter services.
+
+## Demonstration flow
+
+With an owned local stack and deliberately configured provider connectivity:
+
+1. As an operator, import provider catalogs and inspect sync results.
+2. As an EV user, search the map/list, open a point, inspect status/freshness,
+   and submit a reservation with an idempotency key.
+3. Review the reservation result/history. An ambiguous provider result is stored
+   as `unknown`; inspect history before starting another mutation.
+4. As operator, run the ordered maintenance sequence so reservation outbox,
+   billing consumption/outbox, and analytics consumption/aggregation progress.
+5. As the provider's admin, inspect scoped usage metrics and CSV exports. As
+   operator, issue an invoice; as provider admin, record a full mock payment.
+
+Reservations call the provider adapter synchronously; RabbitMQ carries later
+analytics/billing propagation. Dashboards can therefore lag reservation state.
+The provider `Tracked revenue` field estimates charging revenue from reservation
+snapshots. SaaS charges/invoices are separate billing records. Neither estimated
+EV costs nor mock invoice payments represent money transferred to a provider.
 
 ## Architecture
 
@@ -78,6 +98,30 @@ service-owned internal job endpoints, PostgreSQL, and AMQP are Docker-internal.
 | `/api/billing/*` | `billing-service` |
 | `/api/scheduler/*` | `scheduler-service` |
 
+## Prerequisites and external integration
+
+Use Docker Engine with Compose v2 and capacity for the containers in the
+runtime inventory.
+Dockerfiles target Python 3.12 backend images and a Node 20 frontend build.
+Host Python 3 is sufficient for the offline repository configuration checks;
+host Node/npm is needed only for frontend development. Preserve the existing
+service requirement pins and npm lockfile.
+
+| Dependency | Configuration / availability |
+|---|---|
+| Course provider APIs | `RED_PROVIDER_BASE_URL`, `GREEN_PROVIDER_BASE_URL`, `BLUE_PROVIDER_BASE_URL` and matching `*_PROVIDER_API_KEY` values; access to the NTUA course network/VPN and authorized keys is required |
+| Google OAuth | Optional real integration: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_FRONTEND_CALLBACK_URI`; placeholder mode has a local EV demo sign-in path |
+| Map background | Browser fetches public OpenFreeMap style/tiles; internet access is required for the background map |
+| PostgreSQL/RabbitMQ | Compose-managed state; no hosted database/broker subscription is required |
+| Billing | Internal mock payment records only; no card/bank/payment-provider credentials |
+
+The three providers are hypothetical course integrations. Their committed
+[OpenAPI/Postman artifacts](docs/assignment/providers/README.md) support source
+inspection when course services are unavailable; they do not include a complete
+local provider simulator or make a reservation demo work without connectivity.
+Keep restricted provider/course materials under their original rights. Do not
+retrieve or publish credentials or private source data.
+
 ## Local Setup
 
 Use `.env.example` as the safe template. Do not commit a real `.env` and do
@@ -123,7 +167,12 @@ and RabbitMQ volumes.
 
 ## Demo Accounts
 
-`auth-service` seeds demo accounts from server-side environment values.
+`auth-service` seeds demo accounts from `DEMO_USER_PASSWORD`. The current Compose
+build also passes that value to frontend `VITE_DEMO_LOGIN_PASSWORD` for demo
+prefill: it is browser-visible, not a secret boundary. Use only disposable demo
+credentials with this runtime. Changing the variable does not reset existing
+accounts unless the deliberate reset behavior is enabled; never set a reused
+personal or provider password.
 
 | Email | Role | Provider scope |
 |---|---|---|
@@ -135,10 +184,11 @@ and RabbitMQ volumes.
 
 ## Common Commands
 
-Frontend:
+Frontend (install the locked dependencies first):
 
 ```bash
 cd apps/frontend
+npm ci --ignore-scripts
 npm test -- --run
 npm run build
 ```
@@ -195,10 +245,31 @@ Postman/Newman suites are documented in `docs/postman/README.md` and
   entrypoint is `docs/diagrams/final/saasplug-final-uml.md`.
 - The current verification record is `docs/final-verification.md`.
 
+## Troubleshooting
+
+- **Empty map/list:** startup catalog import defaults to off. Check authorized
+  provider connectivity and the operator import result; local source/tests do
+  not supply a populated provider database.
+- **Reservation outcome unknown:** inspect reservation history and attempt
+  metadata before retrying with a new key. Provider timeouts are not proof that
+  the external mutation failed.
+- **Dashboards or invoices lag:** inspect job history/outbox state and the
+  ordered maintenance sequence. With `SCHEDULER_RUN_LOOP=false`, these jobs need
+  deliberate operator runs.
+- **OAuth callback mismatch:** register the configured redirect URI exactly.
+  The backend router gives real auth URLs the repeated `/api/auth/auth/` prefix.
+- **Secret changes do not take effect in a database:** initialized volumes retain
+  account state; environment edits alone do not rotate database/broker users.
+
 ## Local validation and remaining limits
 
-Fresh November 2026 checks: 55 frontend tests passed and the TypeScript/Vite
-production build passed; three offline template/network checks passed. Root
+For the 13 November 2026 documentation update,
+`env -u SAASPLUG_RUN_GATEWAY_TESTS python3 -m unittest discover -s tests -v`
+passed three offline configuration checks and skipped three opt-in live gateway
+cases (0 failures, 0 errors). No stack was started.
+
+Recorded 12 November 2026 preparation checks (frontend/build checks not rerun):
+55 frontend tests passed and the TypeScript/Vite production build passed; three offline template/network checks passed. Root
 unittest discovery explicitly skips three live gateway contract tests unless
 `SAASPLUG_RUN_GATEWAY_TESTS=1` is set for an already running, isolated local stack.
 Compose schema validation passed; Docker Desktop's Linux daemon was unavailable,

@@ -69,13 +69,18 @@ Compose build currently passes:
 | `VITE_PUBLIC_BASE_URL` | Public base URL used by the built app |
 | `VITE_DEMO_LOGIN_PASSWORD` | Optional demo-only password prefill |
 
+Current Compose maps `DEMO_USER_PASSWORD` into `VITE_DEMO_LOGIN_PASSWORD` at build
+time. The resulting demo prefill is visible in delivered browser assets. Use a
+disposable demonstration password; a backend environment value passed this way
+is not confidential. No source/runtime change was made for this documentation.
+
 Do not place real provider, JWT, database, RabbitMQ, or OAuth secrets in
 frontend code or `VITE_*` variables.
 
 ## Commands
 
 ```bash
-npm install
+npm ci --ignore-scripts
 npm run dev
 npm test -- --run
 npm run build
