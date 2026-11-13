@@ -10,12 +10,19 @@ This repository records an **AI-assisted coursework prototype**. Start with
 The source demonstrates service boundaries and workflows; deployment acceptance
 and public-portfolio rights are separate decisions.
 
-The November 2026 local preparation removed private values from the legacy
-`.env.example.correct` alias, retained mock-compatible local placeholders, bound
-the public gateway to loopback, and made automatic provider activity opt-in in
-the example/Compose configuration. Previously committed or deleted configuration
-(including historical `present.txt`) remains an **owner rotation/revocation
-follow-up**. Local edits do not remove Git history or verify revocation.
+The November 2026 local preparation retained mock-compatible local placeholders,
+bound the public gateway to loopback, and made automatic provider activity opt-in
+in the example/Compose configuration. The complete reachable-history review of
+`.env.example.correct`, historical `present.txt`, and prompt archives found
+redactions, placeholders, and test fixtures; no unredacted owner credential was
+confirmed. Earlier rotation reminders do not establish that a credential was
+exposed or revoked. External account state was not tested or changed.
+
+Publication preparation excludes specified third-party teaching materials from
+the proposed public history. See [material rights](docs/material-rights.md) for
+retained grants, omitted references, and the separate history-clearance requirement.
+A prepared source tree does not by itself establish public visibility or removal
+of old objects from GitHub.
 
 ## Implemented Scope
 
@@ -115,12 +122,13 @@ service requirement pins and npm lockfile.
 | PostgreSQL/RabbitMQ | Compose-managed state; no hosted database/broker subscription is required |
 | Billing | Internal mock payment records only; no card/bank/payment-provider credentials |
 
-The three providers are hypothetical course integrations. Their committed
-[OpenAPI/Postman artifacts](docs/assignment/providers/README.md) support source
-inspection when course services are unavailable; they do not include a complete
-local provider simulator or make a reservation demo work without connectivity.
-Keep restricted provider/course materials under their original rights. Do not
-retrieve or publish credentials or private source data.
+The three providers are hypothetical course integrations. Their original course
+[API reference materials](docs/assignment/providers/README.md) require authorized
+access and are omitted from this distribution pending redistribution permission.
+The original adapters, DTOs, mocked tests, and local application Postman suites
+remain available for inspection. They do not supply a complete provider simulator
+or make a live reservation demo work without connectivity. Do not retrieve or
+publish credentials or private source data.
 
 ## Local Setup
 
@@ -233,7 +241,8 @@ Postman/Newman suites are documented in `docs/postman/README.md` and
 | `docs/final-verification.md` | Verification history and latest evidence |
 | `docs/submission-checklist.md` | Submission checklist |
 | `docs/postman/` | Local Postman/Newman collections and data |
-| `docs/assignment/` | Internal course/provider source materials; redistribution rights require review |
+| `docs/assignment/` | Reference provenance and original student lecture notes; teaching material requires authorized external access |
+| `docs/material-rights.md` | Third-party grants, attribution, and precise omitted-material inventory |
 | `docs/ai/` | Prompt log and Codex run reports |
 
 ## Submission Notes
@@ -288,8 +297,9 @@ The root [MIT license](LICENSE) names Michail-Athanasios Peppas. Extensive Codex
 assistance is recorded in [the AI log](docs/ai/README.md); code volume and run
 counts do not establish independent manual authorship or production use.
 Any contributor responsibilities beyond the recorded evidence still require
-confirmation. Professor/provider materials, lecture files, screenshots, third-party
-packages, and prompts discussing private configuration retain their own rights
-and privacy constraints. They remain available for internal traceability; their
-presence here is not a blanket redistribution grant. Public presentation should
-lead with the implementation, architecture, tests, and the disclosed AI workflow.
+confirmation. The root MIT license covers the original software and documentation;
+retained third-party papers and the thesis have separate terms recorded in
+[material rights](docs/material-rights.md). Original authorship, academic
+attribution, and dependency notices remain intact. The private teaching references
+listed there are omitted pending permission. Public presentation should lead with
+the implementation, architecture, tests, and the disclosed AI workflow.

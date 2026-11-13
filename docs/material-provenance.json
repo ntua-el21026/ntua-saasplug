@@ -1,0 +1,577 @@
+{
+  "purpose": "Rights-scoped public-source candidate; this manifest does not assert remote historical purge or publication.",
+  "reviewed_date": "2026-11-13",
+  "excluded_materials": [
+    {
+      "paths": [
+        "docs/assignment/SRS Εξαμηνιαίας Εργασίας.docx"
+      ],
+      "sha256": "373614a09e7cf72a6ab6395af6c2ecf176e7dae6a9059661b8924583710d3150",
+      "bytes": 211102,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/Διαγράμματα SRS.vpp"
+      ],
+      "sha256": "51838097e7d4adf0895cb79c26c9184b3486a01168a446c124a3e040cd39a8f6",
+      "bytes": 1486848,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/Εκφώνηση Εξαμηνιαίας Εργασίας.pdf"
+      ],
+      "sha256": "8efcd12a153a9915905aa4f5f405ee7b181d19d1f2fbeb930b34aa09c7cc893f",
+      "bytes": 127478,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/1.1. Εισαγωγή - Eφαρμογές SaaS, περίγραμμα του μαθήματος.pdf"
+      ],
+      "sha256": "9602064107158fe8d3af2c04215e0b41a8b342a6fad591f1905267ad6253fa0e",
+      "bytes": 127386,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/3. JavaScript.pdf"
+      ],
+      "sha256": "ee5f12e7c1f027304804ef99d93d3a6e82e8e402bf64f6098bf3eab1255d9395",
+      "bytes": 5283752,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/4.1. Εισαγωγή σε Service Oriented Architectures.pdf",
+        "docs/lectures/5.1 Εισαγωγή σε Service-Oriented-Architectures (SOA).pdf"
+      ],
+      "sha256": "9242799352283c3d76fa8090e20939fe03580119d282a94c9a4a5f2bdec5ac1b",
+      "bytes": 2421331,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/4.2. Εισαγωγή σε αρχιτεκτονικές Microservices.pdf",
+        "docs/lectures/5.2 Εισαγωγή σε αρχιτεκτονικές Microservices.pdf"
+      ],
+      "sha256": "3c2d3c657c615bd0bd98e6263506ba62603bd7ab130a1ea6850899439453a396",
+      "bytes": 1644976,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/5.1. Αρχιτεκτονικές microservices και SOA παραδείγματα και παραγωγή με LLMs.pdf",
+        "docs/lectures/6.1 Αρχιτεκτονικές microservices και SOA παραδείγματα και παραγωγή με LLMs.pdf"
+      ],
+      "sha256": "1e15346245013dca0a2e1cd9cc0b300d2fd0c285eb1f551093ac610c1d2ce9ae",
+      "bytes": 2656049,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/5.2. Υπηρεσίες Messaging - concepts.pdf",
+        "docs/lectures/6.2 Υπηρεσίες Messaging - concepts.pdf"
+      ],
+      "sha256": "52b2b7aaaae429eef02882cb603d0884f4dd52c8c16d9e3f63bc4a6a5007fae8",
+      "bytes": 2097219,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide52.png"
+      ],
+      "sha256": "c0c953dd54719771bbef68bfa6e220b7d1b856fa8c0d843e3b581b726bfae9e0",
+      "bytes": 588,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide53.png"
+      ],
+      "sha256": "fc3439774d39ea853eeecd29af7004ea6a446616184468e53084a88b018c6fc5",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide54.png"
+      ],
+      "sha256": "518e8a27d6e31b8de5c561b6e01effff57dfe6cc384926ad514092f961666cc5",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide55.png"
+      ],
+      "sha256": "e87c28ea83754beb7faa62540afab42d6552b6c720f3f89064075e542c280289",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide56.png"
+      ],
+      "sha256": "bc3bcf90ff942c3f734eec272e995ba1ab97ae20ff174abc46bb581910bd006a",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide57.png"
+      ],
+      "sha256": "6a9bc7348c08ab894803133dee9577038c56981aaa5decf30dceeef8fcbdb6d0",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide58.png"
+      ],
+      "sha256": "dd53cb4ac8b5ab943cbaa33fdc2b4d168a6757d5616846decfe3677f260abf2d",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide59.png"
+      ],
+      "sha256": "c96136440482282d7dd505eb3774220a356d1167dfb7f25eacaa95eed76f0f15",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide60.png"
+      ],
+      "sha256": "392604a3e336dcf5ff8e15e666331eeaf780c3ef924c00f59d74120c2f4be09b",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide61.png"
+      ],
+      "sha256": "9124a264dacc4b74b7baf8b8802feea8750915549015c1f5d29959394497e58d",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide62.png"
+      ],
+      "sha256": "ea08a37977d065abdfcc1ea32ebeeb986cbe7add6ee11cf0a773a0ce1a7df7fd",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide63.png"
+      ],
+      "sha256": "dd49e252fe800fedbbfa09e27f405fc32ff3b5ef49424220accdd49ed415179a",
+      "bytes": 588,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide64-65-66.png"
+      ],
+      "sha256": "423e3557672a1d69479b04a475d2ad219110377438d219e42206eaf077d2729b",
+      "bytes": 588,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/__MACOSX/._slide67-68-69.png"
+      ],
+      "sha256": "7645c1a7b88a56bb7a22716088704c79b244aecbd8047201c93d223db097783f",
+      "bytes": 531,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide52.png"
+      ],
+      "sha256": "2b1e7e7f399b363ade322f0c2d0ca226050102517a7608557dddec2eb02f20be",
+      "bytes": 594536,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide53.png"
+      ],
+      "sha256": "1ba31880b179b5c3e7638b855c7683c5ace48f007719f40c4edacf249bcfae0e",
+      "bytes": 364826,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide54.png"
+      ],
+      "sha256": "3cae6cdbab0e8628d323fd1eb2b4241580c75bc055ac1b692d91c088649385ab",
+      "bytes": 736183,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide55.png"
+      ],
+      "sha256": "810e6bc344d643002f1c844b3ce5ce9fef0298e26a399133b315cce44a14b314",
+      "bytes": 946614,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide56.png"
+      ],
+      "sha256": "21ebf4b1dc6a9cab18caf8bf2db009819deee9f0aa730979f84cea9a0e9b9817",
+      "bytes": 871810,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide57.png"
+      ],
+      "sha256": "abb280261fc4fc044796b7351b78fb226fa7c1e15e30303ccbd04942ec68d5be",
+      "bytes": 1141922,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide58.png"
+      ],
+      "sha256": "d0833f96f622f992449a106a35b385779a91d0741322949450fb3c08752ffd46",
+      "bytes": 756059,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide59.png"
+      ],
+      "sha256": "31e3c0d7ce167cb164b1d09d895c497a21c562b623a3753f1dd52a850292d4e4",
+      "bytes": 796650,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide60.png"
+      ],
+      "sha256": "c9930dbd1b2f7e560232708586959cca4a70224024807a44bfa39b096169b12b",
+      "bytes": 900084,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide61.png"
+      ],
+      "sha256": "1b9bc751e527ac66a2e3dd6744f217ed5d2d50120ada78354007049409bc281e",
+      "bytes": 1225359,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide62.png"
+      ],
+      "sha256": "14bb7286614952f596a67c0afec5152c7ccaa2ecc1029baca0b605fcae26fd11",
+      "bytes": 1057242,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide63.png"
+      ],
+      "sha256": "5babd311ad881cb9c4222e78f9a648d251ddfbe9b69698685d7e6b02018a75f7",
+      "bytes": 1243536,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide64-65-66.png"
+      ],
+      "sha256": "6c50e1ff15a1f11dd1fd52f6a463e321e196e8893ff3180d56c13b28e651501e",
+      "bytes": 1068111,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/6. Ευκρινείς Εικόνες Διαφανειών/slide67-68-69.png"
+      ],
+      "sha256": "da664af83cc200f92ff4166fcfa5f3f2850c0032c0e1ae9181ca9b3401751ced",
+      "bytes": 740800,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/7. Paper - Enhancing API documentation by inter-endpoint dependency graphs.pdf",
+        "docs/lectures/7.3 Extra - 1.pdf"
+      ],
+      "sha256": "eaa9d4a22a40712d79765f2731a50c41622760627388947e30a28c6a46855337",
+      "bytes": 683498,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/7.1. Hands-on lab - messaging.pdf",
+        "docs/lectures/7.1 Hands-on lab - messaging.pdf"
+      ],
+      "sha256": "bed51b13e88474d2dbc2ae4255789832be7f870de41cfdc2c08010588ff90601",
+      "bytes": 658300,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/7.2. API gateways και load balancing.pdf",
+        "docs/lectures/7.2 API gateways και load balancing.pdf"
+      ],
+      "sha256": "ecef54587be2b8b39a211789487285bd5dbf816446e9d0a52a1340984c1a1053",
+      "bytes": 2175478,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/postman_collections/bluePlug.postman_collection.json"
+      ],
+      "sha256": "33f4ca6eaeaaf3b575ca20edce7038e678cb4314b00afd929f46a4df893ac59d",
+      "bytes": 2054,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/postman_collections/greenPlug.postman_collection.json"
+      ],
+      "sha256": "32118a1090ac1c9852b8cb13a8f6d4c4f365426724a92722e370d82b7c0da756",
+      "bytes": 2212,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/postman_collections/redPlug.postman_collection.json"
+      ],
+      "sha256": "ce8c04c256b7391a2291f3d2168a840d2db6f44814f943e315690f9dce262fd1",
+      "bytes": 2290,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/yaml/bluePlug.yaml"
+      ],
+      "sha256": "8f4c54c6c0f02fb92757d838418c2e851f572ec0ad4a265786eb29832d96996b",
+      "bytes": 5562,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/yaml/greenPlug.yaml"
+      ],
+      "sha256": "8cf70e5014ae01df5593f4a6806eba6f9c3d2c68668a4a193640439399abb984",
+      "bytes": 5718,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/yaml/redPlug.yaml"
+      ],
+      "sha256": "73bd9568c38806c2451b87b2f58bdc67d41c33c1d82f17fcc15d26e8fbcbb90e",
+      "bytes": 6224,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/bibliography/Engineering Software as a Service - An Agile Approach Using Cloud Computing.pdf"
+      ],
+      "sha256": "4b9eb0d3245cab26fd201ae34ce10e9a77995e06dc65c0695b06d8a4eecc0e6d",
+      "bytes": 28809026,
+      "reason": "explicit_textbook_restriction"
+    },
+    {
+      "paths": [
+        "docs/assignment/plantUML_diagrams/project_semantics_semantics.puml"
+      ],
+      "sha256": "1c015206a950bd0bd4fbfc6c037a7694946c0873df0621cc1cab9db224fa6dbb",
+      "bytes": 4247,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/plantUML_diagrams/saasPlug_interfaces__concept_.puml"
+      ],
+      "sha256": "95c2aa4d1323bf8f4360586bff17444e3ef31635e4a1a910cd08aa473f06cefb",
+      "bytes": 1186,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/plantUML_diagrams/saasPlug_interfaces_for_2025_2026_project.puml"
+      ],
+      "sha256": "7b3183b7c31627ab877583d06970c0a7be8a63fbdfcf41f3899f95ad729767bb",
+      "bytes": 813,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/plantUML_diagrams/saasPlug_status_update_overview.puml"
+      ],
+      "sha256": "fb9a4a96a7229f4a0634759c5246aaa4304f554d8d7e1a69229785b343243023",
+      "bytes": 298,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/plantUML_diagrams/saasPlug_use_case_diagram.puml"
+      ],
+      "sha256": "b28527027ea21448ae63a3d4aa140f2f5b09dcf68267b01222d4336aa269a14f",
+      "bytes": 916,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/assignment/providers/Γενική περιγραφή APIs παρόχων φόρτισης.pdf"
+      ],
+      "sha256": "3928957b76c6995abc76880500f26c1ff243bf6000c0970a6c48a29261e4b705",
+      "bytes": 140951,
+      "reason": "professor_provider_source_or_export_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/10 HTML, CSS, DOM, jquery, ajax.pdf"
+      ],
+      "sha256": "814c5c1760a11734ea9876b7975c8e8429434cc83a3cb6984dfb9f20786dc76e",
+      "bytes": 1985926,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/11.1 Data layer - ORM.pdf"
+      ],
+      "sha256": "918f2b6a153a7e1e4174d760788f12b37413373de8307c160170cafed0cd6b03",
+      "bytes": 1042233,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/11.2  Using LLMs for microservices architectures. Metrics.pdf"
+      ],
+      "sha256": "e289576066188ddb61c982e61403ad366c60dd65b51ae65bc3661065ec062f47",
+      "bytes": 2370808,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/11.3 Extra - saas_llm_arch_materials.zip"
+      ],
+      "sha256": "2d3cf41e5bf448a75afb99e45310af984470a6a418331428c5a9fa40db3a418b",
+      "bytes": 317801,
+      "reason": "third_party_chapter_and_instructor_archive_without_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/12.1 BDD, Παραδείγματα αρχιτεκτονικής.pdf",
+        "docs/lectures/13.2 BDD.pdf"
+      ],
+      "sha256": "d7bf97447eed6045c2cfe2e30c6c507e983f93688732c4095d6a93b6a3d41fec",
+      "bytes": 1433607,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/12.2 Συζήτηση για εργασία.pdf"
+      ],
+      "sha256": "717f48ffd38499577d0650b8d19fe547db484ac38f3b0a70a680cbccbef29a26",
+      "bytes": 162879,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/13.1 Σύνοψη αρχιτεκτονικών SaaS.pdf"
+      ],
+      "sha256": "cfdfef51b7a5c61bd7aada31d14e2e25377faee405590804bbe07d516ae32974",
+      "bytes": 2905035,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/13.3 Ολοκλήρωση μαθήματος, παλαιά θέματα.pdf"
+      ],
+      "sha256": "ee50efcf8b30249bacf50252724545c2d16b3bd46a0899355cfc7a7b947c938e",
+      "bytes": 1375313,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/4. Cloud Computing and OpenStack.pdf"
+      ],
+      "sha256": "eebdd5678383139ccdeb690e5a8f4d48275d6784f93ff5f8f442e42412d48ea3",
+      "bytes": 4219513,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/8.1 React Intro.pdf"
+      ],
+      "sha256": "fde1634f15ef4adf09699bf5a962e58f0f87e661f4ed7e1d6fe8c1a96d2ecb1c",
+      "bytes": 5903017,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/8.2 Next Intro.pdf"
+      ],
+      "sha256": "5a668e027030c3063e1b8272af7939426db47a956e31fe8f596b919e14d79574",
+      "bytes": 5629573,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/8.3 Astro Intro.pdf"
+      ],
+      "sha256": "e3661f0cca1d9f73dd2a9aa594c9704d582ee14fa7151b94003797c59f8550b6",
+      "bytes": 322363,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/9.1 Virtualization, Virtual Machines, Containers & Orchestration Systems.pdf"
+      ],
+      "sha256": "afa2bf24bd1f46ca7922f38c7dc6e62c81f27a76d6174f9bc6e4fa23ac391a4f",
+      "bytes": 5396560,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    },
+    {
+      "paths": [
+        "docs/lectures/9.2 Docker Lab.pdf"
+      ],
+      "sha256": "033fec4ceace8e8d1bb8363bebfd54068b7357e9ef1b60728cadefedb329424e",
+      "bytes": 1065231,
+      "reason": "institutional_course_or_third_party_paper_without_redistribution_grant"
+    }
+  ],
+  "retained_third_party_materials": [
+    {
+      "paths": [
+        "docs/lectures/bibliography/Paper_4-Comparison_of_Event_Choreography.pdf"
+      ],
+      "sha256": "8994bfc53f1b647b52db35312c2d2534779c3b0213c1e638683ecdfd80b4e5e4",
+      "bytes": 588936,
+      "grant": "CC-BY-4.0; see material-rights.md"
+    },
+    {
+      "paths": [
+        "docs/lectures/bibliography/Paper_3-Impacts_of_Decomposition_Techniques.pdf"
+      ],
+      "sha256": "b16c6f3153010108db50711a17eaa8e13594e77b3bf0dd7d9914bbf9438cdc4e",
+      "bytes": 637242,
+      "grant": "CC-BY-4.0; see material-rights.md"
+    },
+    {
+      "paths": [
+        "docs/lectures/7.4 Extra - 2.pdf"
+      ],
+      "sha256": "ee14dfce1e1809e1c0b127139ac641d0b72468fbca15f9c5af90e1fdb00a65eb",
+      "bytes": 3055734,
+      "grant": "nonprofit educational/research redistribution with source citation and retained copyright notice; commercial exploitation requires permission"
+    }
+  ],
+  "private_original_evidence_preserved": true
+}
